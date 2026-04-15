@@ -1,11 +1,9 @@
-
 import { redirect } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { getSessionUser } from '@/app/lib/auth-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { HookGenerator } from '@/components/HookGenerator';
 import { 
   LogOut, 
   LayoutGrid, 
@@ -47,7 +45,7 @@ export default async function TablonPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-body overflow-hidden">
-      {/* Sidebar - Narrower version (w-60) */}
+      {/* Sidebar */}
       <aside className="w-full md:w-60 bg-white flex flex-col border-r border-slate-200 shrink-0">
         <div className="p-6 pb-4">
           <div className="flex flex-col mb-6">
@@ -139,8 +137,8 @@ export default async function TablonPage() {
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Efectivo</p>
                   </CardHeader>
                   <CardContent className="p-4 pt-0">
-                    <div className="text-2xl font-bold text-slate-800">1.240 <span className="text-slate-300">🪙</span></div>
-                    <p className="text-[10px] text-green-500 mt-1 font-bold">+120 travesía</p>
+                    <div className="text-2xl font-bold text-slate-800">0 <span className="text-slate-300">🪙</span></div>
+                    <p className="text-[10px] text-slate-400 mt-1 font-bold">Sin actividad reciente</p>
                   </CardContent>
                 </Card>
                 <Card className="bg-white border-none shadow-sm rounded-xl overflow-hidden">
@@ -149,9 +147,9 @@ export default async function TablonPage() {
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Salud</p>
                   </CardHeader>
                   <CardContent className="p-4 pt-0">
-                    <div className="text-2xl font-bold text-slate-800">92%</div>
+                    <div className="text-2xl font-bold text-slate-800">100%</div>
                     <div className="mt-2 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-orange-400 w-[92%]" />
+                      <div className="h-full bg-orange-400 w-[100%]" />
                     </div>
                   </CardContent>
                 </Card>
@@ -161,13 +159,21 @@ export default async function TablonPage() {
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Travesías</p>
                   </CardHeader>
                   <CardContent className="p-4 pt-0">
-                    <div className="text-2xl font-bold text-slate-800">14</div>
-                    <p className="text-[10px] text-emerald-500 mt-1 font-bold">Rango: Veterano</p>
+                    <div className="text-2xl font-bold text-slate-800">0</div>
+                    <p className="text-[10px] text-slate-400 mt-1 font-bold">Rango: Recluta</p>
                   </CardContent>
                 </Card>
               </div>
 
-              <HookGenerator />
+              <Card className="bg-white border-none shadow-sm rounded-xl p-8 flex flex-col items-center justify-center text-center space-y-4">
+                <div className="h-20 w-20 bg-slate-50 rounded-full flex items-center justify-center">
+                  <Package className="h-10 w-10 text-slate-200" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-700">Sin datos de actividad</h3>
+                  <p className="text-sm text-slate-400 max-w-xs mx-auto">Comienza tu aventura en Cádiz para ver tus estadísticas y progresos aquí.</p>
+                </div>
+              </Card>
             </div>
 
             <div className="lg:col-span-1 space-y-6">
@@ -176,19 +182,9 @@ export default async function TablonPage() {
                   <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Notificaciones</CardTitle>
                 </CardHeader>
                 <CardContent className="p-4 pt-0 space-y-3">
-                  {[
-                    { text: "Licencia de armas renovada", time: "Hace 1h" },
-                    { text: "Multa de tráfico pagada", time: "Hace 3h" },
-                    { text: "Nuevo vehículo registrado", time: "Ayer" }
-                  ].map((notif, i) => (
-                    <div key={i} className="flex gap-3 p-2.5 rounded-lg bg-slate-50 border border-slate-100 items-center">
-                      <div className="h-1.5 w-1.5 rounded-full bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.5)]" />
-                      <div className="flex-1">
-                        <p className="text-[10px] font-bold text-slate-700 leading-tight">{notif.text}</p>
-                        <p className="text-[9px] text-slate-400 mt-0.5">{notif.time}</p>
-                      </div>
-                    </div>
-                  ))}
+                  <div className="text-center py-8">
+                    <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">No hay avisos</p>
+                  </div>
                 </CardContent>
               </Card>
             </div>
