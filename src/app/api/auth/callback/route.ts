@@ -1,6 +1,6 @@
 
 import { NextResponse } from 'next/server';
-import { DISCORD_CONFIG, setSessionUser } from '@/app/lib/auth-utils';
+import { DISCORD_CONFIG, setSessionUser, getRedirectUri } from '@/app/lib/auth-utils';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -10,6 +10,8 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
+  const redirectUri = getRedirectUri(request);
+
   try {
     const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
       method: 'POST',
@@ -18,7 +20,7 @@ export async function GET(request: Request) {
         client_secret: DISCORD_CONFIG.clientSecret,
         grant_type: 'authorization_code',
         code,
-        redirect_uri: DISCORD_CONFIG.redirectUri,
+        redirect_uri: redirectUri,
       }),
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',

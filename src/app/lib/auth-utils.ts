@@ -40,7 +40,15 @@ export async function logout() {
 export const DISCORD_CONFIG = {
   clientId: '1493655919010255110',
   clientSecret: '6Dh1PWv0mw0T5Vqv3ynOnNR43soQa65l',
-  redirectUri: typeof window !== 'undefined' 
-    ? `${window.location.origin}/api/auth/callback` 
-    : `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002'}/api/auth/callback`,
 };
+
+/**
+ * Calcula dinámicamente la URI de redirección basada en la solicitud actual.
+ * Esto es crucial para entornos de desarrollo como Cloud Workstations.
+ */
+export function getRedirectUri(request: Request): string {
+  const url = new URL(request.url);
+  const protocol = request.headers.get('x-forwarded-proto') || (url.protocol === 'https:' ? 'https' : 'http');
+  const host = request.headers.get('host') || url.host;
+  return `${protocol}://${host}/api/auth/callback`;
+}
