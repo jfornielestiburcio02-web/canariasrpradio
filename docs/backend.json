@@ -1,0 +1,28 @@
+
+{
+  "entities": {
+    "UserProfile": {
+      "title": "Perfil de Usuario",
+      "description": "Datos de perfil extendidos guardados en Firestore.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "username": { "type": "string" },
+        "avatar": { "type": "string" },
+        "doblones": { "type": "number" },
+        "shipStatus": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "username"]
+    }
+  },
+  "auth": {
+    "providers": ["discord"]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/backend/entities/UserProfile" },
+      "description": "Datos de usuario persistidos en Firestore."
+    }
+  }
+}

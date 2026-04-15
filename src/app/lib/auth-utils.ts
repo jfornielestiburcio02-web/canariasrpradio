@@ -25,7 +25,7 @@ export async function setSessionUser(user: DiscordUser) {
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE_NAME, JSON.stringify(user), {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: true, // Siempre true para entornos de Workstation/Cloud
     sameSite: 'lax',
     maxAge: 60 * 60 * 24 * 7, // 1 week
     path: '/',
@@ -44,11 +44,11 @@ export const DISCORD_CONFIG = {
 
 /**
  * Calcula dinámicamente la URI de redirección basada en la solicitud actual.
- * Esto es crucial para entornos de desarrollo como Cloud Workstations.
+ * Forzamos HTTPS y extraemos el host de los headers para evitar problemas con proxies.
  */
 export function getRedirectUri(request: Request): string {
   const url = new URL(request.url);
-  const protocol = request.headers.get('x-forwarded-proto') || (url.protocol === 'https:' ? 'https' : 'http');
-  const host = request.headers.get('host') || url.host;
-  return `${protocol}://${host}/api/auth/callback`;
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || url.host;
+  // En Cloud Workstations, forzamos https
+  return `https://${host}/api/auth/callback`;
 }
