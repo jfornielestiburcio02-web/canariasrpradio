@@ -11,8 +11,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        headline: ['Alegreya', 'serif'],
-        body: ['PT Sans', 'sans-serif'],
+        headline: ['Verdana', 'sans-serif'],
+        body: ['Verdana', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {
