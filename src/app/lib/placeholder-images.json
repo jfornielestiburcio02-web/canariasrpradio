@@ -1,0 +1,23 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "cadiz-coast",
+      "description": "The beautiful coast of Cadiz at sunset",
+      "imageUrl": "https://picsum.photos/seed/cadiz1/1200/800",
+      "imageHint": "cadiz coast"
+    },
+    {
+      "id": "ancient-ship",
+      "description": "A historic maritime vessel in the harbor",
+      "imageUrl": "https://picsum.photos/seed/ship1/600/400",
+      "imageHint": "ancient ship"
+    },
+    {
+      "id": "old-city-stone",
+      "description": "Historic stone walls of the old city of Cadiz",
+      "imageUrl": "https://picsum.photos/seed/stone1/600/400",
+      "imageHint": "old stone"
+    }
+  ]
+}
