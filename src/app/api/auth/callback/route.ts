@@ -49,7 +49,7 @@ export async function GET(request: Request) {
       discriminator: userData.discriminator,
     });
 
-    return NextResponse.redirect(new URL('/tablonera', request.url));
+    return NextResponse.redirect(new URL('/tablon', request.url));
   } catch (error) {
     console.error('Auth Callback error:', error);
     return NextResponse.redirect(new URL('/?error=server_error', request.url));
