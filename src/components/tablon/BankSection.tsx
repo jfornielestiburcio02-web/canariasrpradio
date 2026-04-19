@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -29,7 +30,9 @@ import {
   CreditCard,
   PlusCircle,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  ShieldCheck,
+  Coins
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -42,7 +45,7 @@ interface Loan {
   monthlyPayment: number;
   months: number;
   paid: number;
-  status: string;
+  status: 'pendiente' | 'aprobado' | 'pagado';
   createdAt: any;
 }
 
@@ -50,7 +53,6 @@ export function BankSection({ userId }: { userId: string }) {
   const db = useFirestore();
   const { data: userData, loading: userLoading } = useDoc<any>(doc(db, 'users', userId));
   
-  // También buscamos en la subcolección de empresas para no fallar en la detección
   const userEmpresasQuery = useMemoFirebase(() => {
     if (!db || !userId) return null;
     return collection(db, 'users', userId, 'empresas');
@@ -62,7 +64,6 @@ export function BankSection({ userId }: { userId: string }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [open, setOpen] = useState(false);
 
-  // Intentamos obtener la empresa del usuario de varias fuentes
   const empresaId = useMemo(() => {
     if (userData?.empresaId) return userData.empresaId;
     if (userEmpresas && userEmpresas.length > 0) return userEmpresas[0].id;
@@ -71,7 +72,6 @@ export function BankSection({ userId }: { userId: string }) {
 
   const loansQuery = useMemoFirebase(() => {
     if (!db || !empresaId) return null;
-    // Según tu JS: collection(db, 'empresas', companyId, 'loans')
     return query(
       collection(db, 'empresas', empresaId, 'loans'),
       orderBy('id', 'desc')
@@ -91,7 +91,6 @@ export function BankSection({ userId }: { userId: string }) {
     const monthlyPayment = totalWithInterest / months;
     const loanId = Date.now().toString();
 
-    // Referencias
     const loanRef = doc(db, 'empresas', empresaId, 'loans', loanId);
     const userRef = doc(db, 'users', userId);
     
@@ -102,15 +101,12 @@ export function BankSection({ userId }: { userId: string }) {
       monthlyPayment,
       months,
       paid: 0,
-      status: 'pendiente',
+      status: 'aprobado', // Lo ponemos como aprobado inmediatamente según tu lógica de "quien quiera"
       createdAt: serverTimestamp()
     };
 
     try {
-      // 1. Crear el préstamo en la colección de la empresa
       await setDoc(loanRef, newLoan);
-
-      // 2. CONJUNTA CON ECONOMÍA: Actualizar el balance bancario del usuario inmediatamente
       await updateDoc(userRef, {
         'wallet.bankBalance': increment(amount)
       });
@@ -129,7 +125,7 @@ export function BankSection({ userId }: { userId: string }) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "No se pudo procesar el préstamo. Contacta con el cabildo.",
+        description: "No se pudo procesar el préstamo.",
       });
     }
   };
@@ -271,41 +267,87 @@ export function BankSection({ userId }: { userId: string }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {loans.map((loan) => {
               const progress = (loan.paid / (loan.totalWithInterest || 1)) * 100;
+              const isApproved = loan.status === 'aprobado';
+              const isPaid = loan.status === 'pagado';
+
               return (
-                <Card key={loan.id} className="bg-white border-none shadow-sm rounded-2xl overflow-hidden group">
-                  <div className={`h-1.5 w-full ${loan.status === 'pagado' ? 'bg-emerald-500' : 'bg-amber-400'}`} />
+                <Card 
+                  key={loan.id} 
+                  className={`border-none shadow-xl transition-all duration-500 overflow-hidden group ${
+                    isApproved ? 'bg-gradient-to-br from-white to-amber-50/30 ring-2 ring-amber-400/20' : 'bg-white'
+                  }`}
+                >
+                  <div className={`h-1.5 w-full ${isPaid ? 'bg-emerald-500' : isApproved ? 'bg-amber-400' : 'bg-slate-300'}`} />
+                  
+                  {isApproved && (
+                    <div className="absolute top-4 right-4 opacity-10 pointer-events-none">
+                      <ShieldCheck className="h-24 w-24 rotate-12" />
+                    </div>
+                  )}
+
                   <CardHeader className="p-5 pb-2">
-                    <div className="flex justify-between items-start">
+                    <div className="flex justify-between items-start relative z-10">
                       <div className="space-y-1">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Contrato #{loan.id.substring(loan.id.length - 6)}</p>
-                        <CardTitle className="text-2xl font-bold text-slate-800">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                          {isApproved ? 'PAGARÉ REAL DE CÁDIZ' : `CONTRATO #${loan.id.substring(loan.id.length - 6)}`}
+                        </p>
+                        <CardTitle className={`text-2xl font-bold ${isApproved ? 'text-primary' : 'text-slate-800'}`}>
                           {loan.amount.toLocaleString()} <span className="text-slate-300 text-sm font-normal">🪙</span>
                         </CardTitle>
                       </div>
-                      <Badge variant={loan.status === 'pagado' ? 'secondary' : 'default'} className="text-[8px] font-bold uppercase px-3 py-1">
-                        {loan.status}
+                      <Badge 
+                        variant={isPaid ? 'secondary' : isApproved ? 'outline' : 'default'} 
+                        className={`px-3 py-1 text-[8px] font-bold uppercase tracking-widest ${
+                          isApproved ? 'bg-amber-50 text-amber-600 border-amber-200' : ''
+                        }`}
+                      >
+                        {isPaid ? (
+                          <div className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Pagado</div>
+                        ) : isApproved ? (
+                          <div className="flex items-center gap-1"><ShieldCheck className="h-3 w-3" /> Aprobado</div>
+                        ) : (
+                          <div className="flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Pendiente</div>
+                        )}
                       </Badge>
                     </div>
                   </CardHeader>
-                  <CardContent className="p-5 pt-2 space-y-5">
+                  <CardContent className="p-5 pt-2 space-y-5 relative z-10">
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="p-3 bg-slate-50 rounded-xl">
+                      <div className={`p-3 rounded-xl ${isApproved ? 'bg-amber-50/50' : 'bg-slate-50'}`}>
                         <p className="text-[8px] font-bold text-slate-400 uppercase mb-1">Cuota Mensual</p>
                         <p className="text-xs font-bold text-slate-700">{loan.monthlyPayment?.toLocaleString()} 🪙</p>
                       </div>
-                      <div className="p-3 bg-slate-50 rounded-xl">
-                        <p className="text-[8px] font-bold text-slate-400 uppercase mb-1">Plazo</p>
-                        <p className="text-xs font-bold text-slate-700">{loan.months} Meses</p>
+                      <div className={`p-3 rounded-xl ${isApproved ? 'bg-amber-50/50' : 'bg-slate-50'}`}>
+                        <p className="text-[8px] font-bold text-slate-400 uppercase mb-1">Total Deuda</p>
+                        <p className="text-xs font-bold text-slate-700">{loan.totalWithInterest?.toLocaleString()} 🪙</p>
                       </div>
                     </div>
                     
                     <div className="space-y-2">
-                      <div className="flex justify-between text-[9px] font-bold uppercase text-slate-400">
+                      <div className="flex justify-between text-[9px] font-bold uppercase text-slate-400 px-1">
                         <span>Progreso de Pago</span>
-                        <span>{loan.paid.toLocaleString()} / {loan.totalWithInterest?.toLocaleString()}</span>
+                        <span className={isApproved ? 'text-amber-600' : ''}>
+                          {loan.paid.toLocaleString()} 🪙 pagados
+                        </span>
                       </div>
-                      <Progress value={progress} className="h-2 bg-slate-100" />
+                      <Progress 
+                        value={progress} 
+                        className={`h-2 ${isApproved ? 'bg-amber-100' : 'bg-slate-100'}`} 
+                        indicatorClassName={isApproved ? 'bg-amber-400' : ''}
+                      />
                     </div>
+
+                    {isApproved && (
+                      <div className="pt-3 border-t border-amber-100/50 flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-amber-600/60">
+                          <Coins className="h-3 w-3" />
+                          <span className="text-[8px] font-bold uppercase tracking-widest">Fondo del Reino</span>
+                        </div>
+                        <span className="text-[8px] font-bold text-slate-300 uppercase tracking-tighter">
+                          Vencimiento en {loan.months} meses
+                        </span>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               );

@@ -61,7 +61,7 @@
         "monthlyPayment": { "type": "number" },
         "months": { "type": "number" },
         "paid": { "type": "number" },
-        "status": { "type": "string", "enum": ["pendiente", "pagado"] },
+        "status": { "type": "string", "enum": ["pendiente", "aprobado", "pagado"] },
         "createdAt": { "type": "string", "format": "date-time" }
       }
     }
