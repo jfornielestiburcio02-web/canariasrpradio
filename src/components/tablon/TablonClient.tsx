@@ -24,18 +24,26 @@ import {
   AlertTriangle,
   CreditCard,
   FileText,
-  Loader2
+  Loader2,
+  Briefcase
 } from 'lucide-react';
 import { WarnsSection } from '@/components/tablon/WarnsSection';
 import { DniManager } from '@/components/tablon/DniManager';
 import { LicensesManager } from '@/components/tablon/LicensesManager';
 import { AntecedentesSection } from '@/components/tablon/AntecedentesSection';
 import { BankSection } from '@/components/tablon/BankSection';
+import { CompanySection } from '@/components/tablon/CompanySection';
 
 export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
   const [activeTab, setActiveTab] = useState('MI PANEL');
   const db = useFirestore();
   const { data: userData, loading: profileLoading } = useDoc<any>(doc(db, 'users', initialUser.id));
+  
+  // Fetch empresa data conditionally
+  const empresaId = userData?.empresaId;
+  const { data: companyData, loading: companyLoading } = useDoc<any>(
+    empresaId ? doc(db, 'empresas', empresaId) : null
+  );
 
   const avatarUrl = initialUser.avatar 
     ? `https://cdn.discordapp.com/avatars/${initialUser.id}/${initialUser.avatar}.png`
@@ -62,13 +70,13 @@ export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-body overflow-hidden">
       {/* Sidebar */}
       <aside className="w-full md:w-60 bg-white flex flex-col border-r border-slate-200 shrink-0">
-        <div className="p-6 pb-4">
+        <div className="p-6 pb-4 flex-1 overflow-y-auto">
           <div className="flex flex-col mb-6">
             <h1 className="text-2xl font-bold text-primary tracking-widest leading-none">CADIZ RP</h1>
             <p className="text-[9px] tracking-[0.2em] text-slate-400 font-bold mt-1 uppercase">Panel de gestión</p>
           </div>
           
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div>
               <p className="text-[10px] font-bold tracking-[0.2em] text-slate-300 mb-3 px-2">CIUDADANO</p>
               <nav className="flex flex-col gap-0.5">
@@ -88,10 +96,32 @@ export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
                 ))}
               </nav>
             </div>
+
+            {/* Apartado EMPRESAS Condicional */}
+            {empresaId && (
+              <div>
+                <p className="text-[10px] font-bold tracking-[0.2em] text-slate-300 mb-3 px-2">EMPRESA</p>
+                <nav className="flex flex-col gap-0.5">
+                  <button 
+                    onClick={() => setActiveTab('EMPRESA')}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-md transition-all group relative w-full text-left ${
+                      activeTab === 'EMPRESA' 
+                      ? 'bg-blue-50/50 text-sky-600 border-l-4 border-sky-600' 
+                      : 'text-slate-500 hover:bg-slate-50'
+                    }`}
+                  >
+                    <Briefcase className={`h-4 w-4 ${activeTab === 'EMPRESA' ? 'text-sky-600' : 'text-slate-600'}`} />
+                    <span className="text-[11px] font-bold tracking-wider uppercase truncate">
+                      {companyLoading ? 'Cargando...' : (companyData?.nombre || 'Mi Empresa')}
+                    </span>
+                  </button>
+                </nav>
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="mt-auto p-6 pt-0">
+        <div className="p-6 pt-0 shrink-0 border-t border-slate-50">
           <Button asChild variant="ghost" className="w-full justify-start text-slate-400 hover:text-red-500 hover:bg-red-50 px-3">
             <Link href="/api/auth/logout" className="flex items-center gap-3">
               <LogOut className="h-4 w-4" /> <span className="text-[10px] font-bold uppercase tracking-widest">Salir</span>
@@ -160,7 +190,7 @@ export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
                           </CardHeader>
                           <CardContent className="p-4 pt-0">
                             <div className="text-2xl font-bold text-slate-800">
-                              {userData?.wallet?.balance || 0} <span className="text-slate-300">🪙</span>
+                              {(userData?.wallet?.balance || 0).toLocaleString()} <span className="text-slate-300">🪙</span>
                             </div>
                             <p className="text-[10px] text-slate-400 mt-1 font-bold">Saldo actual en mano</p>
                           </CardContent>
@@ -227,7 +257,11 @@ export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
             <AntecedentesSection userId={initialUser.id} />
           )}
 
-          {activeTab !== 'MI PANEL' && activeTab !== 'BANCO' && activeTab !== 'WARNS' && activeTab !== 'LICENCIAS' && activeTab !== 'ANTECEDENTES' && (
+          {activeTab === 'EMPRESA' && empresaId && (
+            <CompanySection companyId={empresaId} />
+          )}
+
+          {activeTab !== 'MI PANEL' && activeTab !== 'BANCO' && activeTab !== 'WARNS' && activeTab !== 'LICENCIAS' && activeTab !== 'ANTECEDENTES' && activeTab !== 'EMPRESA' && (
             <div className="flex flex-col items-center justify-center h-full text-center space-y-4 opacity-50">
               <Package className="h-12 w-12 text-slate-300" />
               <div>

@@ -9,6 +9,7 @@
         "id": { "type": "string" },
         "username": { "type": "string" },
         "avatar": { "type": "string" },
+        "empresaId": { "type": "string", "nullable": true },
         "doblones": { "type": "number" },
         "shipStatus": { "type": "string" },
         "updatedAt": { "type": "string", "format": "date-time" },
@@ -37,6 +38,23 @@
         "licencia_navegar": { "$ref": "#/backend/entities/License" }
       },
       "required": ["id", "username"]
+    },
+    "Company": {
+      "title": "Empresa",
+      "description": "Datos de una empresa u organización.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nombre": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "tipo": { "type": "string" },
+        "nivel": { "type": "number" },
+        "empleadosCapacity": { "type": "number" },
+        "empleados": { "type": "array", "items": { "type": "string" } },
+        "actividadRegistrada": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "nombre", "ownerId", "tipo"]
     },
     "License": {
       "title": "Licencia",
@@ -94,6 +112,10 @@
     "/users/{userId}/antecedentes/{antecedentId}": {
       "schema": { "$ref": "#/backend/entities/Antecedent" },
       "description": "Lista de antecedentes policiales del usuario."
+    },
+    "/empresas/{companyId}": {
+      "schema": { "$ref": "#/backend/entities/Company" },
+      "description": "Datos de empresas en la ciudad."
     }
   }
 }
