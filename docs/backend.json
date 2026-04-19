@@ -29,6 +29,14 @@
             "razonRechazo": { "type": "string", "nullable": true },
             "solicitadoEn": { "type": "string", "format": "date-time" }
           }
+        },
+        "fichamedica": {
+          "type": "object",
+          "properties": {
+            "informacion": { "type": "string" },
+            "createdAt": { "type": "string", "format": "date-time" },
+            "updatedAt": { "type": "string", "format": "date-time" }
+          }
         }
       },
       "required": ["id", "username"]

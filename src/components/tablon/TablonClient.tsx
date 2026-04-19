@@ -25,7 +25,8 @@ import {
   CreditCard,
   FileText,
   Loader2,
-  Briefcase
+  Briefcase,
+  HeartPulse
 } from 'lucide-react';
 import { WarnsSection } from '@/components/tablon/WarnsSection';
 import { DniManager } from '@/components/tablon/DniManager';
@@ -33,6 +34,7 @@ import { LicensesManager } from '@/components/tablon/LicensesManager';
 import { AntecedentesSection } from '@/components/tablon/AntecedentesSection';
 import { BankSection } from '@/components/tablon/BankSection';
 import { CompanySection } from '@/components/tablon/CompanySection';
+import { MedicalRecordSection } from '@/components/tablon/MedicalRecordSection';
 
 export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
   const [activeTab, setActiveTab] = useState('MI PANEL');
@@ -61,6 +63,7 @@ export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
     { label: 'BANCO', icon: Landmark },
     { label: 'MULTAS', icon: ShieldAlert },
     { label: 'ANTECEDENTES', icon: FileText },
+    { label: 'F. MÉDICA', icon: HeartPulse },
     { label: 'WARNS', icon: AlertTriangle },
     { label: 'LICENCIAS', icon: CreditCard },
     { label: 'VEHÍCULOS', icon: Car },
@@ -270,11 +273,15 @@ export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
             <AntecedentesSection userId={initialUser.id} />
           )}
 
+          {activeTab === 'F. MÉDICA' && (
+            <MedicalRecordSection userId={initialUser.id} />
+          )}
+
           {activeTab === 'EMPRESA' && selectedCompanyId && (
             <CompanySection companyId={selectedCompanyId} userId={initialUser.id} />
           )}
 
-          {activeTab !== 'MI PANEL' && activeTab !== 'BANCO' && activeTab !== 'WARNS' && activeTab !== 'LICENCIAS' && activeTab !== 'ANTECEDENTES' && activeTab !== 'EMPRESA' && (
+          {activeTab !== 'MI PANEL' && activeTab !== 'BANCO' && activeTab !== 'WARNS' && activeTab !== 'LICENCIAS' && activeTab !== 'ANTECEDENTES' && activeTab !== 'F. MÉDICA' && activeTab !== 'EMPRESA' && (
             <div className="flex flex-col items-center justify-center h-full text-center space-y-4 opacity-50">
               <Package className="h-12 w-12 text-slate-300" />
               <div>
