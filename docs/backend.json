@@ -55,6 +55,20 @@
         "apelaRazon": { "type": "string", "nullable": true }
       },
       "required": ["id", "moderador", "razon", "fecha", "apelada"]
+    },
+    "Antecedent": {
+      "title": "Antecedente Policial",
+      "description": "Registro de arresto o multa de un usuario.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tipo": { "type": "string", "enum": ["arresto", "multa"] },
+        "razon": { "type": "string" },
+        "imageUrl": { "type": "string", "nullable": true },
+        "fechaRegistro": { "type": "string" },
+        "retirado": { "type": "boolean" }
+      },
+      "required": ["id", "tipo", "razon", "fechaRegistro", "retirado"]
     }
   },
   "auth": {
@@ -68,6 +82,10 @@
     "/users/{userId}/warns/{warnId}": {
       "schema": { "$ref": "#/backend/entities/Warn" },
       "description": "Lista de advertencias del usuario."
+    },
+    "/users/{userId}/antecedentes/{antecedentId}": {
+      "schema": { "$ref": "#/backend/entities/Antecedent" },
+      "description": "Lista de antecedentes policiales del usuario."
     }
   }
 }

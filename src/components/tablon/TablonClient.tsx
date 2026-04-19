@@ -20,11 +20,13 @@ import {
   ShoppingCart,
   Search,
   AlertTriangle,
-  CreditCard
+  CreditCard,
+  FileText
 } from 'lucide-react';
 import { WarnsSection } from '@/components/tablon/WarnsSection';
 import { DniManager } from '@/components/tablon/DniManager';
 import { LicensesManager } from '@/components/tablon/LicensesManager';
+import { AntecedentesSection } from '@/components/tablon/AntecedentesSection';
 
 export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
   const [activeTab, setActiveTab] = useState('MI PANEL');
@@ -39,6 +41,7 @@ export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
     { label: 'MI PANEL', icon: LayoutGrid },
     { label: 'BANCO', icon: Landmark },
     { label: 'MULTAS', icon: ShieldAlert },
+    { label: 'ANTECEDENTES', icon: FileText },
     { label: 'WARNS', icon: AlertTriangle },
     { label: 'LICENCIAS', icon: CreditCard },
     { label: 'VEHÍCULOS', icon: Car },
@@ -202,7 +205,11 @@ export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
             <LicensesManager userId={initialUser.id} />
           )}
 
-          {activeTab !== 'MI PANEL' && activeTab !== 'WARNS' && activeTab !== 'LICENCIAS' && (
+          {activeTab === 'ANTECEDENTES' && (
+            <AntecedentesSection userId={initialUser.id} />
+          )}
+
+          {activeTab !== 'MI PANEL' && activeTab !== 'WARNS' && activeTab !== 'LICENCIAS' && activeTab !== 'ANTECEDENTES' && (
             <div className="flex flex-col items-center justify-center h-full text-center space-y-4 opacity-50">
               <Package className="h-12 w-12 text-slate-300" />
               <div>
