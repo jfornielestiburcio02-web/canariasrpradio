@@ -7,8 +7,8 @@ import Link from 'next/link';
 import type { DiscordUser } from '@/app/lib/auth-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useFirestore, useDoc } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
+import { doc, collection } from 'firebase/firestore';
 import { 
   LogOut, 
   LayoutGrid, 
@@ -36,14 +36,19 @@ import { CompanySection } from '@/components/tablon/CompanySection';
 
 export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
   const [activeTab, setActiveTab] = useState('MI PANEL');
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const db = useFirestore();
+  
+  // Datos generales del usuario
   const { data: userData, loading: profileLoading } = useDoc<any>(doc(db, 'users', initialUser.id));
   
-  // Fetch empresa data conditionally
-  const empresaId = userData?.empresaId;
-  const { data: companyData, loading: companyLoading } = useDoc<any>(
-    empresaId ? doc(db, 'empresas', empresaId) : null
-  );
+  // Escuchar la subcolección de empresas (como en tu imagen)
+  const empresasQuery = useMemoFirebase(() => {
+    if (!db || !initialUser.id) return null;
+    return collection(db, 'users', initialUser.id, 'empresas');
+  }, [db, initialUser.id]);
+
+  const { data: userCompanies, loading: companiesLoading } = useCollection<any>(empresasQuery);
 
   const avatarUrl = initialUser.avatar 
     ? `https://cdn.discordapp.com/avatars/${initialUser.id}/${initialUser.avatar}.png`
@@ -65,6 +70,11 @@ export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
     { label: 'MERCADO', icon: Store },
     { label: 'TIENDA', icon: ShoppingCart },
   ];
+
+  const handleSelectCompany = (companyId: string) => {
+    setSelectedCompanyId(companyId);
+    setActiveTab('EMPRESA');
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-body overflow-hidden">
@@ -97,24 +107,27 @@ export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
               </nav>
             </div>
 
-            {/* Apartado EMPRESAS Condicional */}
-            {empresaId && (
+            {/* Apartado EMPRESAS (Subcolección del usuario) */}
+            {userCompanies && userCompanies.length > 0 && (
               <div>
-                <p className="text-[10px] font-bold tracking-[0.2em] text-slate-300 mb-3 px-2">EMPRESA</p>
+                <p className="text-[10px] font-bold tracking-[0.2em] text-slate-300 mb-3 px-2">EMPRESAS</p>
                 <nav className="flex flex-col gap-0.5">
-                  <button 
-                    onClick={() => setActiveTab('EMPRESA')}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-md transition-all group relative w-full text-left ${
-                      activeTab === 'EMPRESA' 
-                      ? 'bg-blue-50/50 text-sky-600 border-l-4 border-sky-600' 
-                      : 'text-slate-500 hover:bg-slate-50'
-                    }`}
-                  >
-                    <Briefcase className={`h-4 w-4 ${activeTab === 'EMPRESA' ? 'text-sky-600' : 'text-slate-600'}`} />
-                    <span className="text-[11px] font-bold tracking-wider uppercase truncate">
-                      {companyLoading ? 'Cargando...' : (companyData?.nombre || 'Mi Empresa')}
-                    </span>
-                  </button>
+                  {userCompanies.map((emp) => (
+                    <button 
+                      key={emp.id}
+                      onClick={() => handleSelectCompany(emp.id)}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-md transition-all group relative w-full text-left ${
+                        activeTab === 'EMPRESA' && selectedCompanyId === emp.id
+                        ? 'bg-blue-50/50 text-sky-600 border-l-4 border-sky-600' 
+                        : 'text-slate-500 hover:bg-slate-50'
+                      }`}
+                    >
+                      <Briefcase className={`h-4 w-4 ${activeTab === 'EMPRESA' && selectedCompanyId === emp.id ? 'text-sky-600' : 'text-slate-600'}`} />
+                      <span className="text-[11px] font-bold tracking-wider uppercase truncate">
+                        {emp.nombre}
+                      </span>
+                    </button>
+                  ))}
                 </nav>
               </div>
             )}
@@ -257,8 +270,8 @@ export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
             <AntecedentesSection userId={initialUser.id} />
           )}
 
-          {activeTab === 'EMPRESA' && empresaId && (
-            <CompanySection companyId={empresaId} />
+          {activeTab === 'EMPRESA' && selectedCompanyId && (
+            <CompanySection companyId={selectedCompanyId} userId={initialUser.id} />
           )}
 
           {activeTab !== 'MI PANEL' && activeTab !== 'BANCO' && activeTab !== 'WARNS' && activeTab !== 'LICENCIAS' && activeTab !== 'ANTECEDENTES' && activeTab !== 'EMPRESA' && (

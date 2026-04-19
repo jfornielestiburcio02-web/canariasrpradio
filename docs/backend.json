@@ -38,12 +38,11 @@
     },
     "Company": {
       "title": "Empresa",
-      "description": "Datos de una empresa u organización.",
+      "description": "Datos de una empresa vinculada al usuario.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "nombre": { "type": "string" },
-        "ownerId": { "type": "string" },
         "tipo": { "type": "string" },
         "nivel": { "type": "number" },
         "empleadosCapacity": { "type": "number" },
@@ -51,7 +50,7 @@
         "actividadRegistrada": { "type": "number" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "nombre", "ownerId", "tipo"]
+      "required": ["nombre"]
     },
     "License": {
       "title": "Licencia",
@@ -102,6 +101,10 @@
       "schema": { "$ref": "#/backend/entities/UserProfile" },
       "description": "Datos de usuario persistidos en Firestore."
     },
+    "/users/{userId}/empresas/{companyId}": {
+      "schema": { "$ref": "#/backend/entities/Company" },
+      "description": "Empresas en las que participa el usuario."
+    },
     "/users/{userId}/warns/{warnId}": {
       "schema": { "$ref": "#/backend/entities/Warn" },
       "description": "Lista de advertencias del usuario."
@@ -109,10 +112,6 @@
     "/users/{userId}/antecedentes/{antecedentId}": {
       "schema": { "$ref": "#/backend/entities/Antecedent" },
       "description": "Lista de antecedentes policiales del usuario."
-    },
-    "/empresas/{companyId}": {
-      "schema": { "$ref": "#/backend/entities/Company" },
-      "description": "Datos de empresas en la ciudad."
     }
   }
 }

@@ -13,7 +13,6 @@ import { es } from 'date-fns/locale';
 interface CompanyData {
   id: string;
   nombre: string;
-  ownerId: string;
   tipo: string;
   nivel: number;
   empleadosCapacity: number;
@@ -22,21 +21,24 @@ interface CompanyData {
   createdAt: any;
 }
 
-export function CompanySection({ companyId }: { companyId: string }) {
+export function CompanySection({ companyId, userId }: { companyId: string, userId: string }) {
   const db = useFirestore();
-  const { data: company, loading } = useDoc<CompanyData>(doc(db, 'empresas', companyId));
+  // Fetch desde la subcolección del usuario
+  const { data: company, loading } = useDoc<CompanyData>(doc(db, 'users', userId, 'empresas', companyId));
 
   if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-slate-300" /></div>;
 
   if (!company) {
     return (
       <div className="p-12 text-center text-slate-400 italic">
-        No se han podido cargar los datos de la empresa.
+        No se han podido cargar los datos de la empresa "{companyId}".
       </div>
     );
   }
 
-  const employmentRate = (company.empleados.length / company.empleadosCapacity) * 100;
+  const empleadosCount = company.empleados?.length || 1;
+  const capacity = company.empleadosCapacity || 5;
+  const employmentRate = (empleadosCount / capacity) * 100;
 
   return (
     <div className="space-y-6">
@@ -49,12 +51,12 @@ export function CompanySection({ companyId }: { companyId: string }) {
             <h2 className="text-2xl font-bold text-slate-800 uppercase tracking-tight">{company.nombre}</h2>
             <div className="flex items-center gap-2 mt-1">
               <Badge variant="outline" className="bg-white text-[10px] font-bold uppercase tracking-wider text-blue-600 border-blue-100">
-                {company.tipo}
+                {company.tipo || 'General'}
               </Badge>
               <span className="text-slate-300 mx-1">•</span>
               <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase">
                 <Calendar className="h-3 w-3" />
-                Fundada en {company.createdAt ? format(new Date(company.createdAt.seconds * 1000), 'MMMM yyyy', { locale: es }) : '---'}
+                ID: {companyId.substring(0, 12)}
               </div>
             </div>
           </div>
@@ -70,7 +72,7 @@ export function CompanySection({ companyId }: { companyId: string }) {
           <CardContent className="p-4 pt-0">
             <div className="flex items-center gap-2">
               <Trophy className="h-5 w-5 text-amber-500" />
-              <div className="text-2xl font-bold text-slate-800">Nivel {company.nivel}</div>
+              <div className="text-2xl font-bold text-slate-800">Nivel {company.nivel || 1}</div>
             </div>
             <p className="text-[9px] text-slate-400 mt-2 font-bold uppercase tracking-tighter">Prestigio de la organización</p>
           </CardContent>
@@ -83,7 +85,7 @@ export function CompanySection({ companyId }: { companyId: string }) {
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="flex items-center justify-between mb-2">
-              <div className="text-2xl font-bold text-slate-800">{company.empleados.length} / {company.empleadosCapacity}</div>
+              <div className="text-2xl font-bold text-slate-800">{empleadosCount} / {capacity}</div>
               <Users className="h-5 w-5 text-sky-500" />
             </div>
             <Progress value={employmentRate} className="h-1.5 bg-slate-100" />
@@ -99,7 +101,7 @@ export function CompanySection({ companyId }: { companyId: string }) {
           <CardContent className="p-4 pt-0">
             <div className="flex items-center gap-2">
               <Activity className="h-5 w-5 text-emerald-500" />
-              <div className="text-2xl font-bold text-slate-800">{company.actividadRegistrada}</div>
+              <div className="text-2xl font-bold text-slate-800">{company.actividadRegistrada || 0}</div>
             </div>
             <p className="text-[9px] text-slate-400 mt-2 font-bold uppercase tracking-tighter">Puntos de actividad semanal</p>
           </CardContent>
@@ -116,7 +118,7 @@ export function CompanySection({ companyId }: { companyId: string }) {
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y divide-slate-50">
-              {company.empleados.map((empId, idx) => (
+              {company.empleados?.map((empId, idx) => (
                 <div key={empId} className="px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400">
@@ -124,16 +126,15 @@ export function CompanySection({ companyId }: { companyId: string }) {
                     </div>
                     <div>
                       <p className="text-sm font-bold text-slate-700">
-                        {empId === company.ownerId ? 'Propietario' : 'Empleado'}
+                        Empleado
                       </p>
                       <p className="text-[10px] font-mono text-slate-400 uppercase">{empId.substring(0, 12)}</p>
                     </div>
                   </div>
-                  {empId === company.ownerId && (
-                    <Badge className="bg-amber-50 text-amber-600 border-amber-100 text-[8px] font-bold">LÍDER</Badge>
-                  )}
                 </div>
-              ))}
+              )) || (
+                <div className="p-8 text-center text-xs text-slate-400 uppercase font-bold">Sin empleados registrados</div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -157,7 +158,7 @@ export function CompanySection({ companyId }: { companyId: string }) {
               </div>
               <div className="space-y-1">
                 <p className="text-[9px] font-bold text-slate-300 uppercase">Última Auditoría</p>
-                <p className="text-xs font-bold text-slate-600">HACE 3 DÍAS</p>
+                <p className="text-xs font-bold text-slate-600">RECIENTE</p>
               </div>
             </div>
           </CardContent>
