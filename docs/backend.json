@@ -3,7 +3,7 @@
   "entities": {
     "UserProfile": {
       "title": "Perfil de Usuario",
-      "description": "Datos de perfil extendidos guardados en Firestore, incluyendo el DNI y Licencias.",
+      "description": "Datos de perfil extendidos guardados en Firestore, incluyendo el DNI, Licencias y Economía.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -12,6 +12,14 @@
         "doblones": { "type": "number" },
         "shipStatus": { "type": "string" },
         "updatedAt": { "type": "string", "format": "date-time" },
+        "wallet": {
+          "type": "object",
+          "properties": {
+            "balance": { "type": "number" },
+            "bankBalance": { "type": "number" },
+            "createdAt": { "type": "string", "format": "date-time" }
+          }
+        },
         "dni": {
           "type": "object",
           "properties": {

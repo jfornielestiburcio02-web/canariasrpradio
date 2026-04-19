@@ -7,6 +7,8 @@ import Link from 'next/link';
 import type { DiscordUser } from '@/app/lib/auth-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useFirestore, useDoc } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import { 
   LogOut, 
   LayoutGrid, 
@@ -21,15 +23,19 @@ import {
   Search,
   AlertTriangle,
   CreditCard,
-  FileText
+  FileText,
+  Loader2
 } from 'lucide-react';
 import { WarnsSection } from '@/components/tablon/WarnsSection';
 import { DniManager } from '@/components/tablon/DniManager';
 import { LicensesManager } from '@/components/tablon/LicensesManager';
 import { AntecedentesSection } from '@/components/tablon/AntecedentesSection';
+import { BankSection } from '@/components/tablon/BankSection';
 
 export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
   const [activeTab, setActiveTab] = useState('MI PANEL');
+  const db = useFirestore();
+  const { data: userData, loading: profileLoading } = useDoc<any>(doc(db, 'users', initialUser.id));
 
   const avatarUrl = initialUser.avatar 
     ? `https://cdn.discordapp.com/avatars/${initialUser.id}/${initialUser.avatar}.png`
@@ -142,42 +148,50 @@ export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
 
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div className="lg:col-span-3 space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Card className="bg-white border-none shadow-sm rounded-xl overflow-hidden">
-                      <div className="h-1 bg-sky-600 w-full" />
-                      <CardHeader className="p-4 pb-2">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Efectivo</p>
-                      </CardHeader>
-                      <CardContent className="p-4 pt-0">
-                        <div className="text-2xl font-bold text-slate-800">0 <span className="text-slate-300">🪙</span></div>
-                        <p className="text-[10px] text-slate-400 mt-1 font-bold">Sin actividad reciente</p>
-                      </CardContent>
-                    </Card>
-                    <Card className="bg-white border-none shadow-sm rounded-xl overflow-hidden">
-                      <div className="h-1 bg-orange-400 w-full" />
-                      <CardHeader className="p-4 pb-2">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Salud</p>
-                      </CardHeader>
-                      <CardContent className="p-4 pt-0">
-                        <div className="text-2xl font-bold text-slate-800">100%</div>
-                        <div className="mt-2 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-orange-400 w-[100%]" />
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card className="bg-white border-none shadow-sm rounded-xl overflow-hidden">
-                      <div className="h-1 bg-emerald-500 w-full" />
-                      <CardHeader className="p-4 pb-2">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Travesías</p>
-                      </CardHeader>
-                      <CardContent className="p-4 pt-0">
-                        <div className="text-2xl font-bold text-slate-800">0</div>
-                        <p className="text-[10px] text-slate-400 mt-1 font-bold">Rango: Recluta</p>
-                      </CardContent>
-                    </Card>
-                  </div>
+                  {profileLoading ? (
+                    <div className="flex justify-center py-12"><Loader2 className="animate-spin text-slate-300" /></div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <Card className="bg-white border-none shadow-sm rounded-xl overflow-hidden">
+                          <div className="h-1 bg-sky-600 w-full" />
+                          <CardHeader className="p-4 pb-2">
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Efectivo</p>
+                          </CardHeader>
+                          <CardContent className="p-4 pt-0">
+                            <div className="text-2xl font-bold text-slate-800">
+                              {userData?.wallet?.balance || 0} <span className="text-slate-300">🪙</span>
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-1 font-bold">Saldo actual en mano</p>
+                          </CardContent>
+                        </Card>
+                        <Card className="bg-white border-none shadow-sm rounded-xl overflow-hidden">
+                          <div className="h-1 bg-orange-400 w-full" />
+                          <CardHeader className="p-4 pb-2">
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Salud</p>
+                          </CardHeader>
+                          <CardContent className="p-4 pt-0">
+                            <div className="text-2xl font-bold text-slate-800">100%</div>
+                            <div className="mt-2 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-orange-400 w-[100%]" />
+                            </div>
+                          </CardContent>
+                        </Card>
+                        <Card className="bg-white border-none shadow-sm rounded-xl overflow-hidden">
+                          <div className="h-1 bg-emerald-500 w-full" />
+                          <CardHeader className="p-4 pb-2">
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Travesías</p>
+                          </CardHeader>
+                          <CardContent className="p-4 pt-0">
+                            <div className="text-2xl font-bold text-slate-800">0</div>
+                            <p className="text-[10px] text-slate-400 mt-1 font-bold">Rango: Recluta</p>
+                          </CardContent>
+                        </Card>
+                      </div>
 
-                  <DniManager userId={initialUser.id} />
+                      <DniManager userId={initialUser.id} />
+                    </>
+                  )}
                 </div>
 
                 <div className="lg:col-span-1 space-y-6">
@@ -197,6 +211,10 @@ export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
             </>
           )}
 
+          {activeTab === 'BANCO' && (
+            <BankSection userId={initialUser.id} />
+          )}
+
           {activeTab === 'WARNS' && (
             <WarnsSection userId={initialUser.id} />
           )}
@@ -209,7 +227,7 @@ export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
             <AntecedentesSection userId={initialUser.id} />
           )}
 
-          {activeTab !== 'MI PANEL' && activeTab !== 'WARNS' && activeTab !== 'LICENCIAS' && activeTab !== 'ANTECEDENTES' && (
+          {activeTab !== 'MI PANEL' && activeTab !== 'BANCO' && activeTab !== 'WARNS' && activeTab !== 'LICENCIAS' && activeTab !== 'ANTECEDENTES' && (
             <div className="flex flex-col items-center justify-center h-full text-center space-y-4 opacity-50">
               <Package className="h-12 w-12 text-slate-300" />
               <div>
