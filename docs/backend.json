@@ -64,6 +64,20 @@
         "status": { "type": "string", "enum": ["pendiente", "aprobado", "pagado"] },
         "createdAt": { "type": "string", "format": "date-time" }
       }
+    },
+    "Invoice": {
+      "title": "Factura",
+      "description": "Registro de una factura entre ciudadanos o empresas.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "issuerId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "amount": { "type": "number" },
+        "concepto": { "type": "string" },
+        "estado": { "type": "string", "enum": ["pendiente", "pagado", "anulado"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "auth": {
@@ -81,6 +95,10 @@
     "/empresas/{companyId}/loans/{loanId}": {
       "schema": { "$ref": "#/backend/entities/Loan" },
       "description": "Préstamos asociados a una empresa específica."
+    },
+    "/facturas/{invoiceId}": {
+      "schema": { "$ref": "#/backend/entities/Invoice" },
+      "description": "Colección global de facturas entre usuarios."
     }
   }
 }
