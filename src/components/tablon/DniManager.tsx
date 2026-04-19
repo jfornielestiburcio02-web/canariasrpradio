@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Contact, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { Loader2, Contact, CheckCircle2, Clock, AlertCircle, ShieldCheck, Anchor } from 'lucide-react';
 import Image from 'next/image';
 
 interface DniData {
@@ -18,6 +18,7 @@ interface DniData {
   imageUrl: string;
   estado: 'pendiente' | 'aprobado' | 'rechazado';
   razonRechazo?: string;
+  solicitadoEn?: any;
 }
 
 export function DniManager({ userId }: { userId: string }) {
@@ -41,8 +42,7 @@ export function DniManager({ userId }: { userId: string }) {
       dni: {
         ...formData,
         estado: 'pendiente',
-        solicitadoEn: new Date(),
-        createdAt: new Date()
+        solicitadoEn: serverTimestamp(),
       }
     }, { merge: true })
     .then(() => setLoading(false))
@@ -126,58 +126,87 @@ export function DniManager({ userId }: { userId: string }) {
     );
   }
 
-  const statusConfig = {
-    pendiente: { icon: Clock, color: 'bg-orange-50 text-orange-600', label: 'En revisión' },
-    aprobado: { icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600', label: 'Aprobado' },
-    rechazado: { icon: AlertCircle, color: 'bg-red-50 text-red-600', label: 'Rechazado' }
-  };
-
-  const config = statusConfig[dni.estado];
+  const isApproved = dni.estado === 'aprobado';
 
   return (
-    <Card className="bg-white border-none shadow-sm rounded-xl overflow-hidden relative">
-      <div className={`h-1 w-full ${dni.estado === 'aprobado' ? 'bg-emerald-500' : dni.estado === 'rechazado' ? 'bg-red-500' : 'bg-orange-400'}`} />
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle className="text-lg font-bold uppercase tracking-widest">Tu Documento de Identidad</CardTitle>
-          <CardDescription>Estado de tu identificación oficial en la ciudad.</CardDescription>
+    <Card className={`relative overflow-hidden border-none shadow-xl transition-all duration-500 ${isApproved ? 'bg-gradient-to-br from-white to-slate-50 ring-2 ring-amber-400/30' : 'bg-white'}`}>
+      {/* Indicador de estado superior */}
+      <div className={`h-1.5 w-full ${dni.estado === 'aprobado' ? 'bg-amber-400' : dni.estado === 'rechazado' ? 'bg-red-500' : 'bg-orange-400'}`} />
+      
+      {isApproved && (
+        <div className="absolute top-4 right-4 opacity-5 pointer-events-none">
+          <Anchor className="h-32 w-32 rotate-12" />
         </div>
-        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${config.color} text-[10px] font-bold uppercase tracking-wider`}>
-          <config.icon className="h-3 w-3" />
-          {config.label}
+      )}
+
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className={`h-5 w-5 ${isApproved ? 'text-amber-500' : 'text-slate-400'}`} />
+            <CardTitle className="text-lg font-bold uppercase tracking-widest text-slate-800">
+              {isApproved ? 'PASAPORTE REAL DE CÁDIZ' : 'DOCUMENTO DE IDENTIDAD'}
+            </CardTitle>
+          </div>
+          <CardDescription className="text-[10px] uppercase font-bold tracking-tighter">
+            {isApproved ? 'Ciudadano Oficial del Reino' : 'Estado de identificación oficial'}
+          </CardDescription>
         </div>
+        
+        <Badge 
+          variant={isApproved ? 'outline' : 'secondary'}
+          className={`px-3 py-1 text-[10px] font-bold uppercase tracking-widest ${
+            dni.estado === 'aprobado' ? 'bg-amber-50 text-amber-600 border-amber-200' : 
+            dni.estado === 'rechazado' ? 'bg-red-50 text-red-600 border-red-100' : 
+            'bg-orange-50 text-orange-600 border-orange-100'
+          }`}
+        >
+          {dni.estado === 'aprobado' ? (
+            <div className="flex items-center gap-1.5"><CheckCircle2 className="h-3 w-3" /> Aprobado</div>
+          ) : dni.estado === 'rechazado' ? (
+            <div className="flex items-center gap-1.5"><AlertCircle className="h-3 w-3" /> Rechazado</div>
+          ) : (
+            <div className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> Pendiente</div>
+          )}
+        </Badge>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="flex flex-col md:flex-row gap-8 items-start">
-          <div className="relative h-48 w-40 rounded-lg overflow-hidden border-4 border-slate-100 shadow-inner bg-slate-50 shrink-0">
+
+      <CardContent className="space-y-6 pt-4">
+        <div className="flex flex-col md:flex-row gap-8 items-start relative z-10">
+          <div className={`relative h-52 w-44 rounded-lg overflow-hidden border-4 ${isApproved ? 'border-amber-100' : 'border-slate-100'} shadow-lg bg-slate-50 shrink-0`}>
             {dni.imageUrl ? (
               <Image src={dni.imageUrl} alt="Foto DNI" fill className="object-cover" unoptimized />
             ) : (
               <div className="flex items-center justify-center h-full text-slate-200"><Contact className="h-12 w-12" /></div>
             )}
+            {isApproved && (
+              <div className="absolute bottom-0 w-full bg-amber-400/90 py-1 text-center">
+                <span className="text-[8px] font-bold text-white uppercase tracking-widest">Sello Real</span>
+              </div>
+            )}
           </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12 flex-1">
             <div className="space-y-1">
-              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-300">Nombre Completo</p>
-              <p className="text-sm font-bold text-slate-700">{dni.nombre} {dni.apellidos}</p>
+              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Nombre Completo</p>
+              <p className={`text-base font-bold ${isApproved ? 'text-primary' : 'text-slate-700'}`}>{dni.nombre} {dni.apellidos}</p>
             </div>
             <div className="space-y-1">
-              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-300">Fecha de Nacimiento</p>
-              <p className="text-sm font-bold text-slate-700">{dni.fechaNacimiento}</p>
+              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Fecha de Nacimiento</p>
+              <p className="text-base font-bold text-slate-700">{dni.fechaNacimiento}</p>
             </div>
             <div className="space-y-1">
-              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-300">Nacionalidad</p>
-              <p className="text-sm font-bold text-slate-700">Española (Cádiz)</p>
+              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Nacionalidad / Origen</p>
+              <p className="text-base font-bold text-slate-700">Española (Cádiz)</p>
             </div>
             <div className="space-y-1">
-              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-300">ID de Registro</p>
-              <p className="text-xs font-mono text-slate-500 uppercase">{userId.substring(0, 12)}</p>
+              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Número de Registro</p>
+              <p className="text-xs font-mono text-slate-500 uppercase font-bold">{userId.substring(0, 14)}</p>
             </div>
           </div>
         </div>
 
         {dni.estado === 'rechazado' && dni.razonRechazo && (
-          <div className="p-4 bg-red-50 rounded-xl border border-red-100">
+          <div className="p-4 bg-red-50 rounded-xl border border-red-100 animate-in fade-in slide-in-from-top-1">
             <p className="text-[10px] font-bold text-red-700 uppercase mb-1">Motivo del rechazo:</p>
             <p className="text-xs text-red-600 italic">"{dni.razonRechazo}"</p>
             <Button 
@@ -188,8 +217,27 @@ export function DniManager({ userId }: { userId: string }) {
                 setDoc(userRef, { dni: null }, { merge: true });
               }}
             >
-              Volver a intentar
+              Nueva Solicitud
             </Button>
+          </div>
+        )}
+
+        {isApproved && (
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+            <div className="flex gap-4">
+              <div className="flex flex-col">
+                <span className="text-[8px] font-bold text-slate-300 uppercase">Emisión</span>
+                <span className="text-[10px] font-bold text-slate-500">Cádiz, Reino de España</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[8px] font-bold text-slate-300 uppercase">Validez</span>
+                <span className="text-[10px] font-bold text-emerald-600">PERMANENTE</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-slate-200">
+              <Anchor className="h-4 w-4" />
+              <span className="text-[8px] font-bold uppercase tracking-widest">Puerto de Cádiz</span>
+            </div>
           </div>
         )}
       </CardContent>
