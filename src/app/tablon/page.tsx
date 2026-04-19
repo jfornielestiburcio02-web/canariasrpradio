@@ -1,7 +1,10 @@
-import { redirect } from 'next/navigation';
+
+'use client';
+
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { getSessionUser } from '@/app/lib/auth-utils';
+import { useUser } from '@/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -15,26 +18,37 @@ import {
   Package, 
   Store, 
   ShoppingCart,
-  Search
+  Search,
+  AlertTriangle
 } from 'lucide-react';
+import { WarnsSection } from '@/components/tablon/WarnsSection';
 
-export default async function TablonPage() {
-  const user = await getSessionUser();
+export default function TablonPage() {
+  const { user, loading: authLoading } = useUser();
+  const [activeTab, setActiveTab] = useState('MI PANEL');
+  const [mounted, setMounted] = useState(false);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted || authLoading) return null;
   if (!user) {
-    redirect('/api/auth/login');
+    window.location.href = '/api/auth/login';
+    return null;
   }
 
-  const avatarUrl = user.avatar 
-    ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
-    : `https://cdn.discordapp.com/embed/avatars/${parseInt(user.id) % 5}.png`;
+  const avatarUrl = user.photoURL 
+    ? user.photoURL
+    : `https://cdn.discordapp.com/embed/avatars/${parseInt(user.uid.slice(-1)) % 5}.png`;
 
   const logoUrl = "https://cdn.discordapp.com/icons/1480317681650634943/4dc12935de036824ab5bd7fb93f82a77.webp?size=128&quality=lossless";
 
   const menuItems = [
-    { label: 'MI PANEL', icon: LayoutGrid, active: true },
+    { label: 'MI PANEL', icon: LayoutGrid },
     { label: 'BANCO', icon: Landmark },
     { label: 'MULTAS', icon: ShieldAlert },
+    { label: 'WARNS', icon: AlertTriangle },
     { label: 'VEHÍCULOS', icon: Car },
     { label: 'ARMAS', icon: Crosshair },
     { label: 'INSTAPIC', icon: Hash },
@@ -58,18 +72,18 @@ export default async function TablonPage() {
               <p className="text-[10px] font-bold tracking-[0.2em] text-slate-300 mb-3 px-2">CIUDADANO</p>
               <nav className="flex flex-col gap-0.5">
                 {menuItems.map((item) => (
-                  <Link 
+                  <button 
                     key={item.label}
-                    href="#" 
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-md transition-all group relative ${
-                      item.active 
+                    onClick={() => setActiveTab(item.label)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-md transition-all group relative w-full text-left ${
+                      activeTab === item.label 
                       ? 'bg-blue-50/50 text-sky-600 border-l-4 border-sky-600' 
                       : 'text-slate-500 hover:bg-slate-50'
                     }`}
                   >
-                    <item.icon className={`h-4 w-4 ${item.active ? 'text-sky-600' : 'text-slate-600'}`} />
+                    <item.icon className={`h-4 w-4 ${activeTab === item.label ? 'text-sky-600' : 'text-slate-600'}`} />
                     <span className="text-[11px] font-bold tracking-wider">{item.label}</span>
-                  </Link>
+                  </button>
                 ))}
               </nav>
             </div>
@@ -100,13 +114,13 @@ export default async function TablonPage() {
           
           <div className="flex items-center gap-3">
             <div className="flex flex-col items-end mr-1">
-              <span className="text-xs font-bold text-slate-700 leading-none">{user.username}</span>
-              <span className="text-[9px] text-slate-400 mt-1 uppercase tracking-tighter">ID: {user.id.substring(0, 8)}</span>
+              <span className="text-xs font-bold text-slate-700 leading-none">{user.displayName || 'Ciudadano'}</span>
+              <span className="text-[9px] text-slate-400 mt-1 uppercase tracking-tighter">ID: {user.uid.substring(0, 8)}</span>
             </div>
             <div className="relative h-9 w-9 rounded-full overflow-hidden border-2 border-slate-100 shadow-sm">
               <Image 
                 src={avatarUrl}
-                alt={user.username}
+                alt="Avatar"
                 fill
                 className="object-cover"
               />
@@ -116,79 +130,97 @@ export default async function TablonPage() {
 
         {/* Content Body */}
         <main className="flex-1 overflow-auto p-6 space-y-6 bg-slate-50/50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="relative h-14 w-14 rounded-xl overflow-hidden shadow-md">
-                <Image src={logoUrl} alt="Logo" fill className="object-cover" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-slate-800">Panel Personal</h2>
-                <p className="text-xs text-slate-400">Estado actual y herramientas de navegación.</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-3 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="bg-white border-none shadow-sm rounded-xl overflow-hidden">
-                  <div className="h-1 bg-sky-600 w-full" />
-                  <CardHeader className="p-4 pb-2">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Efectivo</p>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0">
-                    <div className="text-2xl font-bold text-slate-800">0 <span className="text-slate-300">🪙</span></div>
-                    <p className="text-[10px] text-slate-400 mt-1 font-bold">Sin actividad reciente</p>
-                  </CardContent>
-                </Card>
-                <Card className="bg-white border-none shadow-sm rounded-xl overflow-hidden">
-                  <div className="h-1 bg-orange-400 w-full" />
-                  <CardHeader className="p-4 pb-2">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Salud</p>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0">
-                    <div className="text-2xl font-bold text-slate-800">100%</div>
-                    <div className="mt-2 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-orange-400 w-[100%]" />
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-white border-none shadow-sm rounded-xl overflow-hidden">
-                  <div className="h-1 bg-emerald-500 w-full" />
-                  <CardHeader className="p-4 pb-2">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Travesías</p>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0">
-                    <div className="text-2xl font-bold text-slate-800">0</div>
-                    <p className="text-[10px] text-slate-400 mt-1 font-bold">Rango: Recluta</p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card className="bg-white border-none shadow-sm rounded-xl p-8 flex flex-col items-center justify-center text-center space-y-4">
-                <div className="h-20 w-20 bg-slate-50 rounded-full flex items-center justify-center">
-                  <Package className="h-10 w-10 text-slate-200" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-slate-700">Sin datos de actividad</h3>
-                  <p className="text-sm text-slate-400 max-w-xs mx-auto">Comienza tu aventura en Cádiz para ver tus estadísticas y progresos aquí.</p>
-                </div>
-              </Card>
-            </div>
-
-            <div className="lg:col-span-1 space-y-6">
-              <Card className="bg-white border-none shadow-sm rounded-xl">
-                <CardHeader className="p-4">
-                  <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Notificaciones</CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 pt-0 space-y-3">
-                  <div className="text-center py-8">
-                    <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">No hay avisos</p>
+          {activeTab === 'MI PANEL' && (
+            <>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="relative h-14 w-14 rounded-xl overflow-hidden shadow-md">
+                    <Image src={logoUrl} alt="Logo" fill className="object-cover" />
                   </div>
-                </CardContent>
-              </Card>
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-800">Panel Personal</h2>
+                    <p className="text-xs text-slate-400">Estado actual y herramientas de navegación.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                <div className="lg:col-span-3 space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Card className="bg-white border-none shadow-sm rounded-xl overflow-hidden">
+                      <div className="h-1 bg-sky-600 w-full" />
+                      <CardHeader className="p-4 pb-2">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Efectivo</p>
+                      </CardHeader>
+                      <CardContent className="p-4 pt-0">
+                        <div className="text-2xl font-bold text-slate-800">0 <span className="text-slate-300">🪙</span></div>
+                        <p className="text-[10px] text-slate-400 mt-1 font-bold">Sin actividad reciente</p>
+                      </CardContent>
+                    </Card>
+                    <Card className="bg-white border-none shadow-sm rounded-xl overflow-hidden">
+                      <div className="h-1 bg-orange-400 w-full" />
+                      <CardHeader className="p-4 pb-2">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Salud</p>
+                      </CardHeader>
+                      <CardContent className="p-4 pt-0">
+                        <div className="text-2xl font-bold text-slate-800">100%</div>
+                        <div className="mt-2 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-orange-400 w-[100%]" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card className="bg-white border-none shadow-sm rounded-xl overflow-hidden">
+                      <div className="h-1 bg-emerald-500 w-full" />
+                      <CardHeader className="p-4 pb-2">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Travesías</p>
+                      </CardHeader>
+                      <CardContent className="p-4 pt-0">
+                        <div className="text-2xl font-bold text-slate-800">0</div>
+                        <p className="text-[10px] text-slate-400 mt-1 font-bold">Rango: Recluta</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Card className="bg-white border-none shadow-sm rounded-xl p-8 flex flex-col items-center justify-center text-center space-y-4">
+                    <div className="h-20 w-20 bg-slate-50 rounded-full flex items-center justify-center">
+                      <Package className="h-10 w-10 text-slate-200" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-700">Sin datos de actividad</h3>
+                      <p className="text-sm text-slate-400 max-w-xs mx-auto">Comienza tu aventura en Cádiz para ver tus estadísticas y progresos aquí.</p>
+                    </div>
+                  </Card>
+                </div>
+
+                <div className="lg:col-span-1 space-y-6">
+                  <Card className="bg-white border-none shadow-sm rounded-xl">
+                    <CardHeader className="p-4">
+                      <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Notificaciones</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-0 space-y-3">
+                      <div className="text-center py-8">
+                        <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">No hay avisos</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'WARNS' && (
+            <WarnsSection userId={user.uid} />
+          )}
+
+          {activeTab !== 'MI PANEL' && activeTab !== 'WARNS' && (
+            <div className="flex flex-col items-center justify-center h-full text-center space-y-4 opacity-50">
+              <Package className="h-12 w-12 text-slate-300" />
+              <div>
+                <h3 className="text-lg font-bold text-slate-700 uppercase tracking-widest">{activeTab}</h3>
+                <p className="text-xs text-slate-400">Esta sección estará disponible próximamente.</p>
+              </div>
             </div>
-          </div>
+          )}
         </main>
       </div>
     </div>

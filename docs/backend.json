@@ -14,6 +14,20 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "username"]
+    },
+    "Warn": {
+      "title": "Advertencia",
+      "description": "Sanción aplicada a un usuario por moderación.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "moderador": { "type": "string" },
+        "razon": { "type": "string" },
+        "fecha": { "type": "string" },
+        "apelada": { "type": "boolean" },
+        "apelaRazon": { "type": "string", "nullable": true }
+      },
+      "required": ["id", "moderador", "razon", "fecha", "apelada"]
     }
   },
   "auth": {
@@ -23,6 +37,10 @@
     "/users/{userId}": {
       "schema": { "$ref": "#/backend/entities/UserProfile" },
       "description": "Datos de usuario persistidos en Firestore."
+    },
+    "/users/{userId}/warns/{warnId}": {
+      "schema": { "$ref": "#/backend/entities/Warn" },
+      "description": "Lista de advertencias del usuario."
     }
   }
 }
