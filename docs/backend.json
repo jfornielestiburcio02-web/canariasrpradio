@@ -10,9 +10,6 @@
         "username": { "type": "string" },
         "avatar": { "type": "string" },
         "empresaId": { "type": "string", "nullable": true },
-        "doblones": { "type": "number" },
-        "shipStatus": { "type": "string" },
-        "updatedAt": { "type": "string", "format": "date-time" },
         "wallet": {
           "type": "object",
           "properties": {
