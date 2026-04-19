@@ -29,20 +29,18 @@
             "razonRechazo": { "type": "string", "nullable": true },
             "solicitadoEn": { "type": "string", "format": "date-time" }
           }
-        },
-        "licencia_conducir": { "$ref": "#/backend/entities/License" },
-        "licencia_armas": { "$ref": "#/backend/entities/License" },
-        "licencia_navegar": { "$ref": "#/backend/entities/License" }
+        }
       },
       "required": ["id", "username"]
     },
     "Company": {
       "title": "Empresa",
-      "description": "Datos de una empresa vinculada al usuario.",
+      "description": "Datos de una empresa.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "nombre": { "type": "string" },
+        "ownerId": { "type": "string" },
         "tipo": { "type": "string" },
         "nivel": { "type": "number" },
         "empleadosCapacity": { "type": "number" },
@@ -50,47 +48,22 @@
         "actividadRegistrada": { "type": "number" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["nombre"]
+      "required": ["nombre", "ownerId"]
     },
-    "License": {
-      "title": "Licencia",
-      "description": "Documento que habilita una actividad específica.",
+    "Loan": {
+      "title": "Préstamo",
+      "description": "Registro de un préstamo bancario para una empresa.",
       "type": "object",
       "properties": {
-        "tipo": { "type": "string" },
-        "puntos": { "type": "number" },
-        "expiresAt": { "type": "string", "format": "date-time", "nullable": true },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "suspendidaHasta": { "type": "string", "format": "date-time", "nullable": true }
+        "id": { "type": "string" },
+        "amount": { "type": "number" },
+        "totalWithInterest": { "type": "number" },
+        "monthlyPayment": { "type": "number" },
+        "months": { "type": "number" },
+        "paid": { "type": "number" },
+        "status": { "type": "string", "enum": ["pendiente", "pagado"] },
+        "createdAt": { "type": "string", "format": "date-time" }
       }
-    },
-    "Warn": {
-      "title": "Advertencia",
-      "description": "Sanción aplicada a un usuario por moderación.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "moderador": { "type": "string" },
-        "razon": { "type": "string" },
-        "fecha": { "type": "string" },
-        "apelada": { "type": "boolean" },
-        "apelaRazon": { "type": "string", "nullable": true }
-      },
-      "required": ["id", "moderador", "razon", "fecha", "apelada"]
-    },
-    "Antecedent": {
-      "title": "Antecedente Policial",
-      "description": "Registro de arresto o multa de un usuario.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "tipo": { "type": "string", "enum": ["arresto", "multa"] },
-        "razon": { "type": "string" },
-        "imageUrl": { "type": "string", "nullable": true },
-        "fechaRegistro": { "type": "string" },
-        "retirado": { "type": "boolean" }
-      },
-      "required": ["id", "tipo", "razon", "fechaRegistro", "retirado"]
     }
   },
   "auth": {
@@ -101,17 +74,13 @@
       "schema": { "$ref": "#/backend/entities/UserProfile" },
       "description": "Datos de usuario persistidos en Firestore."
     },
-    "/users/{userId}/empresas/{companyId}": {
+    "/empresas/{companyId}": {
       "schema": { "$ref": "#/backend/entities/Company" },
-      "description": "Empresas en las que participa el usuario."
+      "description": "Colección global de empresas."
     },
-    "/users/{userId}/warns/{warnId}": {
-      "schema": { "$ref": "#/backend/entities/Warn" },
-      "description": "Lista de advertencias del usuario."
-    },
-    "/users/{userId}/antecedentes/{antecedentId}": {
-      "schema": { "$ref": "#/backend/entities/Antecedent" },
-      "description": "Lista de antecedentes policiales del usuario."
+    "/empresas/{companyId}/loans/{loanId}": {
+      "schema": { "$ref": "#/backend/entities/Loan" },
+      "description": "Préstamos asociados a una empresa específica."
     }
   }
 }
