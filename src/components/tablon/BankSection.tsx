@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from 'react';
 import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, collection, query, orderBy, setDoc, updateDoc, increment, serverTimestamp, where, writeBatch, getDoc } from 'firebase/firestore';
+import { doc, collection, query, orderBy, setDoc, updateDoc, increment, serverTimestamp, where, writeBatch } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -23,14 +23,11 @@ import {
   Loader2, 
   Landmark, 
   Wallet, 
-  TrendingUp, 
   History, 
   HandCoins, 
   PlusCircle,
   AlertCircle,
-  CheckCircle2,
   ShieldCheck,
-  Coins,
   FileText,
   Send,
   ArrowDownLeft,
@@ -76,19 +73,11 @@ export function BankSection({ userId }: { userId: string }) {
   const { toast } = useToast();
   const { data: userData, loading: userLoading } = useDoc<any>(doc(db, 'users', userId));
   
-  // Préstamos
-  const userEmpresasQuery = useMemoFirebase(() => {
-    if (!db || !userId) return null;
-    return collection(db, 'users', userId, 'empresas');
-  }, [db, userId]);
-  const { data: userEmpresas } = useCollection<any>(userEmpresasQuery);
-
   const [loanAmount, setLoanAmount] = useState('');
   const [loanMonths, setLoanMonths] = useState('12');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [openLoan, setOpenLoan] = useState(false);
 
-  // Facturas
   const [invoiceAmount, setInvoiceAmount] = useState('');
   const [invoiceReceiver, setInvoiceReceiver] = useState('');
   const [invoiceConcept, setInvoiceConcept] = useState('');
@@ -96,11 +85,8 @@ export function BankSection({ userId }: { userId: string }) {
   const [isPayingInvoice, setIsPayingInvoice] = useState<string | null>(null);
   const [openInvoice, setOpenInvoice] = useState(false);
 
-  const empresaId = useMemo(() => {
-    if (userData?.empresaId) return userData.empresaId;
-    if (userEmpresas && userEmpresas.length > 0) return userEmpresas[0].id;
-    return null;
-  }, [userData, userEmpresas]);
+  const wallet = userData?.wallet || { balance: 0, bankBalance: 0 };
+  const empresaId = userData?.empresaId || null;
 
   const loansQuery = useMemoFirebase(() => {
     if (!db || !empresaId) return null;
@@ -111,7 +97,6 @@ export function BankSection({ userId }: { userId: string }) {
   }, [db, empresaId]);
   const { data: loans } = useCollection<Loan>(loansQuery);
 
-  // Facturas recibidas
   const receivedInvoicesQuery = useMemoFirebase(() => {
     if (!db || !userId) return null;
     return query(
@@ -122,7 +107,6 @@ export function BankSection({ userId }: { userId: string }) {
   }, [db, userId]);
   const { data: receivedInvoices } = useCollection<Invoice>(receivedInvoicesQuery);
 
-  // Facturas emitidas
   const issuedInvoicesQuery = useMemoFirebase(() => {
     if (!db || !userId) return null;
     return query(
@@ -133,7 +117,6 @@ export function BankSection({ userId }: { userId: string }) {
   }, [db, userId]);
   const { data: issuedInvoices } = useCollection<Invoice>(issuedInvoicesQuery);
 
-  // Historial de transacciones
   const transactionsQuery = useMemoFirebase(() => {
     if (!db || !userId) return null;
     return query(
@@ -199,18 +182,8 @@ export function BankSection({ userId }: { userId: string }) {
     try {
       await setDoc(doc(db, 'facturas', invoiceId), {
         id: invoiceId,
-        issuerId: invoiceReceiver, // En rol a veces se invierte el concepto de emisor/receptor en el ID de discord
-        receiverId: userId, // El receptor es quien recibe la factura para pagar
-        amount: Number(invoiceAmount),
-        concepto: invoiceConcept || 'Impuestos/Servicios',
-        estado: 'pendiente',
-        createdAt: serverTimestamp()
-      });
-      // Invertimos para la lógica de "yo pido dinero"
-      await setDoc(doc(db, 'facturas', invoiceId), {
-        id: invoiceId,
-        issuerId: userId, // Yo emito
-        receiverId: invoiceReceiver, // Él recibe
+        issuerId: userId,
+        receiverId: invoiceReceiver,
         amount: Number(invoiceAmount),
         concepto: invoiceConcept || 'Servicios marítimos',
         estado: 'pendiente',
@@ -232,8 +205,8 @@ export function BankSection({ userId }: { userId: string }) {
   const handlePayInvoice = async (invoice: Invoice) => {
     if (!db || !userId || !userData) return;
     
-    const currentBankBalance = userData.wallet?.bankBalance || 0;
     const amountToPay = Number(invoice.amount);
+    const currentBankBalance = userData.wallet?.bankBalance || 0;
 
     if (currentBankBalance < amountToPay) {
       toast({ 
@@ -249,56 +222,44 @@ export function BankSection({ userId }: { userId: string }) {
     try {
       const batch = writeBatch(db);
 
-      // 1. Actualizar estado de la factura
+      // 1. Marcar factura como pagada
       batch.update(doc(db, 'facturas', invoice.id), {
         estado: 'pagado'
       });
 
-      // 2. Restar dinero al pagador (Yo)
-      // Usamos el ID del usuario actual como receptor de la factura que está pagando
+      // 2. DESCONTAR DINERO AL PAGADOR (CRÍTICO)
       batch.update(doc(db, 'users', userId), {
         'wallet.bankBalance': increment(-amountToPay)
       });
 
-      // 3. Sumar dinero al emisor de la factura
-      batch.update(doc(db, 'users', invoice.issuerId), {
-        'wallet.bankBalance': increment(amountToPay)
-      });
+      // 3. SUMAR DINERO AL EMISOR (Usamos set con merge por si no tiene perfil creado)
+      batch.set(doc(db, 'users', invoice.issuerId), {
+        wallet: {
+          bankBalance: increment(amountToPay)
+        }
+      }, { merge: true });
 
-      // 4. Registrar transacción para el pagador
-      const transIdPayer = `pay_${invoice.id}`;
-      batch.set(doc(db, 'users', userId, 'transacciones', transIdPayer), {
-        id: transIdPayer,
+      // 4. Registrar la salida de dinero en mi historial
+      const transId = `pago_${invoice.id}`;
+      batch.set(doc(db, 'users', userId, 'transacciones', transId), {
+        id: transId,
         amount: -amountToPay,
         tipo: 'pago_factura',
         descripcion: `Pago de factura: ${invoice.concepto}`,
         fecha: serverTimestamp()
       });
 
-      // 5. Registrar transacción para el emisor
-      const transIdIssuer = `collect_${invoice.id}`;
-      batch.set(doc(db, 'users', invoice.issuerId, 'transacciones', transIdIssuer), {
-        id: transIdIssuer,
-        amount: amountToPay,
-        tipo: 'cobro_factura',
-        descripcion: `Cobro de factura: ${invoice.concepto}`,
-        fecha: serverTimestamp()
-      });
-
       await batch.commit();
-      
-      toast({ title: "Factura Pagada", description: `Has pagado ${amountToPay} 🪙 por "${invoice.concepto}".` });
+      toast({ title: "Pago Realizado", description: `Se han descontado ${amountToPay} 🪙 de tu cuenta.` });
     } catch (e) {
       console.error(e);
-      toast({ variant: "destructive", title: "Error", description: "No se pudo procesar el pago bancario." });
+      toast({ variant: "destructive", title: "Error en el Banco", description: "No se pudo procesar el pago bancario." });
     } finally {
       setIsPayingInvoice(null);
     }
   };
 
   if (userLoading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-slate-300" /></div>;
-
-  const wallet = userData?.wallet || { balance: 0, bankBalance: 0 };
 
   return (
     <div className="space-y-6">
@@ -398,11 +359,88 @@ export function BankSection({ userId }: { userId: string }) {
         </Card>
       </div>
 
-      <Tabs defaultValue="prestamos" className="w-full">
+      <Tabs defaultValue="facturas" className="w-full">
         <TabsList className="bg-slate-100/50 p-1 mb-6 rounded-lg w-full md:w-auto">
-          <TabsTrigger value="prestamos" className="text-[10px] font-bold uppercase tracking-widest px-8">Préstamos</TabsTrigger>
           <TabsTrigger value="facturas" className="text-[10px] font-bold uppercase tracking-widest px-8">Facturación</TabsTrigger>
+          <TabsTrigger value="prestamos" className="text-[10px] font-bold uppercase tracking-widest px-8">Préstamos</TabsTrigger>
+          <TabsTrigger value="historial" className="text-[10px] font-bold uppercase tracking-widest px-8">Movimientos</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="facturas" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 px-2">
+                <ArrowDownLeft className="h-5 w-5 text-emerald-500" />
+                <h3 className="text-sm font-bold text-slate-700 uppercase tracking-[0.2em]">Recibidas (Para pagar)</h3>
+              </div>
+              {receivedInvoices && receivedInvoices.length > 0 ? (
+                receivedInvoices.map(inv => (
+                  <Card key={inv.id} className="bg-white border-none shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+                    <CardContent className="p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 bg-emerald-50 rounded-lg flex items-center justify-center text-emerald-600"><Receipt className="h-5 w-5" /></div>
+                        <div>
+                          <p className="text-xs font-bold text-slate-800">{inv.concepto}</p>
+                          <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter">De: {inv.issuerId.substring(0, 10)}...</p>
+                        </div>
+                      </div>
+                      <div className="text-right flex flex-col items-end gap-2">
+                        <div>
+                          <p className="text-sm font-bold text-emerald-600">{inv.amount} 🪙</p>
+                          <Badge variant="secondary" className={`text-[8px] font-bold uppercase mt-1 ${inv.estado === 'pagado' ? 'bg-emerald-100 text-emerald-700' : ''}`}>
+                            {inv.estado}
+                          </Badge>
+                        </div>
+                        {inv.estado === 'pendiente' && (
+                          <Button 
+                            size="sm" 
+                            onClick={() => handlePayInvoice(inv)} 
+                            disabled={isPayingInvoice === inv.id}
+                            className="h-7 text-[9px] font-bold uppercase tracking-widest bg-emerald-600 hover:bg-emerald-700"
+                          >
+                            {isPayingInvoice === inv.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Pagar Ahora'}
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <p className="text-center py-12 text-[10px] font-bold text-slate-300 uppercase">Sin facturas pendientes</p>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 px-2">
+                <ArrowUpRight className="h-5 w-5 text-blue-500" />
+                <h3 className="text-sm font-bold text-slate-700 uppercase tracking-[0.2em]">Emitidas (Por cobrar)</h3>
+              </div>
+              {issuedInvoices && issuedInvoices.length > 0 ? (
+                issuedInvoices.map(inv => (
+                  <Card key={inv.id} className="bg-white border-none shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+                    <CardContent className="p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600"><FileText className="h-5 w-5" /></div>
+                        <div>
+                          <p className="text-xs font-bold text-slate-800">{inv.concepto}</p>
+                          <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter">A: {inv.receiverId.substring(0, 10)}...</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-slate-800">{inv.amount} 🪙</p>
+                        <Badge variant="outline" className={`text-[8px] font-bold uppercase mt-1 border-blue-100 text-blue-600 ${inv.estado === 'pagado' ? 'bg-blue-50' : ''}`}>
+                          {inv.estado}
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <p className="text-center py-12 text-[10px] font-bold text-slate-300 uppercase">No has emitido cobros</p>
+              )}
+            </div>
+          </div>
+        </TabsContent>
 
         <TabsContent value="prestamos" className="space-y-4">
           <div className="flex items-center gap-2 px-2">
@@ -450,127 +488,53 @@ export function BankSection({ userId }: { userId: string }) {
           )}
         </TabsContent>
 
-        <TabsContent value="facturas" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 px-2">
-                <ArrowDownLeft className="h-5 w-5 text-emerald-500" />
-                <h3 className="text-sm font-bold text-slate-700 uppercase tracking-[0.2em]">Facturas Recibidas</h3>
+        <TabsContent value="historial">
+          <Card className="bg-white border-none shadow-sm rounded-xl overflow-hidden">
+            <CardHeader className="pb-2 border-b border-slate-50">
+              <div className="flex items-center gap-2">
+                <History className="h-5 w-5 text-slate-400" />
+                <CardTitle className="text-xs font-bold uppercase tracking-widest text-slate-500">Historial de Operaciones</CardTitle>
               </div>
-              {receivedInvoices && receivedInvoices.length > 0 ? (
-                receivedInvoices.map(inv => (
-                  <Card key={inv.id} className="bg-white border-none shadow-sm hover:shadow-md transition-shadow overflow-hidden">
-                    <CardContent className="p-4 flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 bg-emerald-50 rounded-lg flex items-center justify-center text-emerald-600"><Receipt className="h-5 w-5" /></div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-800">{inv.concepto}</p>
-                          <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter">De: {inv.issuerId.substring(0, 10)}...</p>
+            </CardHeader>
+            <CardContent className="p-0">
+              {transactions && transactions.length > 0 ? (
+                <div className="divide-y divide-slate-50">
+                  {transactions.map((trans) => (
+                    <div key={trans.id} className="p-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
+                          trans.amount < 0 ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'
+                        }`}>
+                          {trans.amount < 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownLeft className="h-4 w-4" />}
                         </div>
-                      </div>
-                      <div className="text-right flex flex-col items-end gap-2">
                         <div>
-                          <p className="text-sm font-bold text-emerald-600">{inv.amount} 🪙</p>
-                          <Badge variant="secondary" className={`text-[8px] font-bold uppercase mt-1 ${inv.estado === 'pagado' ? 'bg-emerald-100 text-emerald-700' : ''}`}>
-                            {inv.estado}
-                          </Badge>
-                        </div>
-                        {inv.estado === 'pendiente' && (
-                          <Button 
-                            size="sm" 
-                            onClick={() => handlePayInvoice(inv)} 
-                            disabled={isPayingInvoice === inv.id}
-                            className="h-7 text-[9px] font-bold uppercase tracking-widest bg-emerald-600 hover:bg-emerald-700"
-                          >
-                            {isPayingInvoice === inv.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Pagar'}
-                          </Button>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              ) : (
-                <p className="text-center py-12 text-[10px] font-bold text-slate-300 uppercase">Sin facturas pendientes</p>
-              )}
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 px-2">
-                <ArrowUpRight className="h-5 w-5 text-blue-500" />
-                <h3 className="text-sm font-bold text-slate-700 uppercase tracking-[0.2em]">Facturas Emitidas</h3>
-              </div>
-              {issuedInvoices && issuedInvoices.length > 0 ? (
-                issuedInvoices.map(inv => (
-                  <Card key={inv.id} className="bg-white border-none shadow-sm hover:shadow-md transition-shadow overflow-hidden">
-                    <CardContent className="p-4 flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600"><FileText className="h-5 w-5" /></div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-800">{inv.concepto}</p>
-                          <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter">A: {inv.receiverId.substring(0, 10)}...</p>
+                          <p className="text-xs font-bold text-slate-800">{trans.descripcion}</p>
+                          <p className="text-[10px] text-slate-400 font-medium">
+                            {trans.fecha ? format(trans.fecha.toDate(), "d 'de' MMMM, HH:mm", { locale: es }) : 'Cargando...'}
+                          </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-bold text-slate-800">{inv.amount} 🪙</p>
-                        <Badge variant="outline" className={`text-[8px] font-bold uppercase mt-1 border-blue-100 text-blue-600 ${inv.estado === 'pagado' ? 'bg-blue-50' : ''}`}>
-                          {inv.estado}
+                        <p className={`text-sm font-bold ${trans.amount < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                          {trans.amount > 0 ? '+' : ''}{trans.amount.toLocaleString()} 🪙
+                        </p>
+                        <Badge variant="outline" className="text-[8px] font-bold uppercase border-slate-100 text-slate-400">
+                          {trans.tipo}
                         </Badge>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))
+                    </div>
+                  ))}
+                </div>
               ) : (
-                <p className="text-center py-12 text-[10px] font-bold text-slate-300 uppercase">No has emitido cobros</p>
+                <div className="flex flex-col items-center justify-center py-16 text-center space-y-3">
+                  <ArrowRightLeft className="h-10 w-10 text-slate-200" />
+                  <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">No hay movimientos bancarios registrados</p>
+                </div>
               )}
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
-
-      <Card className="bg-white border-none shadow-sm rounded-xl overflow-hidden">
-        <CardHeader className="pb-2 border-b border-slate-50">
-          <div className="flex items-center gap-2">
-            <History className="h-5 w-5 text-slate-400" />
-            <CardTitle className="text-xs font-bold uppercase tracking-widest text-slate-500">Historial de Operaciones</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {transactions && transactions.length > 0 ? (
-            <div className="divide-y divide-slate-50">
-              {transactions.map((trans) => (
-                <div key={trans.id} className="p-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
-                      trans.amount < 0 ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'
-                    }`}>
-                      {trans.amount < 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownLeft className="h-4 w-4" />}
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-800">{trans.descripcion}</p>
-                      <p className="text-[10px] text-slate-400 font-medium">
-                        {trans.fecha ? format(trans.fecha.toDate(), "d 'de' MMMM, HH:mm", { locale: es }) : 'Cargando...'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className={`text-sm font-bold ${trans.amount < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                      {trans.amount > 0 ? '+' : ''}{trans.amount.toLocaleString()} 🪙
-                    </p>
-                    <Badge variant="outline" className="text-[8px] font-bold uppercase border-slate-100 text-slate-400">
-                      {trans.tipo}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-16 text-center space-y-3">
-              <ArrowRightLeft className="h-10 w-10 text-slate-200" />
-              <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">No hay movimientos bancarios registrados</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
