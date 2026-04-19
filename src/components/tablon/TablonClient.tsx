@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -19,9 +18,11 @@ import {
   Store, 
   ShoppingCart,
   Search,
-  AlertTriangle
+  AlertTriangle,
+  Waves
 } from 'lucide-react';
 import { WarnsSection } from '@/components/tablon/WarnsSection';
+import { DniManager } from '@/components/tablon/DniManager';
 
 export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
   const [activeTab, setActiveTab] = useState('MI PANEL');
@@ -111,6 +112,7 @@ export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
                 alt="Avatar"
                 fill
                 className="object-cover"
+                unoptimized
               />
             </div>
           </div>
@@ -123,7 +125,7 @@ export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="relative h-14 w-14 rounded-xl overflow-hidden shadow-md border border-slate-100">
-                    <Image src={logoUrl} alt="Logo" fill className="object-cover" />
+                    <Image src={logoUrl} alt="Logo" fill className="object-cover" unoptimized />
                   </div>
                   <div>
                     <h2 className="text-xl font-bold text-slate-800">Panel Personal</h2>
@@ -169,15 +171,7 @@ export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
                     </Card>
                   </div>
 
-                  <Card className="bg-white border-none shadow-sm rounded-xl p-12 flex flex-col items-center justify-center text-center space-y-4 border border-slate-100/50">
-                    <div className="h-20 w-20 bg-slate-50 rounded-full flex items-center justify-center">
-                      <Package className="h-10 w-10 text-slate-200" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-slate-700 uppercase tracking-widest">Sin datos</h3>
-                      <p className="text-sm text-slate-400 max-w-xs mx-auto">Tu expediente está siendo procesado por las autoridades del puerto.</p>
-                    </div>
-                  </Card>
+                  <DniManager userId={initialUser.id} />
                 </div>
 
                 <div className="lg:col-span-1 space-y-6">
