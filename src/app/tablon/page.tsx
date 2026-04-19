@@ -19,7 +19,8 @@ import {
   Store, 
   ShoppingCart,
   Search,
-  AlertTriangle
+  AlertTriangle,
+  LogIn
 } from 'lucide-react';
 import { WarnsSection } from '@/components/tablon/WarnsSection';
 
@@ -32,15 +33,53 @@ export default function TablonPage() {
     setMounted(true);
   }, []);
 
-  if (!mounted || authLoading) return null;
-  if (!user) {
-    window.location.href = '/api/auth/login';
-    return null;
+  if (!mounted) return null;
+
+  // Si no hay usuario y ya no está cargando, mostramos una pantalla de acceso en lugar de redirigir en bucle
+  if (!authLoading && !user) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-body">
+        <Card className="max-w-md w-full border-none shadow-2xl rounded-2xl overflow-hidden">
+          <div className="h-2 bg-primary w-full" />
+          <CardHeader className="text-center pt-8">
+            <div className="flex justify-center mb-4">
+              <div className="h-16 w-16 bg-blue-50 rounded-2xl flex items-center justify-center">
+                <LayoutGrid className="h-8 w-8 text-primary" />
+              </div>
+            </div>
+            <CardTitle className="text-2xl font-bold text-slate-800 uppercase tracking-tight">Acceso Requerido</CardTitle>
+            <p className="text-slate-400 text-sm mt-2">Debes iniciar sesión para acceder al panel de gestión de Cádiz RP.</p>
+          </CardHeader>
+          <CardContent className="p-8 pt-4">
+            <Button asChild className="w-full bg-primary hover:bg-primary/90 h-12 font-bold uppercase tracking-widest text-xs">
+              <Link href="/api/auth/login">
+                <LogIn className="mr-2 h-4 w-4" /> Entrar con Discord
+              </Link>
+            </Button>
+            <Button asChild variant="ghost" className="w-full mt-4 text-slate-400 text-[10px] uppercase font-bold tracking-widest">
+              <Link href="/">Volver al inicio</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
-  const avatarUrl = user.photoURL 
+  // Si está cargando Firebase, mostramos un estado neutro
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center font-body">
+        <div className="animate-pulse flex flex-col items-center gap-4">
+          <div className="h-12 w-12 bg-slate-200 rounded-full" />
+          <div className="h-4 w-32 bg-slate-200 rounded" />
+        </div>
+      </div>
+    );
+  }
+
+  const avatarUrl = user?.photoURL 
     ? user.photoURL
-    : `https://cdn.discordapp.com/embed/avatars/${parseInt(user.uid.slice(-1)) % 5}.png`;
+    : `https://cdn.discordapp.com/embed/avatars/${user ? (parseInt(user.uid.slice(-1)) || 0) % 5 : 0}.png`;
 
   const logoUrl = "https://cdn.discordapp.com/icons/1480317681650634943/4dc12935de036824ab5bd7fb93f82a77.webp?size=128&quality=lossless";
 
@@ -114,8 +153,8 @@ export default function TablonPage() {
           
           <div className="flex items-center gap-3">
             <div className="flex flex-col items-end mr-1">
-              <span className="text-xs font-bold text-slate-700 leading-none">{user.displayName || 'Ciudadano'}</span>
-              <span className="text-[9px] text-slate-400 mt-1 uppercase tracking-tighter">ID: {user.uid.substring(0, 8)}</span>
+              <span className="text-xs font-bold text-slate-700 leading-none">{user?.displayName || 'Ciudadano'}</span>
+              <span className="text-[9px] text-slate-400 mt-1 uppercase tracking-tighter">ID: {user?.uid.substring(0, 8) || '000000'}</span>
             </div>
             <div className="relative h-9 w-9 rounded-full overflow-hidden border-2 border-slate-100 shadow-sm">
               <Image 
@@ -208,7 +247,7 @@ export default function TablonPage() {
             </>
           )}
 
-          {activeTab === 'WARNS' && (
+          {activeTab === 'WARNS' && user && (
             <WarnsSection userId={user.uid} />
           )}
 

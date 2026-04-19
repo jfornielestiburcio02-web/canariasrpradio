@@ -7,10 +7,12 @@ export async function GET(request: Request) {
   const code = searchParams.get('code');
 
   if (!code) {
-    return NextResponse.redirect(new URL('/', request.url));
+    console.error('No code received from Discord');
+    return NextResponse.redirect(new URL('/?error=no_code', request.url));
   }
 
   const redirectUri = getRedirectUri(request);
+  console.log('Using redirect URI:', redirectUri);
 
   try {
     const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
@@ -30,8 +32,8 @@ export async function GET(request: Request) {
     const tokens = await tokenResponse.json();
     
     if (tokens.error) {
-      console.error('Discord Token Error:', tokens.error);
-      return NextResponse.redirect(new URL('/?error=auth_failed', request.url));
+      console.error('Discord Token Error:', tokens.error, tokens.error_description);
+      return NextResponse.redirect(new URL(`/?error=auth_failed&msg=${encodeURIComponent(tokens.error)}`, request.url));
     }
 
     const userResponse = await fetch('https://discord.com/api/users/@me', {
@@ -42,6 +44,11 @@ export async function GET(request: Request) {
 
     const userData = await userResponse.json();
     
+    if (!userData.id) {
+      console.error('No user data received from Discord');
+      return NextResponse.redirect(new URL('/?error=no_user_data', request.url));
+    }
+
     await setSessionUser({
       id: userData.id,
       username: userData.username,
@@ -49,6 +56,8 @@ export async function GET(request: Request) {
       discriminator: userData.discriminator,
     });
 
+    // Redirigimos al tablón. Nota: Firebase Auth todavía estará vacío en el cliente 
+    // a menos que implementes un Custom Token o uses el proveedor de Discord nativo de Firebase.
     return NextResponse.redirect(new URL('/tablon', request.url));
   } catch (error) {
     console.error('Auth Callback error:', error);
