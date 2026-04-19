@@ -101,7 +101,7 @@ export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
                     }`}
                   >
                     <item.icon className={`h-4 w-4 ${activeTab === item.label ? 'text-sky-600' : 'text-slate-600'}`} />
-                    <span className="text-[11px] font-bold tracking-wider">{item.label}</span>
+                    <span className="text-[11px] font-bold tracking-wider uppercase">{item.label}</span>
                   </button>
                 ))}
               </nav>
@@ -205,19 +205,19 @@ export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
                             <div className="text-2xl font-bold text-slate-800">
                               {(userData?.wallet?.balance || 0).toLocaleString()} <span className="text-slate-300">🪙</span>
                             </div>
-                            <p className="text-[10px] text-slate-400 mt-1 font-bold">Saldo actual en mano</p>
+                            <p className="text-[10px] text-slate-400 mt-1 font-bold uppercase">En mano</p>
                           </CardContent>
                         </Card>
                         <Card className="bg-white border-none shadow-sm rounded-xl overflow-hidden">
-                          <div className="h-1 bg-orange-400 w-full" />
+                          <div className="h-1 bg-indigo-600 w-full" />
                           <CardHeader className="p-4 pb-2">
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Salud</p>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Banco</p>
                           </CardHeader>
                           <CardContent className="p-4 pt-0">
-                            <div className="text-2xl font-bold text-slate-800">100%</div>
-                            <div className="mt-2 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                              <div className="h-full bg-orange-400 w-[100%]" />
+                            <div className="text-2xl font-bold text-slate-800">
+                              {(userData?.wallet?.bankBalance || 0).toLocaleString()} <span className="text-slate-300">🪙</span>
                             </div>
+                            <p className="text-[10px] text-slate-400 mt-1 font-bold uppercase">Saldo bancario</p>
                           </CardContent>
                         </Card>
                         <Card className="bg-white border-none shadow-sm rounded-xl overflow-hidden">
@@ -227,7 +227,7 @@ export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
                           </CardHeader>
                           <CardContent className="p-4 pt-0">
                             <div className="text-2xl font-bold text-slate-800">0</div>
-                            <p className="text-[10px] text-slate-400 mt-1 font-bold">Rango: Recluta</p>
+                            <p className="text-[10px] text-slate-400 mt-1 font-bold uppercase">Rango: Recluta</p>
                           </CardContent>
                         </Card>
                       </div>

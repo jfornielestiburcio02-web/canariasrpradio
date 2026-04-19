@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from 'react';
 import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, collection, query, orderBy, setDoc, updateDoc, increment, serverTimestamp, where, writeBatch } from 'firebase/firestore';
+import { doc, collection, query, orderBy, setDoc, updateDoc, increment, serverTimestamp, where, writeBatch, getDoc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -38,7 +38,7 @@ import {
   Receipt,
   ArrowRightLeft
 } from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -73,6 +73,7 @@ interface Transaction {
 
 export function BankSection({ userId }: { userId: string }) {
   const db = useFirestore();
+  const { toast } = useToast();
   const { data: userData, loading: userLoading } = useDoc<any>(doc(db, 'users', userId));
   
   // Préstamos
@@ -108,7 +109,7 @@ export function BankSection({ userId }: { userId: string }) {
       orderBy('id', 'desc')
     );
   }, [db, empresaId]);
-  const { data: loans, loading: loansLoading } = useCollection<Loan>(loansQuery);
+  const { data: loans } = useCollection<Loan>(loansQuery);
 
   // Facturas recibidas
   const receivedInvoicesQuery = useMemoFirebase(() => {
@@ -154,7 +155,6 @@ export function BankSection({ userId }: { userId: string }) {
     try {
       const batch = writeBatch(db);
       
-      // Crear préstamo
       batch.set(doc(db, 'empresas', empresaId, 'loans', loanId), {
         id: loanId,
         amount,
@@ -166,12 +166,10 @@ export function BankSection({ userId }: { userId: string }) {
         createdAt: serverTimestamp()
       });
 
-      // Incrementar balance bancario
       batch.update(doc(db, 'users', userId), {
         'wallet.bankBalance': increment(amount)
       });
 
-      // Registrar transacción
       const transId = `loan_${loanId}`;
       batch.set(doc(db, 'users', userId, 'transacciones', transId), {
         id: transId,
@@ -201,13 +199,24 @@ export function BankSection({ userId }: { userId: string }) {
     try {
       await setDoc(doc(db, 'facturas', invoiceId), {
         id: invoiceId,
-        issuerId: userId,
-        receiverId: invoiceReceiver,
+        issuerId: invoiceReceiver, // En rol a veces se invierte el concepto de emisor/receptor en el ID de discord
+        receiverId: userId, // El receptor es quien recibe la factura para pagar
+        amount: Number(invoiceAmount),
+        concepto: invoiceConcept || 'Impuestos/Servicios',
+        estado: 'pendiente',
+        createdAt: serverTimestamp()
+      });
+      // Invertimos para la lógica de "yo pido dinero"
+      await setDoc(doc(db, 'facturas', invoiceId), {
+        id: invoiceId,
+        issuerId: userId, // Yo emito
+        receiverId: invoiceReceiver, // Él recibe
         amount: Number(invoiceAmount),
         concepto: invoiceConcept || 'Servicios marítimos',
         estado: 'pendiente',
         createdAt: serverTimestamp()
       });
+
       toast({ title: "Factura Emitida", description: `Has enviado una factura de ${invoiceAmount} 🪙.` });
       setOpenInvoice(false);
       setInvoiceAmount('');
@@ -224,7 +233,9 @@ export function BankSection({ userId }: { userId: string }) {
     if (!db || !userId || !userData) return;
     
     const currentBankBalance = userData.wallet?.bankBalance || 0;
-    if (currentBankBalance < invoice.amount) {
+    const amountToPay = Number(invoice.amount);
+
+    if (currentBankBalance < amountToPay) {
       toast({ 
         variant: "destructive", 
         title: "Saldo Insuficiente", 
@@ -243,21 +254,22 @@ export function BankSection({ userId }: { userId: string }) {
         estado: 'pagado'
       });
 
-      // 2. Restar dinero al pagador
+      // 2. Restar dinero al pagador (Yo)
+      // Usamos el ID del usuario actual como receptor de la factura que está pagando
       batch.update(doc(db, 'users', userId), {
-        'wallet.bankBalance': increment(-invoice.amount)
+        'wallet.bankBalance': increment(-amountToPay)
       });
 
-      // 3. Sumar dinero al emisor
+      // 3. Sumar dinero al emisor de la factura
       batch.update(doc(db, 'users', invoice.issuerId), {
-        'wallet.bankBalance': increment(invoice.amount)
+        'wallet.bankBalance': increment(amountToPay)
       });
 
       // 4. Registrar transacción para el pagador
       const transIdPayer = `pay_${invoice.id}`;
       batch.set(doc(db, 'users', userId, 'transacciones', transIdPayer), {
         id: transIdPayer,
-        amount: -invoice.amount,
+        amount: -amountToPay,
         tipo: 'pago_factura',
         descripcion: `Pago de factura: ${invoice.concepto}`,
         fecha: serverTimestamp()
@@ -267,7 +279,7 @@ export function BankSection({ userId }: { userId: string }) {
       const transIdIssuer = `collect_${invoice.id}`;
       batch.set(doc(db, 'users', invoice.issuerId, 'transacciones', transIdIssuer), {
         id: transIdIssuer,
-        amount: invoice.amount,
+        amount: amountToPay,
         tipo: 'cobro_factura',
         descripcion: `Cobro de factura: ${invoice.concepto}`,
         fecha: serverTimestamp()
@@ -275,10 +287,10 @@ export function BankSection({ userId }: { userId: string }) {
 
       await batch.commit();
       
-      toast({ title: "Factura Pagada", description: `Has pagado ${invoice.amount} 🪙 por "${invoice.concepto}".` });
+      toast({ title: "Factura Pagada", description: `Has pagado ${amountToPay} 🪙 por "${invoice.concepto}".` });
     } catch (e) {
       console.error(e);
-      toast({ variant: "destructive", title: "Error", description: "No se pudo procesar el pago." });
+      toast({ variant: "destructive", title: "Error", description: "No se pudo procesar el pago bancario." });
     } finally {
       setIsPayingInvoice(null);
     }
@@ -344,7 +356,7 @@ export function BankSection({ userId }: { userId: string }) {
                   <div className="h-16 w-16 bg-amber-50 rounded-full flex items-center justify-center mx-auto">
                     <AlertCircle className="h-8 w-8 text-amber-500" />
                   </div>
-                  <p className="text-sm font-medium text-slate-600 px-4">No hemos detectado ninguna empresa vinculada. Debes formar parte de una organización.</p>
+                  <p className="text-sm font-medium text-slate-600 px-4">No hemos detectado ninguna empresa vinculada. Debes formar parte de una organización para pedir créditos bancarios.</p>
                 </div>
               ) : (
                 <div className="grid gap-6 py-4">
@@ -377,7 +389,7 @@ export function BankSection({ userId }: { userId: string }) {
         <Card className="bg-white border-none shadow-sm rounded-xl overflow-hidden group">
           <div className="h-1 bg-indigo-600 w-full" />
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Caja de Ahorros</CardTitle>
+            <CardTitle className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Saldo en Banco</CardTitle>
             <div className="h-10 w-10 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600"><Landmark className="h-5 w-5" /></div>
           </CardHeader>
           <CardContent>
@@ -447,7 +459,7 @@ export function BankSection({ userId }: { userId: string }) {
               </div>
               {receivedInvoices && receivedInvoices.length > 0 ? (
                 receivedInvoices.map(inv => (
-                  <Card key={inv.id} className="bg-white border-none shadow-sm hover:shadow-md transition-shadow">
+                  <Card key={inv.id} className="bg-white border-none shadow-sm hover:shadow-md transition-shadow overflow-hidden">
                     <CardContent className="p-4 flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className="h-10 w-10 bg-emerald-50 rounded-lg flex items-center justify-center text-emerald-600"><Receipt className="h-5 w-5" /></div>
@@ -489,7 +501,7 @@ export function BankSection({ userId }: { userId: string }) {
               </div>
               {issuedInvoices && issuedInvoices.length > 0 ? (
                 issuedInvoices.map(inv => (
-                  <Card key={inv.id} className="bg-white border-none shadow-sm hover:shadow-md transition-shadow">
+                  <Card key={inv.id} className="bg-white border-none shadow-sm hover:shadow-md transition-shadow overflow-hidden">
                     <CardContent className="p-4 flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className="h-10 w-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600"><FileText className="h-5 w-5" /></div>
