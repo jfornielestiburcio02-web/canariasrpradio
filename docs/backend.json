@@ -78,6 +78,18 @@
         "estado": { "type": "string", "enum": ["pendiente", "pagado", "anulado"] },
         "createdAt": { "type": "string", "format": "date-time" }
       }
+    },
+    "Transaction": {
+      "title": "Transacción",
+      "description": "Registro de un movimiento económico en la cuenta del usuario.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "amount": { "type": "number" },
+        "tipo": { "type": "string" },
+        "descripcion": { "type": "string" },
+        "fecha": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "auth": {
@@ -87,6 +99,10 @@
     "/users/{userId}": {
       "schema": { "$ref": "#/backend/entities/UserProfile" },
       "description": "Datos de usuario persistidos en Firestore."
+    },
+    "/users/{userId}/transacciones/{transId}": {
+      "schema": { "$ref": "#/backend/entities/Transaction" },
+      "description": "Historial de movimientos económicos del usuario."
     },
     "/empresas/{companyId}": {
       "schema": { "$ref": "#/backend/entities/Company" },

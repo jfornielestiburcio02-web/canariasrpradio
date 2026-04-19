@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from 'react';
 import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, collection, query, orderBy, setDoc, updateDoc, increment, serverTimestamp, where } from 'firebase/firestore';
+import { doc, collection, query, orderBy, setDoc, updateDoc, increment, serverTimestamp, where, writeBatch } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -35,9 +35,12 @@ import {
   Send,
   ArrowDownLeft,
   ArrowUpRight,
-  Receipt
+  Receipt,
+  ArrowRightLeft
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 interface Loan {
   id: string;
@@ -58,6 +61,14 @@ interface Invoice {
   concepto: string;
   estado: 'pendiente' | 'pagado' | 'anulado';
   createdAt: any;
+}
+
+interface Transaction {
+  id: string;
+  amount: number;
+  tipo: string;
+  descripcion: string;
+  fecha: any;
 }
 
 export function BankSection({ userId }: { userId: string }) {
@@ -81,6 +92,7 @@ export function BankSection({ userId }: { userId: string }) {
   const [invoiceReceiver, setInvoiceReceiver] = useState('');
   const [invoiceConcept, setInvoiceConcept] = useState('');
   const [isIssuingInvoice, setIsIssuingInvoice] = useState(false);
+  const [isPayingInvoice, setIsPayingInvoice] = useState<string | null>(null);
   const [openInvoice, setOpenInvoice] = useState(false);
 
   const empresaId = useMemo(() => {
@@ -120,6 +132,16 @@ export function BankSection({ userId }: { userId: string }) {
   }, [db, userId]);
   const { data: issuedInvoices } = useCollection<Invoice>(issuedInvoicesQuery);
 
+  // Historial de transacciones
+  const transactionsQuery = useMemoFirebase(() => {
+    if (!db || !userId) return null;
+    return query(
+      collection(db, 'users', userId, 'transacciones'),
+      orderBy('fecha', 'desc')
+    );
+  }, [db, userId]);
+  const { data: transactions } = useCollection<Transaction>(transactionsQuery);
+
   const handleCreateLoan = async () => {
     if (!db || !empresaId || !loanAmount) return;
     setIsSubmitting(true);
@@ -130,7 +152,10 @@ export function BankSection({ userId }: { userId: string }) {
     const loanId = Date.now().toString();
 
     try {
-      await setDoc(doc(db, 'empresas', empresaId, 'loans', loanId), {
+      const batch = writeBatch(db);
+      
+      // Crear préstamo
+      batch.set(doc(db, 'empresas', empresaId, 'loans', loanId), {
         id: loanId,
         amount,
         totalWithInterest,
@@ -140,9 +165,24 @@ export function BankSection({ userId }: { userId: string }) {
         status: 'aprobado',
         createdAt: serverTimestamp()
       });
-      await updateDoc(doc(db, 'users', userId), {
+
+      // Incrementar balance bancario
+      batch.update(doc(db, 'users', userId), {
         'wallet.bankBalance': increment(amount)
       });
+
+      // Registrar transacción
+      const transId = `loan_${loanId}`;
+      batch.set(doc(db, 'users', userId, 'transacciones', transId), {
+        id: transId,
+        amount,
+        tipo: 'prestamo',
+        descripcion: `Préstamo concedido de ${amount} 🪙`,
+        fecha: serverTimestamp()
+      });
+
+      await batch.commit();
+      
       toast({ title: "¡Crédito Concedido!", description: `${amount} 🪙 ingresados en tu cuenta.` });
       setOpenLoan(false);
       setLoanAmount('');
@@ -177,6 +217,70 @@ export function BankSection({ userId }: { userId: string }) {
       console.error(e);
     } finally {
       setIsIssuingInvoice(false);
+    }
+  };
+
+  const handlePayInvoice = async (invoice: Invoice) => {
+    if (!db || !userId || !userData) return;
+    
+    const currentBankBalance = userData.wallet?.bankBalance || 0;
+    if (currentBankBalance < invoice.amount) {
+      toast({ 
+        variant: "destructive", 
+        title: "Saldo Insuficiente", 
+        description: "No tienes suficientes doblones en el banco para pagar esta factura." 
+      });
+      return;
+    }
+
+    setIsPayingInvoice(invoice.id);
+
+    try {
+      const batch = writeBatch(db);
+
+      // 1. Actualizar estado de la factura
+      batch.update(doc(db, 'facturas', invoice.id), {
+        estado: 'pagado'
+      });
+
+      // 2. Restar dinero al pagador
+      batch.update(doc(db, 'users', userId), {
+        'wallet.bankBalance': increment(-invoice.amount)
+      });
+
+      // 3. Sumar dinero al emisor
+      batch.update(doc(db, 'users', invoice.issuerId), {
+        'wallet.bankBalance': increment(invoice.amount)
+      });
+
+      // 4. Registrar transacción para el pagador
+      const transIdPayer = `pay_${invoice.id}`;
+      batch.set(doc(db, 'users', userId, 'transacciones', transIdPayer), {
+        id: transIdPayer,
+        amount: -invoice.amount,
+        tipo: 'pago_factura',
+        descripcion: `Pago de factura: ${invoice.concepto}`,
+        fecha: serverTimestamp()
+      });
+
+      // 5. Registrar transacción para el emisor
+      const transIdIssuer = `collect_${invoice.id}`;
+      batch.set(doc(db, 'users', invoice.issuerId, 'transacciones', transIdIssuer), {
+        id: transIdIssuer,
+        amount: invoice.amount,
+        tipo: 'cobro_factura',
+        descripcion: `Cobro de factura: ${invoice.concepto}`,
+        fecha: serverTimestamp()
+      });
+
+      await batch.commit();
+      
+      toast({ title: "Factura Pagada", description: `Has pagado ${invoice.amount} 🪙 por "${invoice.concepto}".` });
+    } catch (e) {
+      console.error(e);
+      toast({ variant: "destructive", title: "Error", description: "No se pudo procesar el pago." });
+    } finally {
+      setIsPayingInvoice(null);
     }
   };
 
@@ -352,9 +456,23 @@ export function BankSection({ userId }: { userId: string }) {
                           <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter">De: {inv.issuerId.substring(0, 10)}...</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-bold text-emerald-600">{inv.amount} 🪙</p>
-                        <Badge variant="secondary" className="text-[8px] font-bold uppercase mt-1">{inv.estado}</Badge>
+                      <div className="text-right flex flex-col items-end gap-2">
+                        <div>
+                          <p className="text-sm font-bold text-emerald-600">{inv.amount} 🪙</p>
+                          <Badge variant="secondary" className={`text-[8px] font-bold uppercase mt-1 ${inv.estado === 'pagado' ? 'bg-emerald-100 text-emerald-700' : ''}`}>
+                            {inv.estado}
+                          </Badge>
+                        </div>
+                        {inv.estado === 'pendiente' && (
+                          <Button 
+                            size="sm" 
+                            onClick={() => handlePayInvoice(inv)} 
+                            disabled={isPayingInvoice === inv.id}
+                            className="h-7 text-[9px] font-bold uppercase tracking-widest bg-emerald-600 hover:bg-emerald-700"
+                          >
+                            {isPayingInvoice === inv.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Pagar'}
+                          </Button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -382,7 +500,9 @@ export function BankSection({ userId }: { userId: string }) {
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-bold text-slate-800">{inv.amount} 🪙</p>
-                        <Badge variant="outline" className="text-[8px] font-bold uppercase mt-1 border-blue-100 text-blue-600">{inv.estado}</Badge>
+                        <Badge variant="outline" className={`text-[8px] font-bold uppercase mt-1 border-blue-100 text-blue-600 ${inv.estado === 'pagado' ? 'bg-blue-50' : ''}`}>
+                          {inv.estado}
+                        </Badge>
                       </div>
                     </CardContent>
                   </Card>
@@ -396,17 +516,47 @@ export function BankSection({ userId }: { userId: string }) {
       </Tabs>
 
       <Card className="bg-white border-none shadow-sm rounded-xl overflow-hidden">
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-2 border-b border-slate-50">
           <div className="flex items-center gap-2">
             <History className="h-5 w-5 text-slate-400" />
             <CardTitle className="text-xs font-bold uppercase tracking-widest text-slate-500">Historial de Operaciones</CardTitle>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-12 text-center space-y-3 opacity-40">
-            <TrendingUp className="h-10 w-10 text-slate-300" />
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No hay movimientos bancarios recientes</p>
-          </div>
+        <CardContent className="p-0">
+          {transactions && transactions.length > 0 ? (
+            <div className="divide-y divide-slate-50">
+              {transactions.map((trans) => (
+                <div key={trans.id} className="p-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
+                      trans.amount < 0 ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'
+                    }`}>
+                      {trans.amount < 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownLeft className="h-4 w-4" />}
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-800">{trans.descripcion}</p>
+                      <p className="text-[10px] text-slate-400 font-medium">
+                        {trans.fecha ? format(trans.fecha.toDate(), "d 'de' MMMM, HH:mm", { locale: es }) : 'Cargando...'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-sm font-bold ${trans.amount < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                      {trans.amount > 0 ? '+' : ''}{trans.amount.toLocaleString()} 🪙
+                    </p>
+                    <Badge variant="outline" className="text-[8px] font-bold uppercase border-slate-100 text-slate-400">
+                      {trans.tipo}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 text-center space-y-3">
+              <ArrowRightLeft className="h-10 w-10 text-slate-200" />
+              <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">No hay movimientos bancarios registrados</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
