@@ -1,8 +1,9 @@
+
 {
   "entities": {
     "UserProfile": {
       "title": "Perfil de Usuario",
-      "description": "Datos de perfil extendidos guardados en Firestore, incluyendo el DNI.",
+      "description": "Datos de perfil extendidos guardados en Firestore, incluyendo el DNI y Licencias.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -22,9 +23,24 @@
             "razonRechazo": { "type": "string", "nullable": true },
             "solicitadoEn": { "type": "string", "format": "date-time" }
           }
-        }
+        },
+        "licencia_conducir": { "$ref": "#/backend/entities/License" },
+        "licencia_armas": { "$ref": "#/backend/entities/License" },
+        "licencia_navegar": { "$ref": "#/backend/entities/License" }
       },
       "required": ["id", "username"]
+    },
+    "License": {
+      "title": "Licencia",
+      "description": "Documento que habilita una actividad específica.",
+      "type": "object",
+      "properties": {
+        "tipo": { "type": "string" },
+        "puntos": { "type": "number" },
+        "expiresAt": { "type": "string", "format": "date-time", "nullable": true },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "suspendidaHasta": { "type": "string", "format": "date-time", "nullable": true }
+      }
     },
     "Warn": {
       "title": "Advertencia",
