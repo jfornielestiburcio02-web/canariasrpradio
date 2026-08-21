@@ -6,8 +6,8 @@ import Image from 'next/image';
 import { PlaceHolderImages } from '@/app/lib/placeholder-images';
 
 export default function LoginPage() {
-  // URL exacta proporcionada por el usuario con el endpoint corregido
-  const DISCORD_URL = "https://discord.com/oauth2/authorize?client_id=1534483909830512730&response_type=code&redirect_uri=https://6000-firebase-studio-1776271662955.cluster-cbeiita7rbe7iuwhvjs5zww2i4.cloudworkstations.dev/inicio_desde_menu&integration_type=0&scope=identify+applications.commands+guilds.members.read";
+  // URL definitiva 100% proporcionada por el usuario
+  const DISCORD_URL = "https://discord.com/oauth2/authorize?client_id=1534483909830512730&response_type=code&redirect_uri=https%3A%2F%2F6000-firebase-studio-1776271662955.cluster-cbeiita7rbe7iuwhvjs5zww2i4.cloudworkstations.dev%2Finicio_desde_menu&scope=identify+guilds.members.read+guilds";
   
   const bgImage = PlaceHolderImages.find(img => img.id === 'tenerife-rp-bg');
 
@@ -20,7 +20,7 @@ export default function LoginPage() {
         <CardHeader className="space-y-6 text-center pt-12 pb-8 px-8">
           <div className="flex justify-center">
             {/* Logo Circular Institucional */}
-            <div className="relative h-32 w-32 rounded-full overflow-hidden border-4 border-slate-50 shadow-xl ring-1 ring-slate-100">
+            <div className="relative h-32 w-32 rounded-full overflow-hidden border-4 border-slate-50 shadow-xl ring-1 ring-slate-100 bg-slate-50">
               {bgImage && (
                 <Image
                   src={bgImage.imageUrl}
