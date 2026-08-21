@@ -11,6 +11,8 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
   const onMessageRef = useRef<(msg: SignalingMessage) => void>(() => {});
   const isComponentMounted = useRef(true);
   const reconnectTimeout = useRef<NodeJS.Timeout | null>(null);
+  const connectionIdCounter = useRef(0);
+  const currentConnectionId = useRef<number | null>(null);
 
   const setOnMessage = (callback: (msg: SignalingMessage) => void) => {
     onMessageRef.current = callback;
@@ -22,30 +24,44 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
       return;
     }
 
+    // Incrementar ID de conexión para trazabilidad
+    const connId = ++connectionIdCounter.current;
+    currentConnectionId.current = connId;
+
     if (ws.current) {
+      console.log(`[WS][LIFECYCLE] Cerrando conexión previa id=${connId - 1} para abrir id=${connId}`);
+      // IMPORTANTE: Silenciar manejadores antes de cerrar para evitar bucles de reconexión
+      ws.current.onclose = null;
+      ws.current.onerror = null;
+      ws.current.onmessage = null;
+      ws.current.onopen = null;
       ws.current.close();
+      ws.current = null;
     }
 
+    console.log(`[WS][CREATE] id=${connId} | Canal: ${channel} | Usuario: ${userId}`);
     setStatus('connecting');
+    
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/radio`;
 
     try {
-      console.log(`[WS][CREATE] Intentando conectar a: ${wsUrl}`);
-      ws.current = new WebSocket(wsUrl);
+      const socket = new WebSocket(wsUrl);
+      ws.current = socket;
 
-      ws.current.onopen = () => {
-        if (!isComponentMounted.current) return;
-        console.log('[WS][OPEN] Conexión establecida con el servidor');
+      socket.onopen = () => {
+        if (!isComponentMounted.current || currentConnectionId.current !== connId) return;
+        console.log(`[WS][OPEN] id=${connId} - Conexión establecida`);
         setStatus('connected');
-        ws.current?.send(JSON.stringify({
+        socket.send(JSON.stringify({
           type: 'join_channel',
           channel,
           from: userId
         }));
       };
 
-      ws.current.onmessage = (event) => {
+      socket.onmessage = (event) => {
+        if (currentConnectionId.current !== connId) return;
         try {
           const msg: SignalingMessage = JSON.parse(event.data);
           if (msg.type === 'channel_peers_update') {
@@ -53,27 +69,35 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
           }
           onMessageRef.current(msg);
         } catch (e) {
-          console.warn('[WS] Error al parsear mensaje', e);
+          console.warn(`[WS][MESSAGE] id=${connId} - Error al parsear`, e);
         }
       };
 
-      ws.current.onclose = (e) => {
-        console.log(`[WS][CLOSE] Conexión cerrada. Code: ${e.code}, Reason: ${e.reason || 'none'}`);
+      socket.onclose = (e) => {
+        if (currentConnectionId.current !== connId) return;
+        console.log(`[WS][CLOSE] id=${connId} - Code: ${e.code}, Reason: ${e.reason || 'none'}`);
+        
         if (isComponentMounted.current) {
           setStatus('disconnected');
           setPeers([]);
-          // Reintento automático
+          
+          // Reintento controlado solo si no es un desmontaje
           if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
-          reconnectTimeout.current = setTimeout(connect, 3000);
+          reconnectTimeout.current = setTimeout(() => {
+            console.log(`[WS][LIFECYCLE] Reintentando conexión tras cierre id=${connId}`);
+            connect();
+          }, 3000);
         }
       };
 
-      ws.current.onerror = (err) => {
-        console.error('[WS][ERROR] Error en el socket:', err);
-        if (isComponentMounted.current) setStatus('error');
+      socket.onerror = (err) => {
+        if (currentConnectionId.current !== connId) return;
+        console.error(`[WS][ERROR] id=${connId}`, err);
+        setStatus('error');
       };
+
     } catch (e) {
-      console.error('[WS][CRITICAL] Fallo al crear WebSocket:', e);
+      console.error(`[WS][CRITICAL] id=${connId} - Fallo al crear`, e);
       setStatus('error');
     }
   }, [channel, userId]);
@@ -81,8 +105,6 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
   const send = useCallback((msg: Partial<SignalingMessage>) => {
     if (ws.current?.readyState === WebSocket.OPEN) {
       ws.current.send(JSON.stringify({ ...msg, from: userId, channel }));
-    } else {
-      console.warn('[WS][SEND] Intento de envío sin conexión activa. Estado:', ws.current?.readyState);
     }
   }, [userId, channel]);
 
@@ -90,8 +112,15 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
     isComponentMounted.current = true;
     connect();
     return () => {
+      console.log(`[WS][LIFECYCLE] Cleanup - Desmontando hook`);
       isComponentMounted.current = false;
-      if (ws.current) ws.current.close();
+      if (ws.current) {
+        ws.current.onclose = null;
+        ws.current.onerror = null;
+        ws.current.onmessage = null;
+        ws.current.onopen = null;
+        ws.current.close();
+      }
       if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
     };
   }, [connect]);

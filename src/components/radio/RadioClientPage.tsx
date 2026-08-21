@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { type DiscordUser } from '@/app/lib/auth-utils';
 import { RadioChannel } from '@/types/radio';
 import { useRadioWebSocket } from '@/hooks/useRadioWebSocket';
@@ -25,10 +26,15 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
     activeChannel
   );
 
+  // Estabilizar la función de envío para evitar re-renders innecesarios en WebRTC
+  const stableSend = useCallback((msg: any) => {
+    send(msg);
+  }, [send]);
+
   // Hook de WebRTC para audio
   const { handleSignal, toggleLocalPTT, activeTransmissions, micStatus, initLocalStream } = useRadioWebRTC(
     discordUser.id,
-    (msg) => send(msg)
+    stableSend
   );
 
   // Hook de PTT (Espacio + Botón)
@@ -68,7 +74,6 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
 
       {/* Main Content */}
       <main className="flex-1 p-8 space-y-8 max-w-7xl mx-auto w-full">
-        {/* Alertas de Micrófono */}
         {micStatus === 'denied' && (
           <Alert variant="destructive" className="bg-red-50 border-red-200 animate-in fade-in slide-in-from-top-4">
             <MicOff className="h-4 w-4" />
@@ -77,19 +82,6 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
               <span>Debes permitir el uso del micrófono en tu navegador para poder hablar por radio.</span>
               <Button size="sm" variant="outline" className="h-7 text-[9px] font-bold uppercase border-red-200 hover:bg-red-100" onClick={() => window.location.reload()}>
                 Recargar Página
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {micStatus === 'error' && (
-          <Alert className="bg-orange-50 border-orange-200 border-none shadow-sm">
-            <ShieldAlert className="h-4 w-4 text-orange-500" />
-            <AlertTitle className="text-[11px] font-bold uppercase tracking-wider text-orange-800">Error de Hardware</AlertTitle>
-            <AlertDescription className="text-xs text-orange-700 mt-2 flex items-center justify-between">
-              <span>No se ha podido detectar o inicializar el micrófono correctamente.</span>
-              <Button size="sm" variant="secondary" className="h-7 text-[9px] font-bold uppercase" onClick={() => initLocalStream()}>
-                Reintentar
               </Button>
             </AlertDescription>
           </Alert>
