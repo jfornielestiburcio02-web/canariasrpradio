@@ -21,8 +21,14 @@ export default async function RadioPage() {
     const res = await fetch(`http://nc.lynxnodes.es:25633/comprobar_rol?userId=${user.id}`, {
       cache: 'no-store'
     });
+    
     if (res.ok) {
-      authStatus = await res.json();
+      const text = await res.text();
+      if (text) {
+        authStatus = JSON.parse(text);
+      } else {
+        authStatus = { autorizado: false, mensaje: "El servidor de roles devolvió una respuesta vacía." };
+      }
     } else {
       authStatus = { autorizado: false, mensaje: "El servicio de validación no respondió correctamente." };
     }

@@ -1,3 +1,4 @@
+
 import { getSessionUser } from '@/app/lib/auth-utils';
 import { redirect } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,8 +20,14 @@ export default async function MapPage() {
     const res = await fetch(`http://nc.lynxnodes.es:25633/comprobar_rol?userId=${user.id}`, {
       cache: 'no-store'
     });
+    
     if (res.ok) {
-      authStatus = await res.json();
+      const text = await res.text();
+      if (text) {
+        authStatus = JSON.parse(text);
+      } else {
+        authStatus = { autorizado: false, mensaje: "El servidor de roles devolvió una respuesta vacía." };
+      }
     } else {
       authStatus = { autorizado: false, mensaje: "El servicio de validación no respondió correctamente." };
     }
@@ -63,31 +70,31 @@ export default async function MapPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col">
-      <header className="h-20 border-b border-white/5 bg-black/40 backdrop-blur-md px-8 flex items-center justify-between shrink-0">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <header className="h-20 border-b border-slate-200 bg-white px-8 flex items-center justify-between shrink-0 sticky top-0 z-50">
         <div className="flex items-center gap-4">
-          <div className="bg-primary/20 p-2.5 rounded-xl">
+          <div className="bg-primary/10 p-2.5 rounded-xl">
             <MapIcon className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-white uppercase leading-none">Visor Táctico</h1>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Liberty County - ERLC Integration</p>
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 uppercase leading-none">Visor Táctico</h1>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Liberty County - ERLC Integration</p>
           </div>
         </div>
 
-        <nav className="flex items-center gap-8">
-          <Link href="/rad" className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 hover:text-white transition-all">
-            Radio
+        <nav className="flex items-center gap-10">
+          <Link href="/rad" className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-slate-600 transition-all border-b-2 border-transparent pb-1">
+            Frecuencias
           </Link>
           <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary border-b-2 border-primary pb-1 cursor-default">
-            Mapa
+            Mapa Operativo
           </span>
         </nav>
 
         <div className="flex items-center gap-3">
           <div className="text-right">
-             <span className="text-[10px] font-bold text-white block uppercase tracking-tighter">{user.global_name || user.username}</span>
-             <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-[0.2em]">Enlace Satelital Activo</span>
+             <span className="text-xs font-bold text-slate-700 block uppercase tracking-tighter">{user.global_name || user.username}</span>
+             <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-[0.2em]">Sincronización Activa</span>
           </div>
         </div>
       </header>
