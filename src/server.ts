@@ -1,4 +1,3 @@
-
 import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';
@@ -27,7 +26,7 @@ app.prepare().then(() => {
   server.on('upgrade', (req, socket, head) => {
     const parsedUrl = parse(req.url!, true);
     if (parsedUrl.pathname === '/ws/radio') {
-      console.log(`[WS HTTP UPGRADE] Recibida petición en /ws/radio`);
+      console.log(`[WS HTTP UPGRADE] path=/ws/radio upgrade=websocket`);
       wss.handleUpgrade(req, socket, head, (ws) => {
         wss.emit('connection', ws, req);
       });
@@ -49,17 +48,18 @@ app.prepare().then(() => {
           console.log(`[WS][SERVER][JOIN] Agente ${msg.from} se unió a ${msg.channel}`);
           broadcastPeers(msg.channel);
         } else {
-          // Relé de señalización (Directed signaling)
+          // Relé de señalización dirigida (Directed signaling)
           const channel = ws._channel;
           if (channel && channelClients.has(channel)) {
             const clients = channelClients.get(channel)!;
             clients.forEach((client) => {
-              // Si tiene destinatario 'to', enviar solo a él. Si no, broadcast (excepto al emisor).
               if (msg.to) {
+                // Enviar solo al destinatario específico
                 if (client._userId === msg.to && client.readyState === WebSocket.OPEN) {
                   client.send(data.toString());
                 }
               } else if (client !== ws && client.readyState === WebSocket.OPEN) {
+                // Broadcast al resto (excepto al emisor)
                 client.send(data.toString());
               }
             });
@@ -94,7 +94,7 @@ app.prepare().then(() => {
   }
 
   server.listen(port, hostname, () => {
-    console.log(`> [SERVER] Escuchando en http://${hostname}:${port}`);
-    console.log(`> [WS] WebSocket disponible en /ws/radio`);
+    console.log(`> [SERVER] Listening on http://${hostname}:${port}`);
+    console.log(`> [WS] WebSocket available on /ws/radio`);
   });
 });
