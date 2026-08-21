@@ -24,6 +24,8 @@ export interface PeerStats {
   packetsSent: number;
   bytesReceived: number;
   packetsReceived: number;
+  packetsLost?: number;
+  jitter?: number;
   codec?: string;
   ssrc?: number;
 }
