@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -12,7 +13,6 @@ export function useRadioWebRTC(
   const localStream = useRef<MediaStream | null>(null);
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
   const pendingCandidates = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
-  const creatingPeers = useRef<Set<string>>(new Set());
   const remoteAudios = useRef<Map<string, HTMLAudioElement>>(new Map());
   const statsIntervals = useRef<Map<string, NodeJS.Timeout>>(new Map());
   
@@ -23,18 +23,18 @@ export function useRadioWebRTC(
   const [micStatus, setMicStatus] = useState<MicStatus>('prompt');
   const [isIceReady, setIsIceReady] = useState(false);
 
-  // Cargar servidores ICE desde la API
+  // Cargar servidores ICE (STUN + TURN)
   useEffect(() => {
     const loadIceServers = async () => {
       try {
         const res = await fetch('/api/webrtc/ice-servers');
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        const data = await res.json();
-        setIceServers(data);
+        if (res.ok) {
+          const data = await res.json();
+          setIceServers(data);
+        }
         setIsIceReady(true);
-        console.log('[WEBRTC][ICE_SERVER] Configuración cargada y lista');
       } catch (err) {
-        console.error('[WEBRTC][ICE_SERVER] Error cargando servidores:', err);
+        console.error('[WEBRTC][ICE_SERVER] Error:', err);
         setIsIceReady(true);
       }
     };
@@ -44,14 +44,12 @@ export function useRadioWebRTC(
   // LIMPIEZA TOTAL AL SALIR DEL CANAL
   useEffect(() => {
     if (!activeChannel) {
-      console.log('[CHANNEL] Usuario fuera de canal. Iniciando limpieza total...');
+      console.log('[CHANNEL] Saliendo: Limpiando recursos...');
       
-      peerConnections.current.forEach((pc, id) => {
-        pc.close();
-      });
+      peerConnections.current.forEach(pc => pc.close());
       peerConnections.current.clear();
 
-      remoteAudios.current.forEach((audio) => {
+      remoteAudios.current.forEach(audio => {
         audio.pause();
         audio.srcObject = null;
       });
@@ -67,68 +65,28 @@ export function useRadioWebRTC(
 
       setActiveTransmissions(new Set());
       pendingCandidates.current.clear();
-      creatingPeers.current.clear();
-      
-      console.log('[CHANNEL] Limpieza completada.');
+      console.log('[CHANNEL] Limpieza completada');
     }
   }, [activeChannel]);
 
-  // LIMPIEZA DIFERENCIAL: Peers que abandonan
-  useEffect(() => {
-    if (!activeChannel) return;
-
-    peerConnections.current.forEach((pc, sessionId) => {
-      if (!peersList.includes(sessionId)) {
-        console.log(`[WEBRTC][CLEANUP] El par ${sessionId} ha abandonado el canal.`);
-        pc.close();
-        peerConnections.current.delete(sessionId);
-        
-        const audio = remoteAudios.current.get(sessionId);
-        if (audio) {
-          audio.pause();
-          audio.srcObject = null;
-          remoteAudios.current.delete(sessionId);
-        }
-        
-        const interval = statsIntervals.current.get(sessionId);
-        if (interval) {
-          clearInterval(interval);
-          statsIntervals.current.delete(sessionId);
-        }
-
-        setActiveTransmissions(prev => {
-          const next = new Set(prev);
-          next.delete(sessionId);
-          return next;
-        });
-      }
-    });
-  }, [peersList, activeChannel]);
-
+  // Monitor de estadísticas para depurar P2P/TURN
   const monitorStats = (peerId: string, pc: RTCPeerConnection) => {
     if (statsIntervals.current.has(peerId)) return;
-
     const interval = setInterval(async () => {
-      if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
+      if (pc.connectionState === 'closed') {
         clearInterval(interval);
-        statsIntervals.current.delete(peerId);
         return;
       }
-
       try {
         const stats = await pc.getStats();
         stats.forEach(report => {
           if (report.type === 'candidate-pair' && report.state === 'succeeded') {
             const local = stats.get(report.localCandidateId);
-            const remote = stats.get(report.remoteCandidateId);
-            if (local && remote) {
-              // Monitor silencioso de rendimiento
-            }
+            if (local) console.log(`[WEBRTC][STATS] peer=${peerId} type=${local.candidateType}`);
           }
         });
       } catch (e) {}
     }, 5000);
-
     statsIntervals.current.set(peerId, interval);
   };
 
@@ -136,81 +94,42 @@ export function useRadioWebRTC(
     if (!localStream.current) return;
     localStream.current.getTracks().forEach(track => {
       const alreadyAdded = pc.getSenders().some(s => s.track === track);
-      if (!alreadyAdded) {
-        pc.addTrack(track, localStream.current!);
-      }
+      if (!alreadyAdded) pc.addTrack(track, localStream.current!);
     });
   }, []);
 
   const initLocalStream = useCallback(async () => {
-    if (!activeChannel) return null;
-    if (localStream.current) return localStream.current;
-    
+    if (!activeChannel || localStream.current) return localStream.current;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, 
         video: false 
       });
-      
       stream.getAudioTracks().forEach(track => track.enabled = false);
       localStream.current = stream;
       setMicStatus('granted');
-      
       peerConnections.current.forEach(pc => addLocalTracksToPC(pc));
       return stream;
     } catch (e: any) {
       console.error('[WEBRTC][MIC] Error:', e);
-      setMicStatus(e.name === 'NotAllowedError' ? 'denied' : 'error');
+      setMicStatus('denied');
       return null;
     }
   }, [addLocalTracksToPC, activeChannel]);
 
-  const processPendingCandidates = async (remoteSessionId: string, pc: RTCPeerConnection) => {
-    const candidates = pendingCandidates.current.get(remoteSessionId) || [];
-    if (candidates.length > 0 && pc.remoteDescription) {
-      for (const candidate of candidates) {
-        try {
-          await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (e) {}
-      }
-      pendingCandidates.current.set(remoteSessionId, []);
-    }
-  };
-
   const createPeerConnection = useCallback((remoteSessionId: string) => {
-    if (!activeChannel) return null;
-    if (peerConnections.current.has(remoteSessionId)) {
-      return peerConnections.current.get(remoteSessionId)!;
-    }
+    if (!activeChannel || peerConnections.current.has(remoteSessionId)) return peerConnections.current.get(remoteSessionId);
 
-    if (creatingPeers.current.has(remoteSessionId)) return null;
-    creatingPeers.current.add(remoteSessionId);
-
-    const pc = new RTCPeerConnection({
-      iceServers,
-      iceTransportPolicy: 'all',
-      bundlePolicy: 'max-bundle'
-    });
+    const pc = new RTCPeerConnection({ iceServers, iceTransportPolicy: 'all' });
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        sendSignal({
-          type: 'webrtc_ice',
-          to: remoteSessionId,
-          payload: event.candidate
-        });
-      }
-    };
-
-    pc.oniceconnectionstatechange = () => {
-      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-        monitorStats(remoteSessionId, pc);
+        sendSignal({ type: 'webrtc_ice', to: remoteSessionId, payload: event.candidate });
       }
     };
 
     pc.ontrack = (event) => {
-      if (!activeChannel) return;
-      console.log(`[WEBRTC][TRACK] Pista remota de ${remoteSessionId}`);
+      console.log(`[WEBRTC][TRACK] Recibida de ${remoteSessionId}`);
       let audio = remoteAudios.current.get(remoteSessionId);
       if (!audio) {
         audio = new Audio();
@@ -218,21 +137,21 @@ export function useRadioWebRTC(
         audio.playsInline = true;
         remoteAudios.current.set(remoteSessionId, audio);
       }
-      const remoteStream = event.streams[0] || new MediaStream([event.track]);
-      audio.srcObject = remoteStream;
-      audio.play().catch(() => {});
+      audio.srcObject = event.streams[0] || new MediaStream([event.track]);
+      audio.play().catch(e => console.warn('[WEBRTC][AUDIO] Play blocked:', e));
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'connected') monitorStats(remoteSessionId, pc);
     };
 
     if (localStream.current) addLocalTracksToPC(pc);
-
     peerConnections.current.set(remoteSessionId, pc);
-    creatingPeers.current.delete(remoteSessionId);
     return pc;
   }, [iceServers, sendSignal, addLocalTracksToPC, activeChannel]);
 
   const handleSignal = useCallback(async (msg: SignalingMessage) => {
     if (!activeChannel || !isIceReady) return;
-    
     const from = msg.from!;
     if (msg.to && msg.to !== mySessionId && msg.type !== 'channel_peers_update') return;
 
@@ -244,11 +163,9 @@ export function useRadioWebRTC(
             if (mySessionId < peerId) {
               const pc = createPeerConnection(peerId);
               if (pc) {
-                try {
-                  const offer = await pc.createOffer();
-                  await pc.setLocalDescription(offer);
-                  sendSignal({ type: 'webrtc_offer', to: peerId, payload: offer });
-                } catch (err) {}
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                sendSignal({ type: 'webrtc_offer', to: peerId, payload: offer });
               }
             }
           }
@@ -258,31 +175,25 @@ export function useRadioWebRTC(
       case 'webrtc_offer':
         const pcOffer = createPeerConnection(from);
         if (pcOffer) {
-          try {
-            await pcOffer.setRemoteDescription(new RTCSessionDescription(msg.payload));
-            const answer = await pcOffer.createAnswer();
-            await pcOffer.setLocalDescription(answer);
-            sendSignal({ type: 'webrtc_answer', to: from, payload: answer });
-            await processPendingCandidates(from, pcOffer);
-          } catch (err) {}
+          await pcOffer.setRemoteDescription(new RTCSessionDescription(msg.payload));
+          const answer = await pcOffer.createAnswer();
+          await pcOffer.setLocalDescription(answer);
+          sendSignal({ type: 'webrtc_answer', to: from, payload: answer });
+          const candidates = pendingCandidates.current.get(from) || [];
+          for (const c of candidates) await pcOffer.addIceCandidate(new RTCIceCandidate(c));
+          pendingCandidates.current.set(from, []);
         }
         break;
 
       case 'webrtc_answer':
         const pcAnswer = peerConnections.current.get(from);
-        if (pcAnswer) {
-          try {
-            await pcAnswer.setRemoteDescription(new RTCSessionDescription(msg.payload));
-            await processPendingCandidates(from, pcAnswer);
-          } catch (err) {}
-        }
+        if (pcAnswer) await pcAnswer.setRemoteDescription(new RTCSessionDescription(msg.payload));
         break;
 
       case 'webrtc_ice':
-        if (!msg.payload) return;
         const pcIce = peerConnections.current.get(from);
         if (pcIce && pcIce.remoteDescription) {
-          pcIce.addIceCandidate(new RTCIceCandidate(msg.payload)).catch(() => {});
+          await pcIce.addIceCandidate(new RTCIceCandidate(msg.payload)).catch(() => {});
         } else {
           if (!pendingCandidates.current.has(from)) pendingCandidates.current.set(from, []);
           pendingCandidates.current.get(from)!.push(msg.payload);
@@ -304,20 +215,16 @@ export function useRadioWebRTC(
   }, [mySessionId, createPeerConnection, sendSignal, isIceReady, activeChannel]);
 
   const toggleLocalPTT = (enabled: boolean) => {
-    if (!activeChannel) return;
-    if (localStream.current) {
-      const track = localStream.current.getAudioTracks()[0];
-      if (track) {
-        track.enabled = enabled;
-        sendSignal({ type: enabled ? 'ptt_start' : 'ptt_stop' });
-      }
+    if (!activeChannel || !localStream.current) return;
+    const track = localStream.current.getAudioTracks()[0];
+    if (track) {
+      track.enabled = enabled;
+      sendSignal({ type: enabled ? 'ptt_start' : 'ptt_stop' });
     }
   };
 
   useEffect(() => {
-    if (activeChannel) {
-      initLocalStream();
-    }
+    if (activeChannel) initLocalStream();
   }, [initLocalStream, activeChannel]);
 
   return { handleSignal, toggleLocalPTT, activeTransmissions, micStatus };
