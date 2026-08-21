@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useFirestore, useDoc } from '@/firebase';
+import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,13 @@ interface LicenseData {
 
 export function LicensesManager({ userId }: { userId: string }) {
   const db = useFirestore();
-  const { data: userData, loading } = useDoc<any>(doc(db, 'users', userId));
+
+  const userRef = useMemoFirebase(() => {
+    if (!db || !userId) return null;
+    return doc(db, 'users', userId);
+  }, [db, userId]);
+
+  const { data: userData, loading } = useDoc<any>(userRef);
   const [requesting, setRequesting] = useState(false);
   const [selectedType, setSelectedType] = useState<string>('');
 
@@ -33,11 +39,10 @@ export function LicensesManager({ userId }: { userId: string }) {
   ];
 
   const handleRequestLicense = () => {
-    if (!selectedType) return;
+    if (!selectedType || !db || !userId) return;
     setRequesting(true);
     
-    const userRef = doc(db, 'users', userId);
-    setDoc(userRef, {
+    setDoc(doc(db, 'users', userId), {
       [`licencia_${selectedType}`]: {
         tipo: selectedType,
         puntos: 10,

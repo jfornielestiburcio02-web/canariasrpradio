@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useFirestore, useDoc } from '@/firebase';
+import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, HeartPulse, ClipboardList, Calendar, Activity, AlertCircle } from 'lucide-react';
@@ -16,7 +16,13 @@ interface MedicalRecord {
 
 export function MedicalRecordSection({ userId }: { userId: string }) {
   const db = useFirestore();
-  const { data: userData, loading } = useDoc<any>(doc(db, 'users', userId));
+
+  const userRef = useMemoFirebase(() => {
+    if (!db || !userId) return null;
+    return doc(db, 'users', userId);
+  }, [db, userId]);
+
+  const { data: userData, loading } = useDoc<any>(userRef);
 
   if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-slate-300" /></div>;
 

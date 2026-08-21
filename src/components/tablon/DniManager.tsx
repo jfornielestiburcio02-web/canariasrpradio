@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useState } from 'react';
-import { useFirestore, useDoc } from '@/firebase';
+import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,7 +24,13 @@ interface DniData {
 
 export function DniManager({ userId }: { userId: string }) {
   const db = useFirestore();
-  const { data: userData, loading: profileLoading } = useDoc<any>(doc(db, 'users', userId));
+  
+  const userRef = useMemoFirebase(() => {
+    if (!db || !userId) return null;
+    return doc(db, 'users', userId);
+  }, [db, userId]);
+
+  const { data: userData, loading: profileLoading } = useDoc<any>(userRef);
   
   const [formData, setFormData] = useState({
     nombre: '',
@@ -37,19 +44,20 @@ export function DniManager({ userId }: { userId: string }) {
     e.preventDefault();
     setLoading(true);
     
-    const userRef = doc(db, 'users', userId);
-    setDoc(userRef, {
-      dni: {
-        ...formData,
-        estado: 'pendiente',
-        solicitadoEn: serverTimestamp(),
-      }
-    }, { merge: true })
-    .then(() => setLoading(false))
-    .catch((err) => {
-      console.error(err);
-      setLoading(false);
-    });
+    if (db && userId) {
+      setDoc(doc(db, 'users', userId), {
+        dni: {
+          ...formData,
+          estado: 'pendiente',
+          solicitadoEn: serverTimestamp(),
+        }
+      }, { merge: true })
+      .then(() => setLoading(false))
+      .catch((err) => {
+        console.error(err);
+        setLoading(false);
+      });
+    }
   };
 
   if (profileLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-slate-300" /></div>;
@@ -213,8 +221,10 @@ export function DniManager({ userId }: { userId: string }) {
               variant="outline" 
               className="mt-4 h-8 text-[10px] font-bold uppercase border-red-200 text-red-600 hover:bg-red-100"
               onClick={() => {
-                const userRef = doc(db, 'users', userId);
-                setDoc(userRef, { dni: null }, { merge: true });
+                if (db && userId) {
+                  const userRef = doc(db, 'users', userId);
+                  setDoc(userRef, { dni: null }, { merge: true });
+                }
               }}
             >
               Nueva Solicitud

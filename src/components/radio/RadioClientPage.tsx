@@ -27,12 +27,19 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
   const [placaInput, setPlacaInput] = useState('');
   
   const db = useFirestore();
-  const { data: userData } = useDoc<any>(doc(db, 'users', discordUser.id));
+
+  // Estabilizar la referencia al documento del usuario
+  const userRef = useMemoFirebase(() => {
+    if (!db || !discordUser.id) return null;
+    return doc(db, 'users', discordUser.id);
+  }, [db, discordUser.id]);
+
+  const { data: userData } = useDoc<any>(userRef);
 
   // Sincronizar estado en Firestore al cambiar de canal
   useEffect(() => {
     if (db && discordUser.id) {
-      // Limpiamos canal al desmontar o cambiar
+      // Usamos merge para no sobrescribir otros campos del perfil
       setDoc(doc(db, 'users', discordUser.id), {
         radio: {
           canalActual: activeChannel || null,

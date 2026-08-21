@@ -41,8 +41,13 @@ export function TablonClient({ initialUser }: { initialUser: DiscordUser }) {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const db = useFirestore();
   
-  // Datos generales del usuario
-  const { data: userData, loading: profileLoading } = useDoc<any>(doc(db, 'users', initialUser.id));
+  // Estabilizar la referencia al documento del usuario
+  const userRef = useMemoFirebase(() => {
+    if (!db || !initialUser.id) return null;
+    return doc(db, 'users', initialUser.id);
+  }, [db, initialUser.id]);
+
+  const { data: userData, loading: profileLoading } = useDoc<any>(userRef);
   
   // Escuchar la subcolección de empresas (como en tu imagen)
   const empresasQuery = useMemoFirebase(() => {

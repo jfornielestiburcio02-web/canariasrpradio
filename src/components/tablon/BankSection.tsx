@@ -27,7 +27,13 @@ interface Transaction {
 
 export function BankSection({ userId }: { userId: string }) {
   const db = useFirestore();
-  const { data: userData, loading: userLoading } = useDoc<any>(doc(db, 'users', userId));
+
+  const userRef = useMemoFirebase(() => {
+    if (!db || !userId) return null;
+    return doc(db, 'users', userId);
+  }, [db, userId]);
+
+  const { data: userData, loading: userLoading } = useDoc<any>(userRef);
 
   const wallet = userData?.wallet || { balance: 0, bankBalance: 0 };
 

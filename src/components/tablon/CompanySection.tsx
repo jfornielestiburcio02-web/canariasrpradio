@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useFirestore, useDoc } from '@/firebase';
+import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -23,8 +23,14 @@ interface CompanyData {
 
 export function CompanySection({ companyId, userId }: { companyId: string, userId: string }) {
   const db = useFirestore();
+
+  const companyRef = useMemoFirebase(() => {
+    if (!db || !userId || !companyId) return null;
+    return doc(db, 'users', userId, 'empresas', companyId);
+  }, [db, userId, companyId]);
+
   // Fetch desde la subcolección del usuario
-  const { data: company, loading } = useDoc<CompanyData>(doc(db, 'users', userId, 'empresas', companyId));
+  const { data: company, loading } = useDoc<CompanyData>(companyRef);
 
   if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-slate-300" /></div>;
 
