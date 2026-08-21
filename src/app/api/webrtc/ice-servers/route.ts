@@ -7,11 +7,12 @@ import { NextResponse } from 'next/server';
  */
 export async function GET() {
   try {
-    // Configuración del nuevo servidor TURN proporcionado por el usuario
+    // Configuración del servidor TURN proporcionado por el usuario
     const turnServer = {
       urls: [
-        "turn:free.expressturn.com:3478",
-        "turns:free.expressturn.com:3478"
+        "turn:free.expressturn.com:3478?transport=udp",
+        "turn:free.expressturn.com:3478?transport=tcp",
+        "turns:free.expressturn.com:3478?transport=tcp"
       ],
       username: "000000002102697359",
       credential: "F+K5UCLkondH6gZy7FHo7Ehdinc="
@@ -22,6 +23,7 @@ export async function GET() {
       turnServer
     ];
     
+    console.log('[ICE_SERVER_API] Entregando configuración TURN a cliente');
     return NextResponse.json(iceServers);
   } catch (error) {
     console.error('[ICE_SERVER_API] Error building ICE config:', error);
