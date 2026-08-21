@@ -7,7 +7,7 @@ import { useRadioWebSocket } from '@/hooks/useRadioWebSocket';
 import { useRadioWebRTC } from '@/hooks/useRadioWebRTC';
 import { usePTT } from '@/hooks/usePTT';
 import { RadioGrid } from '@/components/radio/RadioGrid';
-import { Radio as RadioIcon, Info, LogOut, MicOff, Users, Shield, BadgeCheck, Pencil } from 'lucide-react';
+import { Radio as RadioIcon, Info, LogOut, MicOff, Users, Shield, BadgeCheck, Pencil, Map as MapIcon } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -17,6 +17,7 @@ import { doc, setDoc, serverTimestamp, collection, query, where } from 'firebase
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { usePathname } from 'next/navigation';
 
 interface RadioClientPageProps {
   discordUser: DiscordUser;
@@ -26,6 +27,7 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
   const [activeChannel, setActiveChannel] = useState<RadioChannel | null>(null);
   const [isEditingPlaca, setIsEditingPlaca] = useState(false);
   const [placaInput, setPlacaInput] = useState('');
+  const pathname = usePathname();
   
   const db = useFirestore();
 
@@ -36,7 +38,6 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
 
   const { data: userData } = useDoc<any>(userRef);
 
-  // Sincronizar datos de usuario en Firestore al entrar o cambiar de canal
   useEffect(() => {
     if (db && discordUser.id) {
       setDoc(doc(db, 'users', discordUser.id), {
@@ -107,7 +108,7 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <header className="bg-white border-b border-slate-200 px-8 h-20 flex items-center justify-between shrink-0">
+      <header className="bg-white border-b border-slate-200 px-8 h-20 flex items-center justify-between shrink-0 sticky top-0 z-50">
         <div className="flex items-center gap-3">
           <div className="bg-primary/10 p-2.5 rounded-xl">
             <RadioIcon className="h-6 w-6 text-primary" />
@@ -117,6 +118,29 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Tenerife RP - Servicios de Emergencia</p>
           </div>
         </div>
+
+        {/* Navegación Central */}
+        <nav className="hidden md:flex items-center gap-10">
+          <Link 
+            href="/rad" 
+            className={cn(
+              "text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 pb-1",
+              pathname === '/rad' ? "text-primary border-primary" : "text-slate-400 border-transparent hover:text-slate-600"
+            )}
+          >
+            Frecuencias
+          </Link>
+          <Link 
+            href="/rad/map" 
+            className={cn(
+              "text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 pb-1 flex items-center gap-2",
+              pathname === '/rad/map' ? "text-primary border-primary" : "text-slate-400 border-transparent hover:text-slate-600"
+            )}
+          >
+            <MapIcon className="h-3.5 w-3.5" />
+            Mapa Operativo
+          </Link>
+        </nav>
         
         <div className="flex items-center gap-6">
           <div className="flex flex-col items-end">
