@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -8,9 +7,10 @@ import { useRadioWebSocket } from '@/hooks/useRadioWebSocket';
 import { useRadioWebRTC } from '@/hooks/useRadioWebRTC';
 import { usePTT } from '@/hooks/usePTT';
 import { RadioGrid } from '@/components/radio/RadioGrid';
-import { Radio as RadioIcon, Info, LogOut } from 'lucide-react';
+import { Radio as RadioIcon, Info, LogOut, MicOff, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface RadioClientPageProps {
   discordUser: DiscordUser;
@@ -26,7 +26,7 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
   );
 
   // Hook de WebRTC para audio
-  const { handleSignal, toggleLocalPTT, activeTransmissions } = useRadioWebRTC(
+  const { handleSignal, toggleLocalPTT, activeTransmissions, micStatus, initLocalStream } = useRadioWebRTC(
     discordUser.id,
     (msg) => send(msg)
   );
@@ -68,6 +68,33 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
 
       {/* Main Content */}
       <main className="flex-1 p-8 space-y-8 max-w-7xl mx-auto w-full">
+        {/* Alertas de Micrófono */}
+        {micStatus === 'denied' && (
+          <Alert variant="destructive" className="bg-red-50 border-red-200 animate-in fade-in slide-in-from-top-4">
+            <MicOff className="h-4 w-4" />
+            <AlertTitle className="text-[11px] font-bold uppercase tracking-wider">Acceso al Micrófono Denegado</AlertTitle>
+            <AlertDescription className="text-xs flex items-center justify-between mt-2">
+              <span>Debes permitir el uso del micrófono en tu navegador para poder hablar por radio.</span>
+              <Button size="sm" variant="outline" className="h-7 text-[9px] font-bold uppercase border-red-200 hover:bg-red-100" onClick={() => window.location.reload()}>
+                Recargar Página
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {micStatus === 'error' && (
+          <Alert className="bg-orange-50 border-orange-200 border-none shadow-sm">
+            <ShieldAlert className="h-4 w-4 text-orange-500" />
+            <AlertTitle className="text-[11px] font-bold uppercase tracking-wider text-orange-800">Error de Hardware</AlertTitle>
+            <AlertDescription className="text-xs text-orange-700 mt-2 flex items-center justify-between">
+              <span>No se ha podido detectar o inicializar el micrófono correctamente.</span>
+              <Button size="sm" variant="secondary" className="h-7 text-[9px] font-bold uppercase" onClick={() => initLocalStream()}>
+                Reintentar
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex items-start gap-4">
           <div className="bg-blue-50 p-2 rounded-lg mt-0.5">
             <Info className="h-5 w-5 text-blue-500" />

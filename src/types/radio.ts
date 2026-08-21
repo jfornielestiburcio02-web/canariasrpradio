@@ -3,6 +3,8 @@ export type RadioChannel = 'SUC' | 'POLICIA_NACIONAL' | 'GUARDIA_CIVIL' | 'POLIC
 
 export type WSStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
+export type MicStatus = 'prompt' | 'granted' | 'denied' | 'error';
+
 export interface RadioUser {
   id: string;
   username: string;
