@@ -6,7 +6,8 @@ import Image from 'next/image';
 import { PlaceHolderImages } from '@/app/lib/placeholder-images';
 
 export default function LoginPage() {
-  const DISCORD_URL = "https://discord.com/oauth2/authorize?client_id=1534483909830512730&response_type=code&redirect_uri=https%3A%2F%2F6000-firebase-studio-1776271662955.cluster-cbeiita7rbe7iuwhvjs5zww2i.cloudworkstations.dev%2Finicio_desde_menu&integration_type=0&scope=identify+applications.commands+guilds.members.read";
+  // URL exacta proporcionada por el usuario con el endpoint corregido
+  const DISCORD_URL = "https://discord.com/oauth2/authorize?client_id=1534483909830512730&response_type=code&redirect_uri=https://6000-firebase-studio-1776271662955.cluster-cbeiita7rbe7iuwhvjs5zww2i4.cloudworkstations.dev/inicio_desde_menu&integration_type=0&scope=identify+applications.commands+guilds.members.read";
   
   const bgImage = PlaceHolderImages.find(img => img.id === 'tenerife-rp-bg');
 
