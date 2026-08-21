@@ -1,11 +1,12 @@
-
-import type {Metadata} from 'next';
+import type { Metadata } from 'next';
 import './globals.css';
-import { FirebaseClientProvider } from '@/firebase/client-provider';
+import { Inter } from 'next/font/google';
+
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Cadiz Roleplay',
-  description: 'Comunidad de rol histórico y marítimo en Cádiz',
+  title: 'Aplicación',
+  description: 'Sistema de autenticación simple',
 };
 
 export default function RootLayout({
@@ -14,16 +15,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className="scroll-smooth">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;700&family=PT+Sans:wght@400;700&display=swap" rel="stylesheet" />
-      </head>
-      <body className="font-body antialiased bg-background text-foreground min-h-screen">
-        <FirebaseClientProvider>
-          {children}
-        </FirebaseClientProvider>
+    <html lang="es" className="dark">
+      <body className={`${inter.className} min-h-screen bg-background`}>
+        {children}
       </body>
     </html>
   );
