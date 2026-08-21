@@ -4,13 +4,16 @@ import { parse } from 'url';
 import next from 'next';
 import { WebSocketServer, WebSocket } from 'ws';
 
+// Obtener argumentos de la línea de comandos
 const args = process.argv.slice(2);
 const portArgIndex = args.indexOf('--port');
 const hostnameArgIndex = args.indexOf('--hostname');
 
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = hostnameArgIndex !== -1 ? args[hostnameArgIndex + 1] : 'localhost';
+// Prioridad: Argumento --port > process.env.PORT > 6000 (fallback)
 const port = portArgIndex !== -1 ? parseInt(args[portArgIndex + 1]) : (parseInt(process.env.PORT || '6000'));
+// Escuchar en 0.0.0.0 para permitir el acceso desde el proxy de la workstation
+const hostname = hostnameArgIndex !== -1 ? args[hostnameArgIndex + 1] : '0.0.0.0';
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
@@ -23,13 +26,15 @@ app.prepare().then(() => {
 
   const wss = new WebSocketServer({ noServer: true });
 
-  // Map para gestionar los clientes por canal
+  // Gestión de clientes por canal de radio
   const channelClients = new Map<string, Set<WebSocket & { _userId?: string; _channel?: string }>>();
 
+  // Manejador de Upgrade para WebSockets
   server.on('upgrade', (req, socket, head) => {
-    const { pathname } = parse(req.url!);
+    const parsedUrl = parse(req.url!, true);
+    const pathname = parsedUrl.pathname;
 
-    // Diagnóstico de Servidor solicitado
+    // DIAGNÓSTICO SOLICITADO POR EL USUARIO
     console.log(`[WS HTTP UPGRADE] path=${pathname}`);
     console.log(`[WS HTTP UPGRADE] headers-upgrade=${req.headers.upgrade}`);
     console.log(`[WS HTTP UPGRADE] connection=${req.headers.connection}`);
@@ -39,10 +44,10 @@ app.prepare().then(() => {
         wss.emit('connection', ws, req);
       });
     }
-    // No destruir otros sockets para permitir que Next.js HMR funcione si es necesario
   });
 
   wss.on('connection', (ws: WebSocket & { _userId?: string; _channel?: string }, req) => {
+    // DIAGNÓSTICO SOLICITADO: Conexión aceptada
     console.log(`[WS][SERVER][OPEN] New connection from ${req.socket.remoteAddress}`);
 
     ws.on('message', (data) => {
@@ -64,7 +69,7 @@ app.prepare().then(() => {
           console.log(`[WS][SERVER][JOIN] User ${userId} joined ${channel}`);
           broadcastPeers(channel);
         } else {
-          // Relé de mensajes para WebRTC y PTT
+          // Relé de mensajes para WebRTC (ofertas, respuestas, ICE) y PTT
           const channel = ws._channel;
           if (channel && channelClients.has(channel)) {
             const clients = channelClients.get(channel)!;
@@ -115,8 +120,9 @@ app.prepare().then(() => {
     });
   }
 
-  server.listen(port, () => {
+  server.listen(port, hostname, () => {
     console.log(`> [WS][SERVER] Ready on http://${hostname}:${port}`);
-    console.log(`> [WS][SERVER] Handshake path: /ws/radio`);
+    console.log(`> [WS][SERVER] Internal process listening on port ${port}`);
+    console.log(`> [WS][SERVER] Handshake endpoint: /ws/radio`);
   });
 });

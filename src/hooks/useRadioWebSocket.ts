@@ -27,13 +27,14 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
       return;
     }
 
+    // Limpiar cualquier socket previo antes de intentar conectar
     if (ws.current) {
       ws.current.onclose = null;
       ws.current.onerror = null;
       ws.current.onopen = null;
       ws.current.onmessage = null;
       if (ws.current.readyState === WebSocket.CONNECTING || ws.current.readyState === WebSocket.OPEN) {
-        ws.current.close(1000, 'Reconnecting');
+        ws.current.close();
       }
       ws.current = null;
     }
@@ -41,7 +42,8 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
     console.log('[WS][BEFORE_CREATE]');
     setStatus('connecting');
     
-    // Usamos el puerto 6000 que es el mapeado por la workstation
+    // Generar la URL basada en el host actual. 
+    // El proxy de Studio mapeará wss://... a la instancia interna correcta.
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/radio`;
 
@@ -50,10 +52,10 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
       ws.current = new WebSocket(wsUrl);
       console.log(`[WS][READY_STATE_AFTER_CREATE] State: ${ws.current.readyState}`);
 
+      // Watchdog de 10 segundos para detectar handshakes bloqueados
       watchdogTimeout.current = setTimeout(() => {
         if (ws.current && ws.current.readyState === WebSocket.CONNECTING) {
           console.error(`[WS][TIMEOUT] El handshake lleva 10s bloqueado en CONNECTING.`);
-          console.error(`[WS][TIMEOUT] URL: ${wsUrl} | State: ${ws.current.readyState}`);
           if (isComponentMounted.current) {
             setStatus('error');
             ws.current.close();
@@ -72,6 +74,7 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
         console.log('[WS][OPEN] ¡Conexión establecida!');
         setStatus('connected');
         
+        // Registrarse en el canal
         ws.current?.send(JSON.stringify({
           type: 'join_channel',
           channel,
@@ -95,11 +98,12 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
       ws.current.onclose = (event) => {
         if (watchdogTimeout.current) clearTimeout(watchdogTimeout.current);
         
-        console.log(`[WS][CLOSE] code=${event.code} reason=${event.reason || 'none'} wasClean=${event.wasClean} readyState=${ws.current?.readyState}`);
+        console.log(`[WS][CLOSE] code=${event.code} reason=${event.reason || 'none'} wasClean=${event.wasClean}`);
         
         if (isComponentMounted.current) {
           setStatus('disconnected');
           setPeers([]);
+          // Reconexión si el cierre no fue intencionado
           if (channel && !event.wasClean) {
             reconnectTimeout.current = setTimeout(connect, 5000);
           }
@@ -108,7 +112,7 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
 
       ws.current.onerror = (err) => {
         if (watchdogTimeout.current) clearTimeout(watchdogTimeout.current);
-        console.error(`[WS][ERROR] Error de red. URL: ${wsUrl} | readyState: ${ws.current?.readyState}`);
+        console.error(`[WS][ERROR] Error de red. URL: ${wsUrl}`);
         if (isComponentMounted.current) {
           setStatus('error');
         }
@@ -122,8 +126,6 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
   const send = useCallback((msg: Partial<SignalingMessage>) => {
     if (ws.current?.readyState === WebSocket.OPEN) {
       ws.current.send(JSON.stringify({ ...msg, from: userId, channel }));
-    } else {
-      console.warn(`[WS] Intento de envío en estado ${ws.current?.readyState}`);
     }
   }, [userId, channel]);
 
@@ -137,7 +139,7 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
       if (watchdogTimeout.current) clearTimeout(watchdogTimeout.current);
       if (ws.current) {
         ws.current.onclose = null;
-        ws.current.close(1000, 'Cleanup');
+        ws.current.close();
         ws.current = null;
       }
     };
