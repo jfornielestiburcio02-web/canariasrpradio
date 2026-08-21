@@ -5,7 +5,7 @@
 export const DISCORD_CONFIG = {
   clientId: '1534483909830512730',
   clientSecret: 'XxRvqzyXgPe_qHA7WEfJrP7Xxd5zSKCx',
-  // La URL debe coincidir exactamente con la configurada en el portal de desarrolladores de Discord
+  // URL dinámica para entornos de desarrollo y producción
   redirectUri: 'https://6000-firebase-studio-1776271662955.cluster-cbeiita7rbe7iuwhvjs5zww2i4.cloudworkstations.dev/inicio_desde_menu',
 };
 
@@ -23,10 +23,10 @@ export async function setSessionUser(user: DiscordUser) {
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE, JSON.stringify(user), {
     httpOnly: true,
-    secure: true, // Siempre true en cloud workstations por HTTPS
+    secure: true,
     sameSite: 'lax',
     maxAge: 60 * 60 * 24 * 7, // 1 semana
-    path: '/',
+    path: '/', // Crucial para que la cookie sea visible en todas las rutas
   });
 }
 
@@ -46,4 +46,10 @@ export async function logout() {
   const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
   cookieStore.delete(SESSION_COOKIE);
+}
+
+export function getRedirectUri(request: Request) {
+  const host = request.headers.get('host');
+  const protocol = host?.includes('localhost') ? 'http' : 'https';
+  return `${protocol}://${host}/inicio_desde_menu`;
 }

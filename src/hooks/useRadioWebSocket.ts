@@ -9,6 +9,7 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
   const [connected, setConnected] = useState(false);
   const [peers, setPeers] = useState<string[]>([]);
   const onMessageRef = useRef<(msg: SignalingMessage) => void>(() => {});
+  const reconnectTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const setOnMessage = (callback: (msg: SignalingMessage) => void) => {
     onMessageRef.current = callback;
@@ -17,59 +18,72 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
   const connect = useCallback(() => {
     if (!channel || !userId) return;
 
-    // Determinamos la URL del WS (usualmente el mismo host en desarrollo o producción)
+    // Limpieza de intentos previos
+    if (ws.current) {
+      ws.current.close();
+      ws.current = null;
+    }
+
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/radio`;
 
-    console.log(`[WS] Connecting to ${wsUrl}...`);
-    
     try {
       ws.current = new WebSocket(wsUrl);
 
       ws.current.onopen = () => {
-        console.log('[WS] Connection established');
         setConnected(true);
-        send({
-          type: 'join_channel',
-          channel,
-          payload: { userId }
-        });
+        if (ws.current?.readyState === WebSocket.OPEN) {
+          ws.current.send(JSON.stringify({
+            type: 'join_channel',
+            channel,
+            from: userId,
+            payload: { userId }
+          }));
+        }
       };
 
       ws.current.onmessage = (event) => {
-        const msg: SignalingMessage = JSON.parse(event.data);
-        if (msg.type === 'channel_peers_update') {
-          setPeers(msg.payload.peers);
+        try {
+          const msg: SignalingMessage = JSON.parse(event.data);
+          if (msg.type === 'channel_peers_update') {
+            setPeers(msg.payload.peers || []);
+          }
+          onMessageRef.current(msg);
+        } catch (e) {
+          // Ignorar mensajes mal formateados
         }
-        onMessageRef.current(msg);
       };
 
       ws.current.onclose = () => {
-        console.log('[WS] Connection closed');
         setConnected(false);
         setPeers([]);
+        // Reintento silencioso cada 5 segundos si el canal sigue activo
+        if (channel) {
+          reconnectTimeout.current = setTimeout(connect, 5000);
+        }
       };
 
-      ws.current.onerror = (err) => {
-        console.error('[WS] Error:', err);
+      ws.current.onerror = () => {
+        // El error se maneja en onclose para el reintento
+        setConnected(false);
       };
     } catch (e) {
-      console.error('[WS] Setup failed:', e);
+      setConnected(false);
     }
   }, [channel, userId]);
 
-  const send = (msg: Partial<SignalingMessage>) => {
+  const send = useCallback((msg: Partial<SignalingMessage>) => {
     if (ws.current?.readyState === WebSocket.OPEN) {
-      ws.current.send(JSON.stringify({ ...msg, from: userId }));
-    } else {
-      console.warn('[WS] Cannot send, socket not open');
+      ws.current.send(JSON.stringify({ ...msg, from: userId, channel }));
     }
-  };
+  }, [userId, channel]);
 
   useEffect(() => {
     connect();
     return () => {
+      if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
       if (ws.current) {
+        ws.current.onclose = null; // Evitar reconexión al desmontar
         ws.current.close();
       }
     };

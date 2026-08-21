@@ -6,10 +6,14 @@ import RadioClientPage from '@/components/radio/RadioClientPage';
 export default async function RadioPage() {
   const user = await getSessionUser();
 
-  // Verificación de sesión de Discord
+  // Verificación de sesión de servidor para máxima seguridad
   if (!user) {
     redirect('/');
   }
 
-  return <RadioClientPage discordUser={user} />;
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <RadioClientPage discordUser={user} />
+    </div>
+  );
 }
