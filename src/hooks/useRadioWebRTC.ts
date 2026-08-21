@@ -46,50 +46,40 @@ export function useRadioWebRTC(
     if (!activeChannel) {
       console.log('[CHANNEL] Usuario fuera de canal. Iniciando limpieza total...');
       
-      // 1. Cerrar todas las conexiones
       peerConnections.current.forEach((pc, id) => {
         pc.close();
-        console.log(`[WEBRTC] Conexión cerrada con ${id}`);
       });
       peerConnections.current.clear();
 
-      // 2. Detener todos los audios remotos
-      remoteAudios.current.forEach((audio, id) => {
+      remoteAudios.current.forEach((audio) => {
         audio.pause();
         audio.srcObject = null;
-        console.log(`[WEBRTC] Audio remoto detenido para ${id}`);
       });
       remoteAudios.current.clear();
 
-      // 3. Limpiar intervalos de estadísticas
       statsIntervals.current.forEach(i => clearInterval(i));
       statsIntervals.current.clear();
 
-      // 4. Detener micrófono local
       if (localStream.current) {
         localStream.current.getTracks().forEach(track => track.stop());
         localStream.current = null;
-        console.log('[AUDIO] Micrófono local detenido');
       }
 
-      // 5. Resetear estados
       setActiveTransmissions(new Set());
       pendingCandidates.current.clear();
       creatingPeers.current.clear();
       
       console.log('[CHANNEL] Limpieza completada.');
-    } else {
-      console.log(`[CHANNEL] Usuario entrando en canal: ${activeChannel}`);
     }
   }, [activeChannel]);
 
-  // LIMPIEZA DIFERENCIAL: Peers que abandonan el canal
+  // LIMPIEZA DIFERENCIAL: Peers que abandonan
   useEffect(() => {
     if (!activeChannel) return;
 
     peerConnections.current.forEach((pc, sessionId) => {
       if (!peersList.includes(sessionId)) {
-        console.log(`[WEBRTC][CLEANUP] El par ${sessionId} ha abandonado el canal. Cerrando recursos.`);
+        console.log(`[WEBRTC][CLEANUP] El par ${sessionId} ha abandonado el canal.`);
         pc.close();
         peerConnections.current.delete(sessionId);
         
@@ -115,14 +105,6 @@ export function useRadioWebRTC(
     });
   }, [peersList, activeChannel]);
 
-  const getCandidateType = (candidateStr: string) => {
-    const parts = candidateStr.split(' ');
-    if (parts.length > 7) {
-      return parts[7];
-    }
-    return 'unknown';
-  };
-
   const monitorStats = (peerId: string, pc: RTCPeerConnection) => {
     if (statsIntervals.current.has(peerId)) return;
 
@@ -140,7 +122,7 @@ export function useRadioWebRTC(
             const local = stats.get(report.localCandidateId);
             const remote = stats.get(report.remoteCandidateId);
             if (local && remote) {
-              console.log(`[WEBRTC][STATS] peer=${peerId} | PAIR: ${local.candidateType}/${remote.candidateType} | RX=${report.bytesReceived}`);
+              // Monitor silencioso de rendimiento
             }
           }
         });
@@ -228,7 +210,7 @@ export function useRadioWebRTC(
 
     pc.ontrack = (event) => {
       if (!activeChannel) return;
-      console.log(`[WEBRTC][TRACK] Recibida pista remota de ${remoteSessionId}`);
+      console.log(`[WEBRTC][TRACK] Pista remota de ${remoteSessionId}`);
       let audio = remoteAudios.current.get(remoteSessionId);
       if (!audio) {
         audio = new Audio();
@@ -322,15 +304,11 @@ export function useRadioWebRTC(
   }, [mySessionId, createPeerConnection, sendSignal, isIceReady, activeChannel]);
 
   const toggleLocalPTT = (enabled: boolean) => {
-    if (!activeChannel) {
-      console.warn('[PTT] Intento de transmisión bloqueado: fuera de canal');
-      return;
-    }
+    if (!activeChannel) return;
     if (localStream.current) {
       const track = localStream.current.getAudioTracks()[0];
       if (track) {
         track.enabled = enabled;
-        console.log(`[AUDIO][PTT] Micrófono local: ${enabled ? 'ON' : 'OFF'}`);
         sendSignal({ type: enabled ? 'ptt_start' : 'ptt_stop' });
       }
     }
@@ -340,11 +318,6 @@ export function useRadioWebRTC(
     if (activeChannel) {
       initLocalStream();
     }
-    return () => {
-      localStream.current?.getTracks().forEach(t => t.stop());
-      peerConnections.current.forEach(pc => pc.close());
-      statsIntervals.current.forEach(i => clearInterval(i));
-    };
   }, [initLocalStream, activeChannel]);
 
   return { handleSignal, toggleLocalPTT, activeTransmissions, micStatus };
