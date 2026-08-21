@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
@@ -12,7 +11,11 @@ export function usePTT(onToggle: (enabled: boolean) => void, options: UsePTTOpti
   const { disabled = false } = options;
 
   const start = useCallback(() => {
-    if (!isTransmitting && !disabled) {
+    if (disabled) {
+      console.warn('[PTT] Bloqueado: el usuario no se encuentra en un canal activo.');
+      return;
+    }
+    if (!isTransmitting) {
       setIsTransmitting(true);
       onToggle(true);
     }
@@ -27,7 +30,6 @@ export function usePTT(onToggle: (enabled: boolean) => void, options: UsePTTOpti
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Evitar activar si el foco está en un input o si está desactivado
       if (disabled) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       
@@ -52,9 +54,10 @@ export function usePTT(onToggle: (enabled: boolean) => void, options: UsePTTOpti
     };
   }, [start, stop, disabled]);
 
-  // Si se desactiva mientras se transmite, forzar el stop
+  // Si se desactiva mientras se transmite (ej: sale del canal), forzar el stop
   useEffect(() => {
     if (disabled && isTransmitting) {
+      console.log('[PTT] Forzando detención por desactivación de canal');
       stop();
     }
   }, [disabled, isTransmitting, stop]);

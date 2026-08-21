@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -20,7 +19,14 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
 
   const connect = useCallback(() => {
     if (!channel || !userId) {
+      console.log('[WS] No hay canal activo. Desconectando WebSocket.');
       setStatus('disconnected');
+      setPeers([]);
+      if (ws.current) {
+        ws.current.onclose = null;
+        ws.current.close();
+        ws.current = null;
+      }
       return;
     }
 
@@ -28,7 +34,7 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
     currentConnectionId.current = connId;
 
     if (ws.current) {
-      console.log(`[WS][LIFECYCLE] Cerrando socket id=${connId - 1} para abrir id=${connId}`);
+      console.log(`[WS][LIFECYCLE] Rotando conexión id=${connId - 1} -> id=${connId}`);
       ws.current.onclose = null;
       ws.current.onerror = null;
       ws.current.onmessage = null;
@@ -38,7 +44,7 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
     }
 
     setStatus('connecting');
-    console.log(`[WS][CREATE] id=${connId} | Canal: ${channel} | Usuario: ${userId}`);
+    console.log(`[WS][CREATE] id=${connId} | Canal: ${channel}`);
     
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/radio`;
@@ -49,7 +55,7 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
 
       socket.onopen = () => {
         if (!isComponentMounted.current || currentConnectionId.current !== connId) return;
-        console.log(`[WS][OPEN] id=${connId} - Conexión establecida`);
+        console.log(`[WS][OPEN] id=${connId} - Conectado`);
         setStatus('connected');
         socket.send(JSON.stringify({
           type: 'join_channel',
@@ -67,22 +73,18 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
             setPeers(msg.payload.peers || []);
           }
           onMessageRef.current(msg);
-        } catch (e) {
-          console.warn(`[WS][MESSAGE] id=${connId} - Error al parsear JSON del WebSocket`, e);
-        }
+        } catch (e) {}
       };
 
       socket.onclose = (e) => {
         if (currentConnectionId.current !== connId) return;
         console.log(`[WS][CLOSE] id=${connId} - Code: ${e.code}`);
         
-        if (isComponentMounted.current) {
+        if (isComponentMounted.current && channel) {
           setStatus('disconnected');
-          setPeers([]);
-          
           if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
           reconnectTimeout.current = setTimeout(() => {
-            console.log(`[WS][LIFECYCLE] Reintentando conexión id=${connId}`);
+            console.log(`[WS][RECONNECT] Intentando reconectar id=${connId}`);
             connect();
           }, 3000);
         }
@@ -90,12 +92,10 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
 
       socket.onerror = (err) => {
         if (currentConnectionId.current !== connId) return;
-        console.error(`[WS][ERROR] id=${connId}`, err);
         setStatus('error');
       };
 
     } catch (e) {
-      console.error(`[WS][CRITICAL] id=${connId} - Fallo fatal`, e);
       setStatus('error');
     }
   }, [channel, userId]);
@@ -110,13 +110,9 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
     isComponentMounted.current = true;
     connect();
     return () => {
-      console.log(`[WS][LIFECYCLE] Cleanup - Desmontando sesión`);
       isComponentMounted.current = false;
       if (ws.current) {
         ws.current.onclose = null;
-        ws.current.onerror = null;
-        ws.current.onmessage = null;
-        ws.current.onopen = null;
         ws.current.close();
       }
       if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -28,7 +27,6 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
   
   const db = useFirestore();
 
-  // Estabilizar la referencia al documento del usuario
   const userRef = useMemoFirebase(() => {
     if (!db || !discordUser.id) return null;
     return doc(db, 'users', discordUser.id);
@@ -36,7 +34,6 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
 
   const { data: userData } = useDoc<any>(userRef);
 
-  // Sincronizar estado en Firestore al cambiar de canal (solo cuando cambia el canal)
   useEffect(() => {
     if (db && discordUser.id) {
       setDoc(doc(db, 'users', discordUser.id), {
@@ -63,7 +60,6 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
     }
   }, [userData?.radio?.placa]);
 
-  // Hook de WebSocket para señalización
   const { status, peers, send, setOnMessage } = useRadioWebSocket(
     discordUser.id,
     activeChannel
@@ -73,14 +69,13 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
     send(msg);
   }, [send]);
 
-  // Pasamos 'peers' al hook de WebRTC para que gestione las limpiezas de malla
   const { handleSignal, toggleLocalPTT, activeTransmissions, micStatus } = useRadioWebRTC(
     discordUser.id,
     stableSend,
-    peers
+    peers,
+    activeChannel
   );
 
-  // Hook de PTT con bloqueo si no hay canal
   const { isTransmitting, start, stop } = usePTT((enabled) => {
     toggleLocalPTT(enabled);
   }, { disabled: !activeChannel });
@@ -89,7 +84,6 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
     setOnMessage(handleSignal);
   }, [handleSignal, setOnMessage]);
 
-  // Consulta de usuarios en el mismo canal
   const activeUsersQuery = useMemoFirebase(() => {
     if (!db || !activeChannel) return null;
     return query(
@@ -186,7 +180,6 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
           />
         </div>
 
-        {/* Panel Lateral de Usuarios en Canal */}
         <div className="lg:col-span-1 space-y-6">
           <Card className="border-slate-200 shadow-sm">
             <CardHeader className="pb-3 border-b border-slate-50">
