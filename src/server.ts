@@ -1,3 +1,4 @@
+
 import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';
@@ -8,7 +9,7 @@ const args = process.argv.slice(2);
 const portArgIndex = args.indexOf('--port');
 const hostnameArgIndex = args.indexOf('--hostname');
 
-const port = portArgIndex !== -1 ? parseInt(args[portArgIndex + 1]) : (parseInt(process.env.PORT || '6000'));
+const port = portArgIndex !== -1 ? parseInt(args[portArgIndex + 1]) : (parseInt(process.env.PORT || '3000'));
 const hostname = hostnameArgIndex !== -1 ? args[hostnameArgIndex + 1] : '0.0.0.0';
 
 const app = next({ dev, hostname, port });
@@ -26,7 +27,7 @@ app.prepare().then(() => {
   server.on('upgrade', (req, socket, head) => {
     const parsedUrl = parse(req.url!, true);
     if (parsedUrl.pathname === '/ws/radio') {
-      console.log(`[WS HTTP UPGRADE] path=${parsedUrl.pathname}`);
+      console.log(`[WS HTTP UPGRADE] Recibida petición en /ws/radio`);
       wss.handleUpgrade(req, socket, head, (ws) => {
         wss.emit('connection', ws, req);
       });
@@ -34,7 +35,7 @@ app.prepare().then(() => {
   });
 
   wss.on('connection', (ws: WebSocket & { _userId?: string; _channel?: string }, req) => {
-    console.log(`[WS][SERVER][OPEN] Nueva conexión de red`);
+    console.log(`[WS][SERVER][OPEN] Nueva conexión entrante`);
 
     ws.on('message', (data) => {
       try {
@@ -45,16 +46,15 @@ app.prepare().then(() => {
           ws._channel = msg.channel;
           if (!channelClients.has(msg.channel)) channelClients.set(msg.channel, new Set());
           channelClients.get(msg.channel)!.add(ws);
-          console.log(`[WS][SERVER][JOIN] Agente ${msg.from} entró a ${msg.channel}`);
+          console.log(`[WS][SERVER][JOIN] Agente ${msg.from} se unió a ${msg.channel}`);
           broadcastPeers(msg.channel);
         } else {
-          // Relé dirigido o broadcast filtrado
+          // Relé de señalización (Directed signaling)
           const channel = ws._channel;
           if (channel && channelClients.has(channel)) {
             const clients = channelClients.get(channel)!;
             clients.forEach((client) => {
-              // Si el mensaje tiene destinatario 'to', solo se envía a él. 
-              // Si no, es broadcast a todos menos al emisor.
+              // Si tiene destinatario 'to', enviar solo a él. Si no, broadcast (excepto al emisor).
               if (msg.to) {
                 if (client._userId === msg.to && client.readyState === WebSocket.OPEN) {
                   client.send(data.toString());
@@ -66,7 +66,7 @@ app.prepare().then(() => {
           }
         }
       } catch (err) {
-        console.error('[WS][SERVER][ERROR]', err);
+        console.error('[WS][SERVER][ERROR] Error procesando mensaje:', err);
       }
     });
 
@@ -74,7 +74,7 @@ app.prepare().then(() => {
       const channel = ws._channel;
       if (channel && channelClients.has(channel)) {
         channelClients.get(channel)!.delete(ws);
-        console.log(`[WS][SERVER][LEAVE] Agente salió del canal`);
+        console.log(`[WS][SERVER][LEAVE] Un agente abandonó el canal ${channel}`);
         broadcastPeers(channel);
       }
     });
@@ -94,6 +94,7 @@ app.prepare().then(() => {
   }
 
   server.listen(port, hostname, () => {
-    console.log(`> [WS][SERVER] Escuchando en http://${hostname}:${port}`);
+    console.log(`> [SERVER] Escuchando en http://${hostname}:${port}`);
+    console.log(`> [WS] WebSocket disponible en /ws/radio`);
   });
 });
