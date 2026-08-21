@@ -14,20 +14,24 @@ export async function getErlcPlayers() {
     const res = await fetch(`${API_BASE}/players`, {
       headers: {
         'Server-Key': ERLC_TOKEN,
+        'User-Agent': 'TenerifeRP-Comms-System/1.0',
+        'Accept': 'application/json',
       },
-      next: { revalidate: 10 }, // Cache de 10 segundos
+      next: { revalidate: 15 }, // Cache de 15 segundos para no saturar la API
     });
 
     if (!res.ok) {
-      if (res.status === 401) return { error: 'Token de ERLC inválido o expirado.' };
-      return { error: 'El servidor de ERLC no responde.' };
+      if (res.status === 401) return { success: false, error: 'Token de ERLC inválido o expirado.' };
+      if (res.status === 429) return { success: false, error: 'Demasiadas peticiones. Espera un momento.' };
+      if (res.status === 404) return { success: false, error: 'Servidor de Liberty County no encontrado o apagado.' };
+      return { success: false, error: `Error de API ERLC: Código ${res.status}` };
     }
 
     const players = await res.json();
-    return { success: true, players };
+    return { success: true, players: Array.isArray(players) ? players : [] };
   } catch (error) {
     console.error('[ERLC_API_ERROR]', error);
-    return { error: 'Error de conexión con la infraestructura de Liberty County.' };
+    return { success: false, error: 'Fallo de conexión con la infraestructura de Liberty County.' };
   }
 }
 
@@ -36,14 +40,16 @@ export async function getErlcServerInfo() {
     const res = await fetch(`${API_BASE}`, {
       headers: {
         'Server-Key': ERLC_TOKEN,
+        'User-Agent': 'TenerifeRP-Comms-System/1.0',
       },
       next: { revalidate: 30 },
     });
 
-    if (!res.ok) return { error: 'No se pudo obtener información del servidor.' };
+    if (!res.ok) return { success: false, error: 'No se pudo obtener información del servidor.' };
     
-    return await res.json();
+    const data = await res.json();
+    return { success: true, data };
   } catch (error) {
-    return { error: 'Error de conexión.' };
+    return { success: false, error: 'Error de conexión satelital.' };
   }
 }
