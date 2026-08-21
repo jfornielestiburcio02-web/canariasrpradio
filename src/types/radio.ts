@@ -1,6 +1,8 @@
 
 export type RadioChannel = 'SUC' | 'POLICIA_NACIONAL' | 'GUARDIA_CIVIL' | 'POLICIA_LOCAL' | 'BOMBEROS' | 'TRANSPORTE';
 
+export type WSStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
+
 export interface RadioUser {
   id: string;
   username: string;

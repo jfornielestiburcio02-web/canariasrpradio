@@ -20,7 +20,7 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
   const [activeChannel, setActiveChannel] = useState<RadioChannel | null>(null);
 
   // Hook de WebSocket para señalización
-  const { connected, peers, send, setOnMessage } = useRadioWebSocket(
+  const { status, peers, send, setOnMessage } = useRadioWebSocket(
     discordUser.id,
     activeChannel
   );
@@ -85,7 +85,7 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
           onJoin={setActiveChannel}
           onLeave={() => setActiveChannel(null)}
           peers={peers}
-          connected={connected}
+          wsStatus={status}
           isTransmitting={isTransmitting}
           onPTTStart={start}
           onPTTStop={stop}

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { RadioChannel } from '@/types/radio';
+import { RadioChannel, WSStatus } from '@/types/radio';
 import { RadioCard } from './RadioCard';
 import { Shield, Ambulance, Truck, Flame, Anchor, User } from 'lucide-react';
 
@@ -10,7 +10,7 @@ interface RadioGridProps {
   onJoin: (channel: RadioChannel) => void;
   onLeave: () => void;
   peers: string[];
-  connected: boolean;
+  wsStatus: WSStatus;
   isTransmitting: boolean;
   onPTTStart: () => void;
   onPTTStop: () => void;
@@ -21,7 +21,7 @@ export function RadioGrid({
   onJoin,
   onLeave,
   peers,
-  connected,
+  wsStatus,
   isTransmitting,
   onPTTStart,
   onPTTStop
@@ -47,7 +47,7 @@ export function RadioGrid({
           onJoin={() => onJoin(ch.id)}
           onLeave={onLeave}
           users={activeChannel === ch.id ? peers : []}
-          connected={connected}
+          wsStatus={wsStatus}
           isTransmitting={isTransmitting}
           onPTTStart={onPTTStart}
           onPTTStop={onPTTStop}

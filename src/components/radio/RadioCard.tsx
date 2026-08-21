@@ -1,11 +1,11 @@
 
 'use client';
 
-import { RadioChannel, RadioUser } from '@/types/radio';
+import { RadioChannel, WSStatus } from '@/types/radio';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Mic, MicOff, Users, Wifi, WifiOff } from 'lucide-react';
+import { Mic, MicOff, Users, Wifi, WifiOff, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface RadioCardProps {
@@ -16,7 +16,7 @@ interface RadioCardProps {
   onJoin: () => void;
   onLeave: () => void;
   users: string[];
-  connected: boolean;
+  wsStatus: WSStatus;
   isTransmitting: boolean;
   onPTTStart: () => void;
   onPTTStop: () => void;
@@ -30,11 +30,15 @@ export function RadioCard({
   onJoin,
   onLeave,
   users,
-  connected,
+  wsStatus,
   isTransmitting,
   onPTTStart,
   onPTTStop
 }: RadioCardProps) {
+  const isConnected = wsStatus === 'connected';
+  const isConnecting = wsStatus === 'connecting';
+  const isError = wsStatus === 'error';
+
   return (
     <Card className={cn(
       "relative overflow-hidden transition-all duration-300",
@@ -42,7 +46,7 @@ export function RadioCard({
     )}>
       <div className={cn(
         "h-1.5 w-full",
-        active ? (isTransmitting ? "bg-red-500 animate-pulse" : "bg-primary") : "bg-slate-200"
+        active ? (isTransmitting ? "bg-red-500 animate-pulse" : isError ? "bg-destructive" : isConnected ? "bg-primary" : "bg-orange-400 animate-pulse") : "bg-slate-200"
       )} />
       
       <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
@@ -55,8 +59,11 @@ export function RadioCard({
           </div>
           <CardTitle className="text-sm font-bold uppercase tracking-wider">{title}</CardTitle>
         </div>
-        <Badge variant={active ? (connected ? "default" : "secondary") : "outline"} className="text-[9px]">
-          {active ? (connected ? "CONECTADO" : "CONECTANDO...") : "DISPONIBLE"}
+        <Badge 
+          variant={active ? (isConnected ? "default" : isError ? "destructive" : "secondary") : "outline"} 
+          className="text-[9px]"
+        >
+          {!active ? "DISPONIBLE" : isConnected ? "CONECTADO" : isConnecting ? "CONECTANDO..." : isError ? "ERROR RED" : "SIN CONEXIÓN"}
         </Badge>
       </CardHeader>
       
@@ -64,12 +71,12 @@ export function RadioCard({
         <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
           <div className="flex items-center gap-1.5">
             <Users className="h-3.5 w-3.5" />
-            <span>{users.length} usuarios</span>
+            <span>{active ? users.length : 0} usuarios</span>
           </div>
           {active && (
             <div className="flex items-center gap-1.5">
-              {connected ? <Wifi className="h-3.5 w-3.5 text-emerald-500" /> : <WifiOff className="h-3.5 w-3.5 text-slate-300" />}
-              <span>{connected ? "Señal OK" : "Sin señal"}</span>
+              {isConnected ? <Wifi className="h-3.5 w-3.5 text-emerald-500" /> : isError ? <AlertCircle className="h-3.5 w-3.5 text-destructive" /> : <WifiOff className="h-3.5 w-3.5 text-slate-300" />}
+              <span>{isConnected ? "Señal OK" : isError ? "Error" : "Buscando..."}</span>
             </div>
           )}
         </div>
@@ -87,12 +94,12 @@ export function RadioCard({
               onMouseDown={onPTTStart}
               onMouseUp={onPTTStop}
               onMouseLeave={onPTTStop}
-              disabled={!connected}
+              disabled={!isConnected}
               className={cn(
                 "w-full h-14 text-sm font-bold uppercase tracking-[0.3em] transition-all",
                 isTransmitting 
                   ? "bg-red-600 hover:bg-red-700 shadow-lg shadow-red-200 scale-[0.98]" 
-                  : "bg-primary hover:bg-primary/90"
+                  : isConnected ? "bg-primary hover:bg-primary/90" : "bg-slate-200 text-slate-400"
               )}
             >
               {isTransmitting ? (
@@ -101,7 +108,7 @@ export function RadioCard({
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <MicOff className="h-5 w-5 opacity-50" /> PTT
+                  <MicOff className="h-5 w-5 opacity-50" /> {isConnected ? "PTT" : "BLOQUEADO"}
                 </div>
               )}
             </Button>
