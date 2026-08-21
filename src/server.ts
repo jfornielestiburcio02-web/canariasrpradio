@@ -4,9 +4,14 @@ import { parse } from 'url';
 import next from 'next';
 import { WebSocketServer, WebSocket } from 'ws';
 
+const args = process.argv.slice(2);
+const portArgIndex = args.indexOf('--port');
+const hostnameArgIndex = args.indexOf('--hostname');
+
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = 'localhost';
-const port = 6000; // Puerto explícito solicitado por el entorno de trabajo
+const hostname = hostnameArgIndex !== -1 ? args[hostnameArgIndex + 1] : 'localhost';
+const port = portArgIndex !== -1 ? parseInt(args[portArgIndex + 1]) : (parseInt(process.env.PORT || '6000'));
+
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
