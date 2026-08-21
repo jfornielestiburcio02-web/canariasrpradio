@@ -32,6 +32,7 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
   // Sincronizar estado en Firestore al cambiar de canal
   useEffect(() => {
     if (db && discordUser.id) {
+      // Limpiamos canal al desmontar o cambiar
       setDoc(doc(db, 'users', discordUser.id), {
         radio: {
           canalActual: activeChannel || null,
@@ -66,9 +67,11 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
     send(msg);
   }, [send]);
 
+  // Pasamos 'peers' al hook de WebRTC para que gestione las limpiezas de malla
   const { handleSignal, toggleLocalPTT, activeTransmissions, micStatus } = useRadioWebRTC(
     discordUser.id,
-    stableSend
+    stableSend,
+    peers
   );
 
   // Hook de PTT con bloqueo si no hay canal
@@ -192,14 +195,18 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
               {activeChannel ? (
                 channelUsers && channelUsers.length > 0 ? (
                   channelUsers.map((u: any) => (
-                    <div key={u.id} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100 transition-all hover:border-primary/20">
+                    <div key={u.id} className={`flex items-center justify-between p-2 rounded-lg border transition-all ${
+                      activeTransmissions.has(u.id) ? 'bg-red-50 border-red-200 ring-1 ring-red-100' : 'bg-slate-50 border-slate-100'
+                    }`}>
                       <div className="flex items-center gap-2 overflow-hidden">
                         <div className={`h-1.5 w-1.5 rounded-full ${activeTransmissions.has(u.id) ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
                         <div className="flex flex-col min-w-0">
                           <span className="text-[10px] font-bold text-slate-700 truncate uppercase">
                             {u.radio?.placa ? `[${u.radio.placa}] ` : ''}{u.username}
                           </span>
-                          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
+                          <span className={`text-[8px] font-bold uppercase tracking-tighter ${
+                            activeTransmissions.has(u.id) ? 'text-red-500 animate-pulse' : 'text-slate-400'
+                          }`}>
                             {activeTransmissions.has(u.id) ? 'Transmitiendo...' : 'A la escucha'}
                           </span>
                         </div>
@@ -220,10 +227,10 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
         </div>
 
         {activeTransmissions.size > 0 && (
-          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4 z-50">
-            <div className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-red-600/95 backdrop-blur-md text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4 z-50 ring-2 ring-red-400/50">
+            <div className="h-2 w-2 rounded-full bg-white animate-ping" />
             <span className="text-[10px] font-bold uppercase tracking-[0.2em]">
-              Transmisión Entrante: {activeTransmissions.size} {activeTransmissions.size === 1 ? 'Agente' : 'Agentes'}
+              Transmisión en curso: {activeTransmissions.size} {activeTransmissions.size === 1 ? 'Agente' : 'Agentes'}
             </span>
           </div>
         )}
