@@ -10,6 +10,9 @@ const firebaseConfig = {
   appId: "1:933928230872:web:a92d6adb19f3e141b7dcad"
 };
 
-// Reutilizar la instancia principal si existe
+/**
+ * Singleton para asegurar que Firebase se inicializa una sola vez
+ * y evitar errores de CONFIGURATION_NOT_FOUND.
+ */
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const dbRadio = getFirestore(app);
