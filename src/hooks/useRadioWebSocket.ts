@@ -18,7 +18,6 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
   };
 
   const connect = useCallback(() => {
-    // 1. Limpieza de timeouts previos
     if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
     if (watchdogTimeout.current) clearTimeout(watchdogTimeout.current);
 
@@ -28,9 +27,7 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
       return;
     }
 
-    // 2. Limpieza agresiva de instancia previa
     if (ws.current) {
-      console.log('[WS] Cerrando instancia anterior.');
       ws.current.onclose = null;
       ws.current.onerror = null;
       ws.current.onopen = null;
@@ -44,8 +41,8 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
     console.log('[WS][BEFORE_CREATE]');
     setStatus('connecting');
     
+    // Usamos el puerto 6000 que es el mapeado por la workstation
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // En Cloud Workstations, a veces el host incluye el puerto mapeado. 
     const wsUrl = `${protocol}//${window.location.host}/ws/radio`;
 
     try {
@@ -53,13 +50,10 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
       ws.current = new WebSocket(wsUrl);
       console.log(`[WS][READY_STATE_AFTER_CREATE] State: ${ws.current.readyState}`);
 
-      // 3. Watchdog de 10 segundos
       watchdogTimeout.current = setTimeout(() => {
         if (ws.current && ws.current.readyState === WebSocket.CONNECTING) {
           console.error(`[WS][TIMEOUT] El handshake lleva 10s bloqueado en CONNECTING.`);
           console.error(`[WS][TIMEOUT] URL: ${wsUrl} | State: ${ws.current.readyState}`);
-          
-          // Forzar cierre para intentar reconexión
           if (isComponentMounted.current) {
             setStatus('error');
             ws.current.close();
@@ -71,7 +65,6 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
         if (watchdogTimeout.current) clearTimeout(watchdogTimeout.current);
         
         if (!isComponentMounted.current) {
-          console.log('[WS][OPEN] Socket abierto pero componente desmontado. Cerrando.');
           ws.current?.close();
           return;
         }
@@ -107,10 +100,7 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
         if (isComponentMounted.current) {
           setStatus('disconnected');
           setPeers([]);
-          
-          // Reintento si no fue un cierre intencionado
           if (channel && !event.wasClean) {
-            console.log('[WS] Programando reconexión en 5s...');
             reconnectTimeout.current = setTimeout(connect, 5000);
           }
         }
@@ -142,7 +132,6 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
     connect();
     
     return () => {
-      console.log('[WS] Cleanup: Desmontando hook.');
       isComponentMounted.current = false;
       if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
       if (watchdogTimeout.current) clearTimeout(watchdogTimeout.current);
