@@ -3,15 +3,20 @@
 
 import { useEffect, useState, useCallback } from 'react';
 
-export function usePTT(onToggle: (enabled: boolean) => void) {
+interface UsePTTOptions {
+  disabled?: boolean;
+}
+
+export function usePTT(onToggle: (enabled: boolean) => void, options: UsePTTOptions = {}) {
   const [isTransmitting, setIsTransmitting] = useState(false);
+  const { disabled = false } = options;
 
   const start = useCallback(() => {
-    if (!isTransmitting) {
+    if (!isTransmitting && !disabled) {
       setIsTransmitting(true);
       onToggle(true);
     }
-  }, [isTransmitting, onToggle]);
+  }, [isTransmitting, onToggle, disabled]);
 
   const stop = useCallback(() => {
     if (isTransmitting) {
@@ -22,6 +27,10 @@ export function usePTT(onToggle: (enabled: boolean) => void) {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Evitar activar si el foco está en un input o si está desactivado
+      if (disabled) return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      
       if (e.code === 'Space') {
         e.preventDefault();
         start();
@@ -41,7 +50,14 @@ export function usePTT(onToggle: (enabled: boolean) => void) {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [start, stop]);
+  }, [start, stop, disabled]);
+
+  // Si se desactiva mientras se transmite, forzar el stop
+  useEffect(() => {
+    if (disabled && isTransmitting) {
+      stop();
+    }
+  }, [disabled, isTransmitting, stop]);
 
   return { isTransmitting, start, stop };
 }

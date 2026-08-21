@@ -5,7 +5,7 @@ import { RadioChannel, WSStatus } from '@/types/radio';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Mic, MicOff, Users, Wifi, WifiOff, AlertCircle } from 'lucide-react';
+import { Mic, MicOff, Users, Wifi, WifiOff, AlertCircle, ShieldOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface RadioCardProps {
@@ -99,22 +99,26 @@ export function RadioCard({
                 "w-full h-14 text-sm font-bold uppercase tracking-[0.3em] transition-all",
                 isTransmitting 
                   ? "bg-red-600 hover:bg-red-700 shadow-lg shadow-red-200 scale-[0.98]" 
-                  : isConnected ? "bg-primary hover:bg-primary/90" : "bg-slate-200 text-slate-400"
+                  : isConnected ? "bg-primary hover:bg-primary/90" : "bg-slate-200 text-slate-400 cursor-not-allowed"
               )}
             >
-              {isTransmitting ? (
+              {!isConnected ? (
+                <div className="flex items-center gap-2">
+                  <ShieldOff className="h-5 w-5 opacity-50" /> BLOQUEADO
+                </div>
+              ) : isTransmitting ? (
                 <div className="flex items-center gap-2">
                   <Mic className="h-5 w-5 animate-bounce" /> TRANSMITIENDO
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <MicOff className="h-5 w-5 opacity-50" /> {isConnected ? "PTT" : "BLOQUEADO"}
+                  <MicOff className="h-5 w-5 opacity-50" /> PTT
                 </div>
               )}
             </Button>
             <Button 
               variant="outline" 
-              className="w-full text-[10px] font-bold uppercase text-slate-400"
+              className="w-full text-[10px] font-bold uppercase text-slate-400 hover:text-red-500 transition-colors"
               onClick={onLeave}
             >
               Cerrar Canal

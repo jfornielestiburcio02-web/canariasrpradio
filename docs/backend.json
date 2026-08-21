@@ -1,8 +1,32 @@
 
 {
-  "entities": {},
+  "entities": {
+    "User": {
+      "title": "Perfil de Usuario",
+      "description": "Información del usuario y estado en la radio",
+      "type": "object",
+      "properties": {
+        "username": { "type": "string" },
+        "avatar": { "type": "string" },
+        "radio": {
+          "type": "object",
+          "properties": {
+            "placa": { "type": "string", "description": "Identificador de radio (ej: 10-24)" },
+            "canalActual": { "type": "string", "description": "ID del canal donde está sintonizado" },
+            "isTransmitting": { "type": "boolean" },
+            "ultimaConexion": { "type": "string", "format": "date-time" }
+          }
+        }
+      }
+    }
+  },
   "auth": {
     "providers": ["discord"]
   },
-  "firestore": {}
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Datos de perfil y estado de radio de los agentes"
+    }
+  }
 }
