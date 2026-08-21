@@ -5,7 +5,6 @@ import { DISCORD_CONFIG, setSessionUser, type DiscordUser } from '@/app/lib/auth
 
 export async function handleDiscordAuth(code: string) {
   try {
-    // 1. Intercambiar código por token
     const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
       method: 'POST',
       body: new URLSearchParams({
@@ -20,26 +19,28 @@ export async function handleDiscordAuth(code: string) {
       },
     });
 
-    const tokens = await tokenResponse.json();
+    const tokenText = await tokenResponse.text();
+    if (!tokenText) throw new Error('Token response was empty');
+    const tokens = JSON.parse(tokenText);
 
     if (tokens.error) {
       throw new Error(tokens.error_description || 'Error al obtener el token');
     }
 
-    // 2. Obtener datos del usuario
     const userResponse = await fetch('https://discord.com/api/users/@me', {
       headers: {
         Authorization: `Bearer ${tokens.access_token}`,
       },
     });
 
-    const userData: DiscordUser = await userResponse.json();
+    const userText = await userResponse.text();
+    if (!userText) throw new Error('User profile response was empty');
+    const userData: DiscordUser = JSON.parse(userText);
 
     if (!userData.id) {
       throw new Error('No se pudo obtener el perfil del usuario');
     }
 
-    // 3. Guardar sesión
     await setSessionUser(userData);
 
     return { success: true, user: userData };

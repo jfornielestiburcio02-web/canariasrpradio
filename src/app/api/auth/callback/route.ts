@@ -29,7 +29,9 @@ export async function GET(request: Request) {
       },
     });
 
-    const tokens = await tokenResponse.json();
+    const tokenText = await tokenResponse.text();
+    if (!tokenText) throw new Error('Empty token response from Discord');
+    const tokens = JSON.parse(tokenText);
     
     if (tokens.error) {
       console.error('Discord Token Error:', tokens.error, tokens.error_description);
@@ -42,7 +44,9 @@ export async function GET(request: Request) {
       },
     });
 
-    const userData = await userResponse.json();
+    const userText = await userResponse.text();
+    if (!userText) throw new Error('Empty user response from Discord');
+    const userData = JSON.parse(userText);
     
     if (!userData.id) {
       console.error('No user data received from Discord');
@@ -56,8 +60,6 @@ export async function GET(request: Request) {
       discriminator: userData.discriminator,
     });
 
-    // Redirigimos al tablón. Nota: Firebase Auth todavía estará vacío en el cliente 
-    // a menos que implementes un Custom Token o uses el proveedor de Discord nativo de Firebase.
     return NextResponse.redirect(new URL('/tablon', request.url));
   } catch (error) {
     console.error('Auth Callback error:', error);

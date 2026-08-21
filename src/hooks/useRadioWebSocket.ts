@@ -27,7 +27,6 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
     const connId = ++connectionIdCounter.current;
     currentConnectionId.current = connId;
 
-    // Limpieza agresiva para evitar bucles de reconexión
     if (ws.current) {
       console.log(`[WS][LIFECYCLE] Cerrando socket id=${connId - 1} para abrir id=${connId}`);
       ws.current.onclose = null;
@@ -61,6 +60,7 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
 
       socket.onmessage = (event) => {
         if (currentConnectionId.current !== connId) return;
+        if (!event.data) return;
         try {
           const msg: SignalingMessage = JSON.parse(event.data);
           if (msg.type === 'channel_peers_update') {
@@ -68,7 +68,7 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
           }
           onMessageRef.current(msg);
         } catch (e) {
-          console.warn(`[WS][MESSAGE] id=${connId} - Error al parsear`, e);
+          console.warn(`[WS][MESSAGE] id=${connId} - Error al parsear JSON del WebSocket`, e);
         }
       };
 

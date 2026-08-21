@@ -36,10 +36,9 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
 
   const { data: userData } = useDoc<any>(userRef);
 
-  // Sincronizar estado en Firestore al cambiar de canal
+  // Sincronizar estado en Firestore al cambiar de canal (solo cuando cambia el canal)
   useEffect(() => {
     if (db && discordUser.id) {
-      // Usamos merge para no sobrescribir otros campos del perfil
       setDoc(doc(db, 'users', discordUser.id), {
         radio: {
           canalActual: activeChannel || null,
@@ -62,7 +61,7 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
     if (userData?.radio?.placa) {
       setPlacaInput(userData.radio.placa);
     }
-  }, [userData]);
+  }, [userData?.radio?.placa]);
 
   // Hook de WebSocket para señalización
   const { status, peers, send, setOnMessage } = useRadioWebSocket(

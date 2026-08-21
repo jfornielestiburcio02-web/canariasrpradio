@@ -17,18 +17,24 @@ export function useRadioWebRTC(mySessionId: string, sendSignal: (msg: any) => vo
   const [activeTransmissions, setActiveTransmissions] = useState<Set<string>>(new Set());
   const [micStatus, setMicStatus] = useState<MicStatus>('prompt');
 
-  // Cargamos los servidores ICE desde el backend
   useEffect(() => {
-    fetch('/api/webrtc/ice-servers')
-      .then(res => res.json())
-      .then(data => {
-        iceServers.current = data;
-        console.log('[WEBRTC][ICE_SERVER] Configuración cargada');
-      })
-      .catch(err => console.error('[WEBRTC][ICE_SERVER] Error cargando servidores:', err));
+    const loadIceServers = async () => {
+      try {
+        const res = await fetch('/api/webrtc/ice-servers');
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const text = await res.text();
+        if (text) {
+          const data = JSON.parse(text);
+          iceServers.current = data;
+          console.log('[WEBRTC][ICE_SERVER] Configuración cargada');
+        }
+      } catch (err) {
+        console.error('[WEBRTC][ICE_SERVER] Error cargando servidores:', err);
+      }
+    };
+    loadIceServers();
   }, []);
 
-  // Limpieza de peers que abandonan el canal
   useEffect(() => {
     const peersSet = new Set(peersList);
     peerConnections.current.forEach((pc, peerId) => {
@@ -74,7 +80,6 @@ export function useRadioWebRTC(mySessionId: string, sendSignal: (msg: any) => vo
       localStream.current = stream;
       setMicStatus('granted');
       
-      // Añadir pistas a conexiones ya existentes si las hay
       peerConnections.current.forEach(pc => addLocalTracksToPC(pc));
       
       return stream;
@@ -153,7 +158,6 @@ export function useRadioWebRTC(mySessionId: string, sendSignal: (msg: any) => vo
         const currentPeers = msg.payload.peers as string[];
         for (const peerId of currentPeers) {
           if (peerId !== mySessionId && !peerConnections.current.has(peerId)) {
-            // Estrategia Polite Peer: el ID menor inicia la oferta
             if (mySessionId < peerId) {
               const pc = createPeerConnection(peerId);
               if (pc) {

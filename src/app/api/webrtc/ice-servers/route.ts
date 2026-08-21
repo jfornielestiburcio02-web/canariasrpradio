@@ -2,41 +2,29 @@
 import { NextResponse } from 'next/server';
 
 /**
- * Endpoint para obtener la configuración de servidores ICE de forma segura.
- * Oculta la API Key de Metered del cliente final.
+ * Endpoint para obtener la configuración de servidores ICE.
+ * Utiliza el servidor TURN proporcionado: free.expressturn.com
  */
 export async function GET() {
-  const apiKey = process.env.TURN_API_KEY;
-  
-  if (!apiKey) {
-    console.warn('[ICE_SERVER_API] No TURN_API_KEY found in environment. Using default STUN.');
-    return NextResponse.json([
-      { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }
-    ]);
-  }
-
   try {
-    // Consultamos al proveedor Metered para obtener la lista actualizada de servidores TURN/STUN
-    const response = await fetch(
-      `https://canariasrpradio.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`,
-      { cache: 'no-store' }
-    );
-    
-    if (!response.ok) {
-      throw new Error(`Metered API returned ${response.status}`);
-    }
+    // Configuración del nuevo servidor TURN proporcionado por el usuario
+    const turnServer = {
+      urls: [
+        "turn:free.expressturn.com:3478",
+        "turns:free.expressturn.com:3478"
+      ],
+      username: "000000002102697359",
+      credential: "F+K5UCLkondH6gZy7FHo7Ehdinc="
+    };
 
-    const data = await response.json();
-    
-    // Combinamos con servidores STUN públicos de Google para mayor redundancia
     const iceServers = [
       { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
-      ...data
+      turnServer
     ];
     
     return NextResponse.json(iceServers);
   } catch (error) {
-    console.error('[ICE_SERVER_API] Error fetching TURN credentials:', error);
+    console.error('[ICE_SERVER_API] Error building ICE config:', error);
     return NextResponse.json([
       { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }
     ]);
