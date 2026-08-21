@@ -23,7 +23,7 @@ export async function setSessionUser(user: DiscordUser) {
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE, JSON.stringify(user), {
     httpOnly: true,
-    secure: true,
+    secure: true, // Siempre true en cloud workstations por HTTPS
     sameSite: 'lax',
     maxAge: 60 * 60 * 24 * 7, // 1 semana
     path: '/',
