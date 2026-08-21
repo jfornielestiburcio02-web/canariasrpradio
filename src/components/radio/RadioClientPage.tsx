@@ -15,6 +15,8 @@ import { Input } from '@/components/ui/input';
 import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, serverTimestamp, collection, query, where } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
 
 interface RadioClientPageProps {
   discordUser: DiscordUser;
@@ -34,16 +36,19 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
 
   const { data: userData } = useDoc<any>(userRef);
 
+  // Sincronizar datos de usuario en Firestore al entrar o cambiar de canal
   useEffect(() => {
     if (db && discordUser.id) {
       setDoc(doc(db, 'users', discordUser.id), {
+        username: discordUser.global_name || discordUser.username,
+        avatar: discordUser.avatar,
         radio: {
           canalActual: activeChannel || null,
           ultimaConexion: serverTimestamp()
         }
       }, { merge: true });
     }
-  }, [activeChannel, db, discordUser.id]);
+  }, [activeChannel, db, discordUser.id, discordUser.username, discordUser.global_name, discordUser.avatar]);
 
   const handleSavePlaca = async () => {
     if (db && discordUser.id) {
@@ -93,6 +98,12 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
   }, [db, activeChannel]);
 
   const { data: channelUsers } = useCollection<any>(activeUsersQuery);
+
+  const getDiscordAvatarUrl = (userId: string, avatarHash: string | null) => {
+    return avatarHash 
+      ? `https://cdn.discordapp.com/avatars/${userId}/${avatarHash}.png`
+      : `https://cdn.discordapp.com/embed/avatars/${Number(userId) % 5}.png`;
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -193,32 +204,61 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
             <CardContent className="pt-4 px-4 space-y-3">
               {activeChannel ? (
                 channelUsers && channelUsers.length > 0 ? (
-                  channelUsers.map((u: any) => (
-                    <div key={u.id} className={`flex items-center justify-between p-2 rounded-lg border transition-all ${
-                      activeTransmissions.has(u.id) ? 'bg-red-50 border-red-200 ring-1 ring-red-100' : 'bg-slate-50 border-slate-100'
-                    }`}>
-                      <div className="flex items-center gap-2 overflow-hidden">
-                        <div className={`h-1.5 w-1.5 rounded-full ${activeTransmissions.has(u.id) ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-[10px] font-bold text-slate-700 truncate uppercase">
-                            {u.radio?.placa ? `[${u.radio.placa}] ` : ''}{u.username}
-                          </span>
-                          <span className={`text-[8px] font-bold uppercase tracking-tighter ${
-                            activeTransmissions.has(u.id) ? 'text-red-500 animate-pulse' : 'text-slate-400'
-                          }`}>
-                            {activeTransmissions.has(u.id) ? 'Transmitiendo...' : 'A la escucha'}
-                          </span>
+                  channelUsers.map((u: any) => {
+                    const isTransmitting = activeTransmissions.has(u.id);
+                    return (
+                      <div key={u.id} className={cn(
+                        "flex items-center justify-between p-2.5 rounded-xl border transition-all duration-300",
+                        isTransmitting 
+                          ? 'bg-red-50 border-red-200 ring-2 ring-red-100' 
+                          : 'bg-white border-slate-100 hover:border-slate-200'
+                      )}>
+                        <div className="flex items-center gap-3 overflow-hidden">
+                          <div className="relative">
+                            <Avatar className="h-8 w-8 border border-slate-200">
+                              <AvatarImage src={getDiscordAvatarUrl(u.id, u.avatar)} alt={u.username} />
+                              <AvatarFallback className="text-[10px] bg-slate-100 text-slate-400">
+                                {u.username?.substring(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className={cn(
+                              "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white",
+                              isTransmitting ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'
+                            )} />
+                          </div>
+                          
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-[10px] font-black text-slate-800 truncate uppercase leading-tight">
+                              {u.username}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[9px] font-bold text-primary uppercase tracking-tighter">
+                                {u.radio?.placa ? `[${u.radio.placa}]` : '[SIN PLACA]'}
+                              </span>
+                              <span className={cn(
+                                "text-[8px] font-bold uppercase tracking-tighter",
+                                isTransmitting ? 'text-red-500 animate-pulse' : 'text-slate-400'
+                              )}>
+                                • {isTransmitting ? 'Hablando' : 'En línea'}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
-                  <p className="text-[9px] font-bold text-slate-400 text-center py-4 uppercase italic">Sincronizando personal...</p>
+                  <div className="text-center py-6">
+                    <div className="h-8 w-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-2" />
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Localizando agentes...</p>
+                  </div>
                 )
               ) : (
-                <div className="text-center py-8 space-y-2 opacity-50">
-                  <RadioIcon className="h-8 w-8 text-slate-200 mx-auto" />
-                  <p className="text-[9px] font-bold text-slate-400 uppercase">Sin canal activo</p>
+                <div className="text-center py-12 space-y-3 opacity-30">
+                  <div className="bg-slate-100 p-4 rounded-full w-fit mx-auto">
+                    <RadioIcon className="h-8 w-8 text-slate-300" />
+                  </div>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">Frecuencia no sintonizada</p>
                 </div>
               )}
             </CardContent>
@@ -229,7 +269,7 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
           <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-red-600/95 backdrop-blur-md text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4 z-50 ring-2 ring-red-400/50">
             <div className="h-2 w-2 rounded-full bg-white animate-ping" />
             <span className="text-[10px] font-bold uppercase tracking-[0.2em]">
-              Transmisión en curso: {activeTransmissions.size} {activeTransmissions.size === 1 ? 'Agente' : 'Agentes'}
+              Señal entrante de: {activeTransmissions.size} {activeTransmissions.size === 1 ? 'Agente' : 'Agentes'}
             </span>
           </div>
         )}
