@@ -94,6 +94,21 @@ export function RadioGrid({
     }
   ];
 
+  const plCategories = [
+    {
+      name: "Policía Local - Operativa Principal",
+      icon: <User className="h-4 w-4" />,
+      channels: [
+        { id: 'PL_CANAL_1', title: 'Canal 1 (PL-1) - Principal', icon: <Shield /> },
+        { id: 'PL_CANAL_2', title: 'Canal 2 (PL-2) - Tráfico', icon: <Truck /> },
+        { id: 'PL_CANAL_3', title: 'Canal 3 (PL-3) - Operativos', icon: <Target /> },
+        { id: 'PL_CANAL_4', title: 'Canal 4 (PL-4) - Comisaría', icon: <Radio /> },
+        { id: 'PL_COORD', title: 'Canal COORD - Intercuerpos', icon: <Zap /> },
+        { id: 'PL_SIN_ASIGN', title: 'Esperando Asignación', icon: <User /> },
+      ]
+    }
+  ];
+
   const gcCategories = [
     {
       name: "GC - Asignaciones y Coordinación",
@@ -279,6 +294,28 @@ export function RadioGrid({
       {/* SECCIÓN CNP */}
       <div className="space-y-12">
         {cnpCategories.map(renderCategory)}
+      </div>
+
+      {/* SEPARADOR GRANDE POLICÍA LOCAL */}
+      <div className="pt-16 pb-8 border-t-4 border-sky-400/20">
+        <div className="flex items-center gap-5">
+          <div className="bg-sky-500 p-4 rounded-2xl shadow-xl ring-4 ring-sky-50">
+            <User className="h-10 w-10 text-white" />
+          </div>
+          <div>
+            <h2 className="text-4xl font-black uppercase tracking-[0.4em] text-slate-900 leading-none">Policía Local Tenerife</h2>
+            <div className="flex items-center gap-3 mt-2">
+              <span className="h-px w-10 bg-sky-200" />
+              <p className="text-[11px] font-black text-sky-600 uppercase tracking-[0.3em]">Cuerpo de Policía Local - Tenerife RP</p>
+              <span className="h-px w-10 bg-sky-200" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* SECCIÓN PL */}
+      <div className="space-y-12">
+        {plCategories.map(renderCategory)}
       </div>
 
       {/* SEPARADOR GRANDE GUARDIA CIVIL */}

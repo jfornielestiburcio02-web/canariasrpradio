@@ -18,7 +18,8 @@ export type RadioChannel =
   | 'SUC_SVB_ALPHA_10' | 'SUC_SVB_ALPHA_20' | 'SUC_SVB_ALPHA_30'
   | 'SUC_SVA_BRAVO_10' | 'SUC_SVA_BRAVO_20' | 'SUC_SVA_BRAVO_30'
   | 'SUC_VIR_DELTA_10' | 'SUC_VIR_DELTA_20' | 'SUC_VIR_DELTA_30'
-  | 'CAR_COORDINACION' | 'CAR_SIN_ASIGN';
+  | 'CAR_COORDINACION' | 'CAR_SIN_ASIGN'
+  | 'PL_CANAL_1' | 'PL_CANAL_2' | 'PL_CANAL_3' | 'PL_CANAL_4' | 'PL_COORD' | 'PL_SIN_ASIGN';
 
 export type WSStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
