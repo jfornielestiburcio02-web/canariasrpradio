@@ -14,7 +14,7 @@ export async function getErlcPlayers() {
     const res = await fetch(`${API_BASE}/server/players`, {
       method: 'GET',
       headers: {
-        'Server-Key': ERLC_TOKEN,
+        'server-key': ERLC_TOKEN,
         'Accept': 'application/json',
       },
       cache: 'no-store',
@@ -24,7 +24,7 @@ export async function getErlcPlayers() {
       const errorData = await res.json().catch(() => ({}));
       return { 
         success: false, 
-        error: `Error ${res.status}: ${errorData.info || errorData.message || 'Error de Autenticación'} (Código: ${errorData.code || '9999'})` 
+        error: `Error ${res.status}: ${errorData.info || errorData.message || 'Error de Autenticación'}` 
       };
     }
 
@@ -40,7 +40,7 @@ export async function getErlcLogs() {
     const res = await fetch(`${API_BASE}/server/logs`, {
       method: 'GET',
       headers: {
-        'Server-Key': ERLC_TOKEN,
+        'server-key': ERLC_TOKEN,
         'Accept': 'application/json',
       },
       cache: 'no-store',
@@ -50,7 +50,7 @@ export async function getErlcLogs() {
       const errorData = await res.json().catch(() => ({}));
       return { 
         success: false, 
-        error: `Error Log ${res.status}: ${errorData.info || 'Verifique su Server-Key en el panel de ERLC'}` 
+        error: `Error Log ${res.status}: ${errorData.info || 'Verifique su server-key en el panel de ERLC'}` 
       };
     }
     
@@ -66,7 +66,7 @@ export async function getErlcServerInfo() {
     const res = await fetch(`${API_BASE}/server`, {
       method: 'GET',
       headers: {
-        'Server-Key': ERLC_TOKEN,
+        'server-key': ERLC_TOKEN,
         'Accept': 'application/json',
       },
       cache: 'no-store',
@@ -74,7 +74,7 @@ export async function getErlcServerInfo() {
 
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      return { success: false, error: errorData.info || 'No se pudo validar el Server-Key' };
+      return { success: false, error: errorData.info || 'No se pudo validar el server-key' };
     }
     
     const data = await res.json();
