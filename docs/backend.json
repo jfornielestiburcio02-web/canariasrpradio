@@ -34,6 +34,18 @@
         "createdAt": { "type": "string", "format": "date-time" },
         "audioGenerated": { "type": "boolean" }
       }
+    },
+    "ErlcEvent": {
+      "title": "Evento ERLC",
+      "description": "Evento externo recibido desde el servidor de juego",
+      "type": "object",
+      "properties": {
+        "tipo": { "type": "string", "enum": ["PANICO", "ALERTA", "INFO"] },
+        "sujeto": { "type": "string" },
+        "ubicacion": { "type": "string" },
+        "detalles": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "auth": {
@@ -47,6 +59,10 @@
     "emergencyCalls/{callId}": {
       "schema": "EmergencyCall",
       "description": "Registro de incidentes activos"
+    },
+    "erlcEvents/{eventId}": {
+      "schema": "ErlcEvent",
+      "description": "Logs de eventos recibidos por API externa"
     }
   }
 }
