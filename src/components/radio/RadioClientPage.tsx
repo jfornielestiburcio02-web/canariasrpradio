@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -7,7 +8,7 @@ import { useRadioWebSocket } from '@/hooks/useRadioWebSocket';
 import { useRadioWebRTC } from '@/hooks/useRadioWebRTC';
 import { usePTT } from '@/hooks/usePTT';
 import { RadioGrid } from '@/components/radio/RadioGrid';
-import { Radio as RadioIcon, LogOut, Shield, BadgeCheck, Pencil, Bell, Activity, Keyboard, Settings2, AlertTriangle, Loader2 } from 'lucide-react';
+import { Radio as RadioIcon, LogOut, Shield, BadgeCheck, Pencil, Bell, Activity, Keyboard, Settings2, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,6 +43,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
   
   const db = useFirestore();
   const sessionStartTime = useRef(Date.now());
+  const lastSyncChannel = useRef<RadioChannel | null>(null);
 
   const userRef = useMemoFirebase(() => {
     if (!db || !discordUser.id) return null;
@@ -73,7 +75,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     }
   }, [db, panicLoading, userData?.radio?.placa, discordUser.global_name, discordUser.username, toast]);
 
-  // Cargar teclas de localStorage
+  // Cargar teclas
   useEffect(() => {
     const savedPtt = localStorage.getItem('radio_ptt_key');
     const savedPanic = localStorage.getItem('radio_panic_key');
@@ -102,7 +104,6 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     return () => window.removeEventListener('keydown', handleKey);
   }, [isListeningKey]);
 
-  // Listener global para la tecla de pánico
   useEffect(() => {
     const handlePanicKeyDown = (e: KeyboardEvent) => {
       if (isMobile || isListeningKey) return;
@@ -116,53 +117,20 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     return () => window.removeEventListener('keydown', handlePanicKeyDown);
   }, [panicKey, triggerPanic, isMobile, isListeningKey]);
 
-  // --- Sistema de Audio Institucional y Alertas de Pánico ---
+  // Alertas Globales
   useEffect(() => {
     if (!db) return;
     const introSoundUrl = "https://res.cloudinary.com/dgvh0c87y/video/upload/v1787391237/1514375003628376116_phw9ti.ogg";
     const outroSoundUrl = "https://res.cloudinary.com/dgvh0c87y/video/upload/v1787391249/radio_finalizar_invertido_aiifyo.ogg";
     const panicAlertUrl = "https://www.myinstants.com/media/sounds/panic-button.mp3";
 
-    // 1. Escuchar Llamadas 112
-    const qCalls = query(collection(db, 'emergencyCalls'), orderBy('createdAt', 'desc'), limit(1));
-    const unsubscribe112 = onSnapshot(qCalls, async (snapshot) => {
-      if (snapshot.empty) return;
-      const doc = snapshot.docs[0];
-      const call = doc.data() as any;
-      const isNew = call.createdAt && (Date.now() - call.createdAt.toDate().getTime()) < 5000;
-      const sessionKey = `heard_${doc.id}`;
-      
-      if (isNew && !sessionStorage.getItem(sessionKey)) {
-        sessionStorage.setItem(sessionKey, 'true');
-        try {
-          const ttsPromise = generateEmergencyAudio({
-            nombre: call.nombre,
-            ubicacion: call.ubicacion,
-            motivo: call.motivo,
-            unidades: call.unidades
-          });
-          const intro = new Audio(introSoundUrl);
-          intro.volume = 0.6;
-          await intro.play();
-          const { media } = await ttsPromise;
-          const ttsAudio = new Audio(media);
-          await ttsAudio.play();
-          ttsAudio.onended = () => {
-            const outro = new Audio(outroSoundUrl);
-            outro.volume = 0.6;
-            outro.play();
-          };
-        } catch (e) {}
-      }
-    });
-
-    // 2. Escuchar Pánicos (Global en toda la /rad)
     const qPanic = query(
       collection(db, 'erlcEvents'), 
       where('tipo', '==', 'PANICO'),
       orderBy('timestamp', 'desc'), 
       limit(1)
     );
+    
     const unsubscribePanic = onSnapshot(qPanic, (snapshot) => {
       if (snapshot.empty) return;
       const event = snapshot.docs[0].data();
@@ -172,33 +140,39 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
 
       if (eventTime > sessionStartTime.current && !sessionStorage.getItem(sessionKey)) {
         sessionStorage.setItem(sessionKey, 'true');
-        
-        // Sonido de alerta MP3
         const audio = new Audio(panicAlertUrl);
-        audio.volume = 1.0;
         audio.play().then(() => {
-          // Una vez termine o inicie el sonido, usamos TTS local para que "se escuche el aviso"
           const msg = new SpeechSynthesisUtterance(`Alerta pánico, pulsado por el agente ${event.sujeto} con placa ${event.detalles.split('placa ')[1] || 'desconocida'}`);
           msg.lang = 'es-ES';
-          msg.rate = 0.9;
-          msg.pitch = 1.0;
           window.speechSynthesis.speak(msg);
-        }).catch(e => console.log('Audio blocked by browser policy'));
+        }).catch(() => {});
 
         toast({
           variant: "destructive",
           title: "¡BOTÓN DE PÁNICO ACTIVADO!",
-          description: `Alerta panico, pulsado por el agente ${event.sujeto} con placa ${event.detalles.split('placa ')[1] || 'SIN PLACA'}`,
+          description: `Agente ${event.sujeto} - Placa ${event.detalles.split('placa ')[1] || 'SIN PLACA'}`,
           duration: 10000,
         });
       }
     });
 
-    return () => {
-      unsubscribe112();
-      unsubscribePanic();
-    };
+    return () => unsubscribePanic();
   }, [db, toast]);
+
+  // Sincronizar estado en Firestore sin bucles infinitos
+  useEffect(() => {
+    if (!db || !discordUser.id || lastSyncChannel.current === activeChannel) return;
+    lastSyncChannel.current = activeChannel;
+    
+    setDoc(doc(db, 'users', discordUser.id), {
+      username: discordUser.global_name || discordUser.username,
+      avatar: discordUser.avatar,
+      radio: {
+        canalActual: activeChannel || null,
+        ultimaConexion: serverTimestamp()
+      }
+    }, { merge: true });
+  }, [activeChannel, db, discordUser]);
 
   const agentsQuery = useMemoFirebase(() => {
     if (!db) return null;
@@ -206,19 +180,6 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
   }, [db]);
 
   const { data: agentsInRadio } = useCollection<any>(agentsQuery);
-
-  useEffect(() => {
-    if (db && discordUser.id) {
-      setDoc(doc(db, 'users', discordUser.id), {
-        username: discordUser.global_name || discordUser.username,
-        avatar: discordUser.avatar,
-        radio: {
-          canalActual: activeChannel || null,
-          ultimaConexion: serverTimestamp()
-        }
-      }, { merge: true });
-    }
-  }, [activeChannel, db, discordUser.id, discordUser.global_name, discordUser.username, discordUser.avatar]);
 
   const handleSavePlaca = async () => {
     if (db && discordUser.id) {
@@ -230,20 +191,19 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
   };
 
   useEffect(() => {
-    if (userData?.radio?.placa) setPlacaInput(userData.radio.placa);
-  }, [userData?.radio?.placa]);
+    if (userData?.radio?.placa && !isEditingPlaca) setPlacaInput(userData.radio.placa);
+  }, [userData?.radio?.placa, isEditingPlaca]);
 
   const { status, peers, send, setOnMessage } = useRadioWebSocket(discordUser.id, activeChannel);
   
-  const handleSignal = useCallback(async (msg: SignalingMessage) => {
+  const handleSignal = useCallback((msg: SignalingMessage) => {
     if (msg.type === 'force_leave' && msg.to === discordUser.id) {
       setActiveChannel(null);
       toast({
         variant: "destructive",
-        title: "Transmisión Interrumpida",
-        description: "Has sido expulsado de la frecuencia por un administrador.",
+        title: "Expulsado",
+        description: "Has sido retirado del canal por un administrador.",
       });
-      return;
     }
   }, [discordUser.id, toast]);
 
@@ -263,11 +223,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
 
   const handleKickAgent = (targetUserId: string) => {
     if (!isAdminVs || !activeChannel) return;
-    send({
-      type: 'force_leave',
-      to: targetUserId,
-      channel: activeChannel
-    });
+    send({ type: 'force_leave', to: targetUserId, channel: activeChannel });
   };
 
   return (
@@ -279,26 +235,10 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
           </div>
           <div className="hidden sm:block">
             <h1 className="text-xl font-bold tracking-tight text-slate-900 uppercase leading-none">Radio Comunicaciones</h1>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Tenerife RP - Servicios de Emergencia</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Sistemas Institucionales</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-6">
-          <nav className="hidden lg:flex items-center gap-10">
-            <Link href="/rad" className={cn("text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 pb-1", pathname === '/rad' ? "text-primary border-primary" : "text-slate-400 border-transparent hover:text-slate-600")}>
-              Frecuencias
-            </Link>
-            <Link href="/rad/map" className={cn("text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 pb-1 flex items-center gap-2", pathname === '/rad/map' ? "text-primary border-primary" : "text-slate-400 border-transparent hover:text-slate-600")}>
-              <Bell className="h-3.5 w-3.5" /> Monitor Institucional
-            </Link>
-            {is112 && (
-              <Link href="/rad/112" className={cn("text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 pb-1 flex items-center gap-2", pathname === '/rad/112' ? "text-red-600 border-red-600" : "text-slate-400 border-transparent hover:text-red-500")}>
-                <Activity className="h-3.5 w-3.5" /> Coordinador 112
-              </Link>
-            )}
-          </nav>
-        </div>
-        
         <div className="flex items-center gap-4">
           <div className="flex flex-col items-end">
             <div className="flex items-center gap-2">
@@ -329,41 +269,29 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
               <div className="space-y-6">
                 <div className="flex items-center gap-2 text-slate-800">
                   <Keyboard className="h-4 w-4" />
-                  <h4 className="text-xs font-black uppercase tracking-widest">Atajos de Teclado</h4>
+                  <h4 className="text-xs font-black uppercase tracking-widest">Ajustes Radio</h4>
                 </div>
-                
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Tecla PTT (Radio)</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Tecla PTT</p>
                     <Button 
                       variant="secondary" 
-                      className={cn(
-                        "w-full h-10 text-[10px] font-black uppercase tracking-widest rounded-xl",
-                        isListeningKey === 'ptt' && "animate-pulse bg-primary/10 text-primary border-primary"
-                      )}
+                      className={cn("w-full h-10 text-[10px] font-black uppercase rounded-xl", isListeningKey === 'ptt' && "animate-pulse border-primary")}
                       onClick={() => setIsListeningKey('ptt')}
                     >
-                      {isListeningKey === 'ptt' ? 'PULSA UNA TECLA...' : pttKey}
+                      {isListeningKey === 'ptt' ? 'PULSA TECLA...' : pttKey}
                     </Button>
                   </div>
-
                   <div className="space-y-2">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Tecla Botón de Pánico</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Tecla Pánico</p>
                     <Button 
                       variant="secondary" 
-                      className={cn(
-                        "w-full h-10 text-[10px] font-black uppercase tracking-widest rounded-xl",
-                        isListeningKey === 'panic' && "animate-pulse bg-red-50 text-red-600 border-red-200"
-                      )}
+                      className={cn("w-full h-10 text-[10px] font-black uppercase rounded-xl", isListeningKey === 'panic' && "animate-pulse border-red-500")}
                       onClick={() => setIsListeningKey('panic')}
                     >
-                      {isListeningKey === 'panic' ? 'PULSA UNA TECLA...' : panicKey}
+                      {isListeningKey === 'panic' ? 'PULSA TECLA...' : panicKey}
                     </Button>
                   </div>
-
-                  <p className="text-[8px] text-slate-400 font-medium uppercase mt-2 text-center leading-relaxed">
-                    {isMobile ? 'MODO MÓVIL: TOQUE PARA CONMUTAR' : 'MODO ESCRITORIO: MANTENER PULSADA'}
-                  </p>
                 </div>
               </div>
             </PopoverContent>
@@ -375,8 +303,8 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
         </div>
       </header>
 
-      <main className="flex-1 p-8 grid grid-cols-1 lg:grid-cols-4 gap-8 max-w-[1600px] mx-auto w-full">
-        <div className="lg:col-span-3 space-y-8">
+      <main className="flex-1 p-8 grid grid-cols-1 lg:grid-cols-4 gap-8 max-w-[1600px] mx-auto w-full overflow-hidden">
+        <div className="lg:col-span-3 h-full">
           <RadioGrid 
             activeChannel={activeChannel} 
             onJoin={setActiveChannel} 
@@ -394,7 +322,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
             currentUserId={discordUser.id}
           />
         </div>
-        <div className="lg:col-span-1 space-y-6">
+        <div className="lg:col-span-1">
           <EmergencyCallList />
         </div>
       </main>

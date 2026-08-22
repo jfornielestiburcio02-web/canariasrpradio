@@ -29,7 +29,6 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
           id: doc.id,
         })) as T[];
         
-        // Evitar bucles de renderizado si la colección no ha cambiado realmente
         const updateKey = JSON.stringify(items);
         if (updateKey !== lastUpdateRef.current) {
           lastUpdateRef.current = updateKey;
@@ -51,5 +50,6 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
 }
 
 export function useMemoFirebase<T>(factory: () => T, deps: any[]): T {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   return useMemo(factory, deps);
 }
