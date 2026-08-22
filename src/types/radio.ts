@@ -6,7 +6,10 @@ export type RadioChannel =
   | 'CNP_GAC_ZETA_45' | 'CNP_GAC_ZETA_50' | 'CNP_GAC_ZETA_55' | 'CNP_GAC_ZETA_60' | 'CNP_GAC_INTERCEPTORA'
   | 'CNP_UPR_FENIX_10' | 'CNP_UPR_FENIX_20' | 'CNP_UPR_FENIX_30'
   | 'CNP_UIP_LOBO_10' | 'CNP_UIP_LOBO_20' | 'CNP_UIP_LOBO_30'
-  | 'CNP_GEO_BRAVO_10' | 'CNP_GEO_BRAVO_20';
+  | 'CNP_GEO_BRAVO_10' | 'CNP_GEO_BRAVO_20'
+  | 'GC_ESP_ASIGN' | 'GC_COS' | 'GC_COTA' | 'GC_M620_JS' | 'GC_M620_A' | 'GC_M620_B' | 'GC_M620_C' | 'GC_M620_D' | 'GC_M620_E'
+  | 'GC_M324' | 'GC_M325' | 'GC_M326' | 'GC_M327' | 'GC_PUMA_0' | 'GC_PUMA_10' | 'GC_PUMA_20'
+  | 'GC_LOBO_0' | 'GC_LOBO_10' | 'GC_LOBO_20' | 'GC_M680' | 'GC_M681';
 
 export type WSStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 

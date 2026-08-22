@@ -3,7 +3,8 @@
 
 import { RadioChannel, WSStatus } from '@/types/radio';
 import { RadioCard } from './RadioCard';
-import { Shield, Ambulance, Truck, Flame, Anchor, User, Zap, Target, Users, Radio } from 'lucide-react';
+import { Shield, Ambulance, Truck, Flame, Anchor, User, Zap, Target, Users, Radio, Mountain } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface RadioGridProps {
   activeChannel: RadioChannel | null;
@@ -27,7 +28,7 @@ export function RadioGrid({
   onPTTStop
 }: RadioGridProps) {
   
-  const categories = [
+  const cnpCategories = [
     {
       name: "Frecuencias Generales",
       icon: <Radio className="h-4 w-4" />,
@@ -93,39 +94,126 @@ export function RadioGrid({
     }
   ];
 
+  const gcCategories = [
+    {
+      name: "GC - Asignaciones y Coordinación",
+      icon: <Anchor className="h-4 w-4" />,
+      channels: [
+        { id: 'GC_ESP_ASIGN', title: 'GC - Esp. Asign', icon: <Shield /> },
+        { id: 'GC_COS', title: 'COS - Centro Operativo', icon: <Radio /> },
+        { id: 'GC_COTA', title: 'COTA - Tráfico', icon: <Radio /> },
+      ]
+    },
+    {
+      name: "GC - Supervisión y Seguridad Ciudadana",
+      icon: <Shield className="h-4 w-4" />,
+      channels: [
+        { id: 'GC_M620_JS', title: 'GC - M-620-JS', icon: <Shield /> },
+        { id: 'GC_M620_A', title: 'SC - M-620-A', icon: <Shield /> },
+        { id: 'GC_M620_B', title: 'SC - M-620-B', icon: <Shield /> },
+        { id: 'GC_M620_C', title: 'SC - M-620-C', icon: <Shield /> },
+        { id: 'GC_M620_D', title: 'SC - M-620-D', icon: <Shield /> },
+        { id: 'GC_M620_E', title: 'SC - M-620-E', icon: <Shield /> },
+      ]
+    },
+    {
+      name: "GC - Agrupación de Tráfico (ATGC)",
+      icon: <Truck className="h-4 w-4" />,
+      channels: [
+        { id: 'GC_M324', title: 'ATGC - M-324', icon: <Zap /> },
+        { id: 'GC_M325', title: 'ATGC - M-325', icon: <Zap /> },
+        { id: 'GC_M326', title: 'ATGC - M-326', icon: <Zap /> },
+        { id: 'GC_M327', title: 'ATGC - M-327', icon: <Zap /> },
+      ]
+    },
+    {
+      name: "GC - GRS (Grupo de Reserva y Seguridad)",
+      icon: <Users className="h-4 w-4" />,
+      channels: [
+        { id: 'GC_PUMA_0', title: 'GRS - Puma 0 (Jefe)', icon: <Target /> },
+        { id: 'GC_PUMA_10', title: 'GRS - Puma 10', icon: <Shield /> },
+        { id: 'GC_PUMA_20', title: 'GRS - Puma 20', icon: <Shield /> },
+      ]
+    },
+    {
+      name: "GC - USECIC (Seguridad Ciudadana Comandancia)",
+      icon: <Shield className="h-4 w-4" />,
+      channels: [
+        { id: 'GC_LOBO_0', title: 'USECIC - Lobo 0 (Jefe)', icon: <Target /> },
+        { id: 'GC_LOBO_10', title: 'USECIC - Lobo 10', icon: <Shield /> },
+        { id: 'GC_LOBO_20', title: 'USECIC - Lobo 20', icon: <Shield /> },
+      ]
+    },
+    {
+      name: "GC - GREIM (Rescate e Intervención en Montaña)",
+      icon: <Mountain className="h-4 w-4" />,
+      channels: [
+        { id: 'GC_M680', title: 'GREIM - M-680', icon: <Shield /> },
+        { id: 'GC_M681', title: 'GREIM - M-681', icon: <Shield /> },
+      ]
+    }
+  ];
+
+  const renderCategory = (cat: any) => (
+    <div key={cat.name} className="space-y-6">
+      <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
+        <div className="bg-primary/10 p-2 rounded-lg text-primary">
+          {cat.icon}
+        </div>
+        <h2 className="text-sm font-black uppercase tracking-[0.2em] text-slate-400">
+          {cat.name}
+        </h2>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {cat.channels.map((ch: any) => (
+          <RadioCard
+            key={ch.id}
+            channel={ch.id as RadioChannel}
+            title={ch.title}
+            icon={ch.icon}
+            active={activeChannel === ch.id}
+            onJoin={() => onJoin(ch.id as RadioChannel)}
+            onLeave={onLeave}
+            users={activeChannel === ch.id ? peers : []}
+            wsStatus={wsStatus}
+            isTransmitting={isTransmitting}
+            onPTTStart={onPTTStart}
+            onPTTStop={onPTTStop}
+          />
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-12 pb-20">
-      {categories.map((cat, idx) => (
-        <div key={idx} className="space-y-6">
-          <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
-            <div className="bg-primary/10 p-2 rounded-lg text-primary">
-              {cat.icon}
-            </div>
-            <h2 className="text-sm font-black uppercase tracking-[0.2em] text-slate-400">
-              {cat.name}
-            </h2>
+      {/* SECCIÓN CNP */}
+      <div className="space-y-12">
+        {cnpCategories.map(renderCategory)}
+      </div>
+
+      {/* SEPARADOR GRANDE GUARDIA CIVIL */}
+      <div className="pt-16 pb-8 border-t-4 border-emerald-500/20">
+        <div className="flex items-center gap-5">
+          <div className="bg-emerald-600 p-4 rounded-2xl shadow-xl ring-4 ring-emerald-50">
+            <Anchor className="h-10 w-10 text-white" />
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {cat.channels.map((ch) => (
-              <RadioCard
-                key={ch.id}
-                channel={ch.id as RadioChannel}
-                title={ch.title}
-                icon={ch.icon}
-                active={activeChannel === ch.id}
-                onJoin={() => onJoin(ch.id as RadioChannel)}
-                onLeave={onLeave}
-                users={activeChannel === ch.id ? peers : []}
-                wsStatus={wsStatus}
-                isTransmitting={isTransmitting}
-                onPTTStart={onPTTStart}
-                onPTTStop={onPTTStop}
-              />
-            ))}
+          <div>
+            <h2 className="text-4xl font-black uppercase tracking-[0.4em] text-slate-900 leading-none">Guardia Civil</h2>
+            <div className="flex items-center gap-3 mt-2">
+              <span className="h-px w-10 bg-emerald-200" />
+              <p className="text-[11px] font-black text-emerald-600 uppercase tracking-[0.3em]">Benemérita - Tenerife RP</p>
+              <span className="h-px w-10 bg-emerald-200" />
+            </div>
           </div>
         </div>
-      ))}
+      </div>
+
+      {/* SECCIÓN GC */}
+      <div className="space-y-12">
+        {gcCategories.map(renderCategory)}
+      </div>
     </div>
   );
 }
