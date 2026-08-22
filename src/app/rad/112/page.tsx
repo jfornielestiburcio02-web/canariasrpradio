@@ -1,10 +1,12 @@
+
 import { getSessionUser } from '@/app/lib/auth-utils';
 import { redirect } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ShieldAlert, ArrowLeft, Activity, Radio, AlertTriangle, Users } from 'lucide-react';
+import { ShieldAlert, ArrowLeft, Activity, Radio, AlertTriangle, Users, PhoneIncoming } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { CoordinatorVoiceHandler } from '@/components/radio/CoordinatorVoiceHandler';
 
 export default async function Coordinator112Page() {
   const user = await getSessionUser();
@@ -109,24 +111,32 @@ export default async function Coordinator112Page() {
           </Card>
         </div>
 
-        <Card className="bg-white border-none shadow-2xl rounded-3xl overflow-hidden">
-          <div className="p-12 text-center space-y-6">
-            <div className="bg-slate-50 p-8 rounded-full w-fit mx-auto">
-              <Users className="h-16 w-16 text-slate-200" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Panel de Gestión Coordinada</h2>
-              <p className="text-sm text-slate-500 max-w-md mx-auto mt-2 font-medium">
-                Módulo avanzado para el despacho de unidades y gestión de incidentes críticos en Tenerife RP.
-              </p>
-            </div>
-            <div className="pt-6">
-              <Badge variant="outline" className="bg-red-50 text-red-600 border-red-100 px-4 py-1.5 text-[10px] font-bold uppercase">
-                Sistema en fase de despliegue táctico
-              </Badge>
-            </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2">
+             <CoordinatorVoiceHandler discordUser={user} />
           </div>
-        </Card>
+
+          <div className="lg:col-span-1 space-y-6">
+            <Card className="bg-white border-none shadow-xl rounded-3xl overflow-hidden">
+              <div className="p-8 text-center space-y-6">
+                <div className="bg-slate-50 p-6 rounded-full w-fit mx-auto">
+                  <Users className="h-12 w-12 text-slate-200" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-slate-900 uppercase tracking-tighter">Panel de Gestión</h2>
+                  <p className="text-[10px] text-slate-500 max-w-xs mx-auto mt-2 font-medium uppercase tracking-widest">
+                    Módulo avanzado para el despacho de unidades críticas.
+                  </p>
+                </div>
+                <div className="pt-2">
+                  <Badge variant="outline" className="bg-red-50 text-red-600 border-red-100 px-4 py-1.5 text-[8px] font-bold uppercase tracking-widest">
+                    Sistema Activo
+                  </Badge>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
       </main>
     </div>
   );
