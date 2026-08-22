@@ -9,7 +9,11 @@ export type RadioChannel =
   | 'CNP_GEO_BRAVO_10' | 'CNP_GEO_BRAVO_20'
   | 'GC_ESP_ASIGN' | 'GC_COS' | 'GC_COTA' | 'GC_M620_JS' | 'GC_M620_A' | 'GC_M620_B' | 'GC_M620_C' | 'GC_M620_D' | 'GC_M620_E'
   | 'GC_M324' | 'GC_M325' | 'GC_M326' | 'GC_M327' | 'GC_PUMA_0' | 'GC_PUMA_10' | 'GC_PUMA_20'
-  | 'GC_LOBO_0' | 'GC_LOBO_10' | 'GC_LOBO_20' | 'GC_M680' | 'GC_M681';
+  | 'GC_LOBO_0' | 'GC_LOBO_10' | 'GC_LOBO_20' | 'GC_M680' | 'GC_M681'
+  | 'BOM_SIN_ASIGN' | 'BOM_CUB' 
+  | 'BOM_BUP_BRAVO_10' | 'BOM_BUP_BRAVO_20' | 'BOM_BUP_BRAVO_30'
+  | 'BOM_AEA_ALPHA_10' | 'BOM_AEA_ALPHA_20' | 'BOM_AEA_ALPHA_30'
+  | 'BOM_SE_NOVEMBER_10' | 'BOM_SE_NOVEMBER_20' | 'BOM_SE_NOVEMBER_30';
 
 export type WSStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 

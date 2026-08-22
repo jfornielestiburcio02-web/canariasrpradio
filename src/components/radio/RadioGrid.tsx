@@ -3,7 +3,7 @@
 
 import { RadioChannel, WSStatus } from '@/types/radio';
 import { RadioCard } from './RadioCard';
-import { Shield, Ambulance, Truck, Flame, Anchor, User, Zap, Target, Users, Radio, Mountain } from 'lucide-react';
+import { Shield, Ambulance, Truck, Flame, Anchor, User, Zap, Target, Users, Radio, Mountain, HeartPulse } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface RadioGridProps {
@@ -154,6 +154,44 @@ export function RadioGrid({
     }
   ];
 
+  const bomberosCategories = [
+    {
+      name: "Bomberos - Coordinación y Asignación",
+      icon: <Flame className="h-4 w-4" />,
+      channels: [
+        { id: 'BOM_SIN_ASIGN', title: 'Sin Asignación', icon: <Flame /> },
+        { id: 'BOM_CUB', title: 'CUB - Coordinadora Unitaria', icon: <Radio /> },
+      ]
+    },
+    {
+      name: "BUP - Bomba Urbana Pesada",
+      icon: <Flame className="h-4 w-4" />,
+      channels: [
+        { id: 'BOM_BUP_BRAVO_10', title: 'BRAVO - 10', icon: <Flame /> },
+        { id: 'BOM_BUP_BRAVO_20', title: 'BRAVO - 20', icon: <Flame /> },
+        { id: 'BOM_BUP_BRAVO_30', title: 'BRAVO - 30', icon: <Flame /> },
+      ]
+    },
+    {
+      name: "AEA - Auto Escalera Automatica",
+      icon: <Flame className="h-4 w-4" />,
+      channels: [
+        { id: 'BOM_AEA_ALPHA_10', title: 'ALPHA - 10', icon: <Flame /> },
+        { id: 'BOM_AEA_ALPHA_20', title: 'ALPHA - 20', icon: <Flame /> },
+        { id: 'BOM_AEA_ALPHA_30', title: 'ALPHA - 30', icon: <Flame /> },
+      ]
+    },
+    {
+      name: "SE - Sector Sanitario",
+      icon: <HeartPulse className="h-4 w-4" />,
+      channels: [
+        { id: 'BOM_SE_NOVEMBER_10', title: 'NOVEMBER - 10', icon: <HeartPulse /> },
+        { id: 'BOM_SE_NOVEMBER_20', title: 'NOVEMBER - 20', icon: <HeartPulse /> },
+        { id: 'BOM_SE_NOVEMBER_30', title: 'NOVEMBER - 30', icon: <HeartPulse /> },
+      ]
+    }
+  ];
+
   const renderCategory = (cat: any) => (
     <div key={cat.name} className="space-y-6">
       <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
@@ -213,6 +251,28 @@ export function RadioGrid({
       {/* SECCIÓN GC */}
       <div className="space-y-12">
         {gcCategories.map(renderCategory)}
+      </div>
+
+      {/* SEPARADOR GRANDE BOMBEROS */}
+      <div className="pt-16 pb-8 border-t-4 border-red-500/20">
+        <div className="flex items-center gap-5">
+          <div className="bg-red-600 p-4 rounded-2xl shadow-xl ring-4 ring-red-50">
+            <Flame className="h-10 w-10 text-white" />
+          </div>
+          <div>
+            <h2 className="text-4xl font-black uppercase tracking-[0.4em] text-slate-900 leading-none">Bomberos Tenerife</h2>
+            <div className="flex items-center gap-3 mt-2">
+              <span className="h-px w-10 bg-red-200" />
+              <p className="text-[11px] font-black text-red-600 uppercase tracking-[0.3em]">Consorcio de Bomberos - Tenerife RP</p>
+              <span className="h-px w-10 bg-red-200" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* SECCIÓN BOMBEROS */}
+      <div className="space-y-12">
+        {bomberosCategories.map(renderCategory)}
       </div>
     </div>
   );
