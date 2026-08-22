@@ -1,4 +1,3 @@
-
 'use client';
 
 import { RadioChannel, WSStatus } from '@/types/radio';
@@ -15,6 +14,8 @@ interface RadioGridProps {
   isTransmitting: boolean;
   onPTTStart: () => void;
   onPTTStop: () => void;
+  onPTTToggle: () => void;
+  isMobile: boolean;
 }
 
 export function RadioGrid({
@@ -25,7 +26,9 @@ export function RadioGrid({
   wsStatus,
   isTransmitting,
   onPTTStart,
-  onPTTStop
+  onPTTStop,
+  onPTTToggle,
+  isMobile
 }: RadioGridProps) {
   
   const generalCoordCategories = [
@@ -294,6 +297,8 @@ export function RadioGrid({
             isTransmitting={isTransmitting}
             onPTTStart={onPTTStart}
             onPTTStop={onPTTStop}
+            onPTTToggle={onPTTToggle}
+            isMobile={isMobile}
           />
         ))}
       </div>
@@ -302,7 +307,7 @@ export function RadioGrid({
 
   return (
     <div className="space-y-12 pb-20">
-      {/* SECCIÓN COORDINACIÓN GENERAL (NUEVA) */}
+      {/* SECCIÓN COORDINACIÓN GENERAL */}
       <div className="space-y-12">
         {generalCoordCategories.map(renderCategory)}
       </div>

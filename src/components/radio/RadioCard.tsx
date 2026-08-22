@@ -1,4 +1,3 @@
-
 'use client';
 
 import { RadioChannel, WSStatus } from '@/types/radio';
@@ -20,6 +19,8 @@ interface RadioCardProps {
   isTransmitting: boolean;
   onPTTStart: () => void;
   onPTTStop: () => void;
+  onPTTToggle: () => void;
+  isMobile: boolean;
 }
 
 export function RadioCard({
@@ -33,7 +34,9 @@ export function RadioCard({
   wsStatus,
   isTransmitting,
   onPTTStart,
-  onPTTStop
+  onPTTStop,
+  onPTTToggle,
+  isMobile
 }: RadioCardProps) {
   const isConnected = wsStatus === 'connected';
   const isConnecting = wsStatus === 'connecting';
@@ -91,12 +94,13 @@ export function RadioCard({
         ) : (
           <div className="space-y-3">
             <Button
-              onMouseDown={onPTTStart}
-              onMouseUp={onPTTStop}
-              onMouseLeave={onPTTStop}
+              onMouseDown={!isMobile ? onPTTStart : undefined}
+              onMouseUp={!isMobile ? onPTTStop : undefined}
+              onMouseLeave={!isMobile ? onPTTStop : undefined}
+              onClick={isMobile ? onPTTToggle : undefined}
               disabled={!isConnected}
               className={cn(
-                "w-full h-14 text-sm font-bold uppercase tracking-[0.3em] transition-all",
+                "w-full h-14 text-sm font-bold uppercase tracking-[0.3em] transition-all rounded-2xl",
                 isTransmitting 
                   ? "bg-red-600 hover:bg-red-700 shadow-lg shadow-red-200 scale-[0.98]" 
                   : isConnected ? "bg-primary hover:bg-primary/90" : "bg-slate-200 text-slate-400 cursor-not-allowed"

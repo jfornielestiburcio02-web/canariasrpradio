@@ -1,47 +1,59 @@
-
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 
 interface UsePTTOptions {
   disabled?: boolean;
+  pttKey?: string;
+  isMobile?: boolean;
 }
 
 export function usePTT(onToggle: (enabled: boolean) => void, options: UsePTTOptions = {}) {
   const [isTransmitting, setIsTransmitting] = useState(false);
-  const { disabled = false } = options;
+  const { disabled = false, pttKey = 'Space', isMobile = false } = options;
+  const isTransmittingRef = useRef(false);
 
   const start = useCallback(() => {
-    if (disabled) {
-      console.log('[PTT] Bloqueado: usuario fuera del canal');
-      return;
-    }
-    if (!isTransmitting) {
+    if (disabled) return;
+    if (!isTransmittingRef.current) {
+      isTransmittingRef.current = true;
       setIsTransmitting(true);
       onToggle(true);
     }
-  }, [isTransmitting, onToggle, disabled]);
+  }, [disabled, onToggle]);
 
   const stop = useCallback(() => {
-    if (isTransmitting) {
+    if (isTransmittingRef.current) {
+      isTransmittingRef.current = false;
       setIsTransmitting(false);
       onToggle(false);
     }
-  }, [isTransmitting, onToggle]);
+  }, [onToggle]);
+
+  const toggle = useCallback(() => {
+    if (disabled) return;
+    if (isTransmittingRef.current) {
+      stop();
+    } else {
+      start();
+    }
+  }, [disabled, start, stop]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (disabled) return;
+      if (disabled || isMobile) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       
-      if (e.code === 'Space') {
+      // Comprobar si la tecla coincide con el código configurado
+      if (e.code === pttKey) {
         e.preventDefault();
         start();
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'Space') {
+      if (disabled || isMobile) return;
+      if (e.code === pttKey) {
         e.preventDefault();
         stop();
       }
@@ -53,14 +65,13 @@ export function usePTT(onToggle: (enabled: boolean) => void, options: UsePTTOpti
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [start, stop, disabled]);
+  }, [start, stop, disabled, pttKey, isMobile]);
 
   useEffect(() => {
     if (disabled && isTransmitting) {
-      console.log('[PTT] Forzando detención por desactivación de canal');
       stop();
     }
   }, [disabled, isTransmitting, stop]);
 
-  return { isTransmitting, start, stop };
+  return { isTransmitting, start, stop, toggle };
 }
