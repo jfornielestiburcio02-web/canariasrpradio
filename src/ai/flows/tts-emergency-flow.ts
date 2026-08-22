@@ -1,7 +1,7 @@
 
 'use server';
 /**
- * @fileOverview Flujo de Genkit para convertir avisos de emergencia en voz.
+ * @fileOverview Flujo de Genkit optimizado para convertir avisos de emergencia en voz con mínima latencia.
  */
 
 import { ai } from '@/ai/genkit';
@@ -49,7 +49,8 @@ const generateEmergencyAudioFlow = ai.defineFlow(
   },
   async (input) => {
     const unitsStr = input.unidades.join(', ');
-    const text = `Aviso de emergencia. Nombre del solicitante: ${input.nombre}. Ubicación confirmada: ${input.ubicacion}. Motivo del aviso: ${input.motivo}. Unidades requeridas en el lugar: ${unitsStr}. Fin del comunicado institucional.`;
+    // Texto acortado para reducir latencia de generación (Gemini genera más rápido textos breves)
+    const text = `Aviso: ${input.motivo}. Ubicación: ${input.ubicacion}. Unidades: ${unitsStr}.`;
 
     const { media } = await ai.generate({
       model: googleAI.model('gemini-2.5-flash-preview-tts'),
