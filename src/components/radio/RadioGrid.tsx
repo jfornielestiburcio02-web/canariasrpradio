@@ -3,7 +3,7 @@
 
 import { RadioChannel, WSStatus } from '@/types/radio';
 import { RadioCard } from './RadioCard';
-import { Shield, Ambulance, Truck, Flame, Anchor, User, Zap, Target, Users, Radio, Mountain, HeartPulse } from 'lucide-react';
+import { Shield, Ambulance, Truck, Flame, Anchor, User, Zap, Target, Users, Radio, Mountain, HeartPulse, Crosshair, Stethoscope } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface RadioGridProps {
@@ -192,6 +192,45 @@ export function RadioGrid({
     }
   ];
 
+  const sucCategories = [
+    {
+      name: "SUC - Coordinación y Hospital",
+      icon: <HeartPulse className="h-4 w-4" />,
+      channels: [
+        { id: 'SUC_SIN_ASIGN', title: 'Sin Asignación', icon: <HeartPulse /> },
+        { id: 'SUC_CCS', title: 'CCS - Central Coordinación', icon: <Radio /> },
+        { id: 'SUC_HOSPITAL', title: 'Hospital', icon: <Mountain /> },
+      ]
+    },
+    {
+      name: "SVB | Soporte Vital Básico",
+      icon: <Ambulance className="h-4 w-4" />,
+      channels: [
+        { id: 'SUC_SVB_ALPHA_10', title: 'ALPHA - 10', icon: <Ambulance /> },
+        { id: 'SUC_SVB_ALPHA_20', title: 'ALPHA - 20', icon: <Ambulance /> },
+        { id: 'SUC_SVB_ALPHA_30', title: 'ALPHA - 30', icon: <Ambulance /> },
+      ]
+    },
+    {
+      name: "SVA | Soporte Vital Avanzado",
+      icon: <Stethoscope className="h-4 w-4" />,
+      channels: [
+        { id: 'SUC_SVA_BRAVO_10', title: 'BRAVO - 10', icon: <Stethoscope /> },
+        { id: 'SUC_SVA_BRAVO_20', title: 'BRAVO - 20', icon: <Stethoscope /> },
+        { id: 'SUC_SVA_BRAVO_30', title: 'BRAVO - 30', icon: <Stethoscope /> },
+      ]
+    },
+    {
+      name: "VIR | Vehículo de Intervención Rápida",
+      icon: <Zap className="h-4 w-4" />,
+      channels: [
+        { id: 'SUC_VIR_DELTA_10', title: 'DELTA - 10', icon: <Zap /> },
+        { id: 'SUC_VIR_DELTA_20', title: 'DELTA - 20', icon: <Zap /> },
+        { id: 'SUC_VIR_DELTA_30', title: 'DELTA - 30', icon: <Zap /> },
+      ]
+    }
+  ];
+
   const renderCategory = (cat: any) => (
     <div key={cat.name} className="space-y-6">
       <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
@@ -273,6 +312,28 @@ export function RadioGrid({
       {/* SECCIÓN BOMBEROS */}
       <div className="space-y-12">
         {bomberosCategories.map(renderCategory)}
+      </div>
+
+      {/* SEPARADOR GRANDE SUC */}
+      <div className="pt-16 pb-8 border-t-4 border-amber-500/20">
+        <div className="flex items-center gap-5">
+          <div className="bg-amber-500 p-4 rounded-2xl shadow-xl ring-4 ring-amber-50">
+            <HeartPulse className="h-10 w-10 text-white" />
+          </div>
+          <div>
+            <h2 className="text-4xl font-black uppercase tracking-[0.4em] text-slate-900 leading-none">Servicio de Urgencias Canario</h2>
+            <div className="flex items-center gap-3 mt-2">
+              <span className="h-px w-10 bg-amber-200" />
+              <p className="text-[11px] font-black text-amber-600 uppercase tracking-[0.3em]">SUC - Tenerife RP</p>
+              <span className="h-px w-10 bg-amber-200" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* SECCIÓN SUC */}
+      <div className="space-y-12">
+        {sucCategories.map(renderCategory)}
       </div>
     </div>
   );

@@ -13,7 +13,11 @@ export type RadioChannel =
   | 'BOM_SIN_ASIGN' | 'BOM_CUB' 
   | 'BOM_BUP_BRAVO_10' | 'BOM_BUP_BRAVO_20' | 'BOM_BUP_BRAVO_30'
   | 'BOM_AEA_ALPHA_10' | 'BOM_AEA_ALPHA_20' | 'BOM_AEA_ALPHA_30'
-  | 'BOM_SE_NOVEMBER_10' | 'BOM_SE_NOVEMBER_20' | 'BOM_SE_NOVEMBER_30';
+  | 'BOM_SE_NOVEMBER_10' | 'BOM_SE_NOVEMBER_20' | 'BOM_SE_NOVEMBER_30'
+  | 'SUC_SIN_ASIGN' | 'SUC_CCS' | 'SUC_HOSPITAL'
+  | 'SUC_SVB_ALPHA_10' | 'SUC_SVB_ALPHA_20' | 'SUC_SVB_ALPHA_30'
+  | 'SUC_SVA_BRAVO_10' | 'SUC_SVA_BRAVO_20' | 'SUC_SVA_BRAVO_30'
+  | 'SUC_VIR_DELTA_10' | 'SUC_VIR_DELTA_20' | 'SUC_VIR_DELTA_30';
 
 export type WSStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
