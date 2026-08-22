@@ -7,7 +7,7 @@ import { PlaceHolderImages } from '@/app/lib/placeholder-images';
 
 export default function LoginPage() {
   // URL definitiva 100% proporcionada por el usuario
-  const DISCORD_URL = "https://discord.com/oauth2/authorize?client_id=1534483909830512730&response_type=code&redirect_uri=https%3A%2F%2F6000-firebase-studio-1776271662955.cluster-cbeiita7rbe7iuwhvjs5zww2i4.cloudworkstations.dev%2Finicio_desde_menu&scope=identify+guilds.members.read+guilds";
+  const DISCORD_URL = "https://discord.com/oauth2/authorize?client_id=1534483909830512730&response_type=code&redirect_uri=https%3A%2F%2Fcanariasrpradio.vercel.app%2Finicio_desde_menu&scope=identify+guilds+guilds.members.read";
   
   const bgImage = PlaceHolderImages.find(img => img.id === 'tenerife-rp-bg');
 
