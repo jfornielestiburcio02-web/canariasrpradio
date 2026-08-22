@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -27,7 +28,12 @@ export function MapTerminal({ discordUser }: { discordUser: DiscordUser }) {
   const [players, setPlayers] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [mounted, setMounted] = useState(false);
   const SERVER_ID = '2534724415';
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -41,8 +47,8 @@ export function MapTerminal({ discordUser }: { discordUser: DiscordUser }) {
       setPlayers(playerRes.players);
     }
     
-    if (!logRes.success && !playerRes.success) {
-      setError(logRes.error || 'Fallo de conexión satelital');
+    if (!logRes.success || !playerRes.success) {
+      setError(logRes.error || playerRes.error || 'Fallo de conexión satelital');
     } else {
       setError(null);
     }
@@ -56,6 +62,9 @@ export function MapTerminal({ discordUser }: { discordUser: DiscordUser }) {
     const interval = setInterval(fetchData, 10000);
     return () => clearInterval(interval);
   }, [fetchData]);
+
+  // Evitar error de hidratación devolviendo un esqueleto o nada hasta que el cliente esté listo
+  if (!mounted) return null;
 
   return (
     <div className="flex-1 p-6 flex flex-col gap-6 bg-slate-50 relative">

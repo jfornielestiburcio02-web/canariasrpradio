@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -15,15 +16,14 @@ export async function getErlcPlayers() {
       method: 'GET',
       headers: {
         'Server-Key': ERLC_TOKEN,
-        'User-Agent': 'TenerifeRP-Comms/1.2 (ERLC-Server-ID: 2534724415)',
         'Accept': 'application/json',
       },
-      next: { revalidate: 15 },
+      cache: 'no-store',
     });
 
     if (!res.ok) {
       const errorText = await res.text();
-      return { success: false, error: `API Error ${res.status}: ${errorText.substring(0, 50)}` };
+      return { success: false, error: `Error ${res.status}: ${errorText.substring(0, 60)}` };
     }
 
     const players = await res.json();
@@ -39,15 +39,14 @@ export async function getErlcLogs() {
       method: 'GET',
       headers: {
         'Server-Key': ERLC_TOKEN,
-        'User-Agent': 'TenerifeRP-Comms/1.2 (ERLC-Server-ID: 2534724415)',
         'Accept': 'application/json',
       },
-      next: { revalidate: 5 },
+      cache: 'no-store',
     });
 
     if (!res.ok) {
       const errorText = await res.text();
-      return { success: false, error: `Log API Error ${res.status}: ${errorText.substring(0, 50)}` };
+      return { success: false, error: `Error Log ${res.status}: ${errorText.substring(0, 60)}` };
     }
     
     const logs = await res.json();
@@ -62,9 +61,8 @@ export async function getErlcServerInfo() {
     const res = await fetch(`${API_BASE}`, {
       headers: {
         'Server-Key': ERLC_TOKEN,
-        'User-Agent': 'TenerifeRP-Comms/1.2',
       },
-      next: { revalidate: 30 },
+      cache: 'no-store',
     });
 
     if (!res.ok) return { success: false, error: 'No se pudo obtener información del servidor.' };
