@@ -10,35 +10,28 @@ import Link from 'next/link';
 export default async function RadioPage() {
   const user = await getSessionUser();
 
-  // Verificación de sesión de servidor para máxima seguridad
   if (!user) {
     redirect('/');
   }
 
-  // Comprobar permisos en el endpoint externo proporcionado por el usuario
-  let authStatus = { autorizado: false, mensaje: "Verificando credenciales..." };
+  // 1. Comprobar rol estándar
+  let authRol = { autorizado: false, mensaje: "" };
   try {
-    const res = await fetch(`http://nc.lynxnodes.es:25633/comprobar_rol?userId=${user.id}`, {
-      cache: 'no-store'
-    });
-    
-    if (res.ok) {
-      const text = await res.text();
-      if (text) {
-        authStatus = JSON.parse(text);
-      } else {
-        authStatus = { autorizado: false, mensaje: "El servidor de roles devolvió una respuesta vacía." };
-      }
-    } else {
-      authStatus = { autorizado: false, mensaje: "El servicio de validación no respondió correctamente." };
-    }
-  } catch (error) {
-    console.error("Role Check Error:", error);
-    authStatus = { autorizado: false, mensaje: "No se pudo establecer conexión con el centro de mando (API)." };
-  }
+    const res = await fetch(`http://nc.lynxnodes.es:25633/comprobar_rol?userId=${user.id}`, { cache: 'no-store' });
+    if (res.ok) authRol = await res.json();
+  } catch (e) {}
 
-  // Si el acceso es denegado, mostramos una pantalla de error en lugar de la radio
-  if (!authStatus.autorizado) {
+  // 2. Comprobar rol 112
+  let auth112 = { autorizado: false, mensaje: "" };
+  try {
+    const res = await fetch(`http://nc.lynxnodes.es:25633/comprobar_112?ID=${user.id}`, { cache: 'no-store' });
+    if (res.ok) auth112 = await res.json();
+  } catch (e) {}
+
+  const isAuthorized = authRol.autorizado || auth112.autorizado;
+  const errorMsg = auth112.mensaje || authRol.mensaje || "Acceso denegado. No posees roles autorizados.";
+
+  if (!isAuthorized) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
         <Card className="w-full max-w-md border-none shadow-2xl bg-white overflow-hidden">
@@ -56,26 +49,15 @@ export default async function RadioPage() {
               Error de Autorización
             </p>
           </CardHeader>
-          
           <CardContent className="text-center space-y-8 px-10 pb-12 pt-4">
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 italic text-slate-600 text-sm leading-relaxed">
-              "{authStatus.mensaje}"
+              "{errorMsg}"
             </div>
-
-            <div className="space-y-3">
-              <Button asChild className="w-full h-14 bg-slate-900 hover:bg-slate-800 text-white shadow-xl transition-all active:scale-[0.98]">
-                <Link href="/inicio_desde_menu" className="flex items-center justify-center gap-3">
-                  <ArrowLeft className="h-4 w-4" /> 
-                  <span className="text-xs font-bold uppercase tracking-widest">Volver al Menú</span>
-                </Link>
-              </Button>
-            </div>
-
-            <div className="pt-2">
-              <p className="text-[8px] font-bold text-slate-300 uppercase tracking-[0.4em] leading-relaxed">
-                Tenerife RP • Seguridad Institucional
-              </p>
-            </div>
+            <Button asChild className="w-full h-14 bg-slate-900 hover:bg-slate-800 text-white shadow-xl">
+              <Link href="/inicio_desde_menu" className="flex items-center justify-center gap-3 uppercase tracking-widest text-xs font-bold">
+                <ArrowLeft className="h-4 w-4" /> Volver
+              </Link>
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -84,7 +66,7 @@ export default async function RadioPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <RadioClientPage discordUser={user} />
+      <RadioClientPage discordUser={user} is112={auth112.autorizado} />
     </div>
   );
 }

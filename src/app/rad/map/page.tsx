@@ -3,9 +3,10 @@ import { getSessionUser } from '@/app/lib/auth-utils';
 import { redirect } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ShieldAlert, ArrowLeft, Map as MapIcon } from 'lucide-react';
+import { ShieldAlert, ArrowLeft, Map as MapIcon, Activity } from 'lucide-react';
 import Link from 'next/link';
 import { MapTerminal } from '@/components/map/MapTerminal';
+import { cn } from '@/lib/utils';
 
 export default async function MapPage() {
   const user = await getSessionUser();
@@ -14,29 +15,24 @@ export default async function MapPage() {
     redirect('/');
   }
 
-  // Comprobar permisos en el endpoint externo
-  let authStatus = { autorizado: false, mensaje: "Verificando credenciales..." };
+  // 1. Comprobar rol estándar
+  let authRol = { autorizado: false, mensaje: "" };
   try {
-    const res = await fetch(`http://nc.lynxnodes.es:25633/comprobar_rol?userId=${user.id}`, {
-      cache: 'no-store'
-    });
-    
-    if (res.ok) {
-      const text = await res.text();
-      if (text) {
-        authStatus = JSON.parse(text);
-      } else {
-        authStatus = { autorizado: false, mensaje: "El servidor de roles devolvió una respuesta vacía." };
-      }
-    } else {
-      authStatus = { autorizado: false, mensaje: "El servicio de validación no respondió correctamente." };
-    }
-  } catch (error) {
-    console.error("Role Check Error:", error);
-    authStatus = { autorizado: false, mensaje: "No se pudo establecer conexión con el centro de mando (API)." };
-  }
+    const res = await fetch(`http://nc.lynxnodes.es:25633/comprobar_rol?userId=${user.id}`, { cache: 'no-store' });
+    if (res.ok) authRol = await res.json();
+  } catch (e) {}
 
-  if (!authStatus.autorizado) {
+  // 2. Comprobar rol 112
+  let auth112 = { autorizado: false, mensaje: "" };
+  try {
+    const res = await fetch(`http://nc.lynxnodes.es:25633/comprobar_112?ID=${user.id}`, { cache: 'no-store' });
+    if (res.ok) auth112 = await res.json();
+  } catch (e) {}
+
+  const isAuthorized = authRol.autorizado || auth112.autorizado;
+  const errorMsg = auth112.mensaje || authRol.mensaje || "Acceso denegado.";
+
+  if (!isAuthorized) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
         <Card className="w-full max-w-md border-none shadow-2xl bg-white overflow-hidden">
@@ -56,7 +52,7 @@ export default async function MapPage() {
           </CardHeader>
           <CardContent className="text-center space-y-8 px-10 pb-12 pt-4">
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 italic text-slate-600 text-sm leading-relaxed">
-              "{authStatus.mensaje}"
+              "{errorMsg}"
             </div>
             <Button asChild className="w-full h-14 bg-slate-900 hover:bg-slate-800 text-white shadow-xl">
               <Link href="/rad" className="flex items-center justify-center gap-3 uppercase tracking-widest text-xs font-bold">
@@ -89,6 +85,11 @@ export default async function MapPage() {
           <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary border-b-2 border-primary pb-1 cursor-default">
             Mapa Operativo
           </span>
+          {auth112.autorizado && (
+            <Link href="/rad/112" className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-red-500 transition-all border-b-2 border-transparent pb-1 flex items-center gap-2">
+              <Activity className="h-3 w-3" /> Coordinador 112
+            </Link>
+          )}
         </nav>
 
         <div className="flex items-center gap-3">

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -7,7 +8,7 @@ import { useRadioWebSocket } from '@/hooks/useRadioWebSocket';
 import { useRadioWebRTC } from '@/hooks/useRadioWebRTC';
 import { usePTT } from '@/hooks/usePTT';
 import { RadioGrid } from '@/components/radio/RadioGrid';
-import { Radio as RadioIcon, Info, LogOut, MicOff, Users, Shield, BadgeCheck, Pencil, Map as MapIcon } from 'lucide-react';
+import { Radio as RadioIcon, Info, LogOut, MicOff, Users, Shield, BadgeCheck, Pencil, Map as MapIcon, Activity } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -21,9 +22,10 @@ import { usePathname } from 'next/navigation';
 
 interface RadioClientPageProps {
   discordUser: DiscordUser;
+  is112?: boolean;
 }
 
-export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
+export default function RadioClientPage({ discordUser, is112 = false }: RadioClientPageProps) {
   const [activeChannel, setActiveChannel] = useState<RadioChannel | null>(null);
   const [isEditingPlaca, setIsEditingPlaca] = useState(false);
   const [placaInput, setPlacaInput] = useState('');
@@ -119,7 +121,6 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
           </div>
         </div>
 
-        {/* Navegación Central */}
         <nav className="hidden md:flex items-center gap-10">
           <Link 
             href="/rad" 
@@ -140,6 +141,18 @@ export default function RadioClientPage({ discordUser }: RadioClientPageProps) {
             <MapIcon className="h-3.5 w-3.5" />
             Mapa Operativo
           </Link>
+          {is112 && (
+            <Link 
+              href="/rad/112" 
+              className={cn(
+                "text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 pb-1 flex items-center gap-2",
+                pathname === '/rad/112' ? "text-red-600 border-red-600" : "text-slate-400 border-transparent hover:text-red-500"
+              )}
+            >
+              <Activity className="h-3.5 w-3.5" />
+              Coordinador 112
+            </Link>
+          )}
         </nav>
         
         <div className="flex items-center gap-6">
