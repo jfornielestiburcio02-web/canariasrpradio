@@ -50,7 +50,7 @@ export function RadioGrid({
 
   const categories = [
     {
-      name: "Policía Nacional",
+      name: "🇪🇸 Policía Nacional",
       color: "border-blue-600",
       bg: "bg-blue-600/5",
       icon: <Shield className="h-4 w-4 text-blue-600" />,
@@ -69,12 +69,12 @@ export function RadioGrid({
       ]
     },
     {
-      name: "Policía Local",
+      name: "👮 Policía Local",
       color: "border-sky-400",
       bg: "bg-sky-400/5",
       icon: <User className="h-4 w-4 text-sky-400" />,
       units: [
-        { name: "Seguridad Ciudadana", channels: ['PL_SC_10', 'PL_SC_20', 'PL_SC_30', 'PL_SC_40', 'PL_SC_50', 'PL_SC_60', 'PL_SC_70', 'PL_SC_80'] },
+        { name: "Seguridad Ciudadana", channels: ['PL_POLICIA_10', 'PL_POLICIA_20', 'PL_POLICIA_30', 'PL_POLICIA_40', 'PL_POLICIA_50', 'PL_POLICIA_60', 'PL_POLICIA_70', 'PL_POLICIA_80'] },
         { name: "Motoristas", channels: ['PL_MOTO_10', 'PL_MOTO_20', 'PL_MOTO_30', 'PL_MOTO_40'] },
         { name: "Tráfico", channels: ['PL_TRAFICO_10', 'PL_TRAFICO_20', 'PL_TRAFICO_30', 'PL_TRAFICO_40'] },
         { name: "Atestados", channels: ['PL_ATESTA_1', 'PL_ATESTA_2', 'PL_ATESTA_3'] },
@@ -84,12 +84,12 @@ export function RadioGrid({
       ]
     },
     {
-      name: "Guardia Civil",
+      name: "🟢 Guardia Civil",
       color: "border-emerald-600",
       bg: "bg-emerald-600/5",
       icon: <Anchor className="h-4 w-4 text-emerald-600" />,
       units: [
-        { name: "Seguridad Ciudadana", channels: ['GC_SC_10', 'GC_SC_20', 'GC_SC_30', 'GC_SC_40', 'GC_SC_50', 'GC_SC_60', 'GC_SC_70', 'GC_SC_80'] },
+        { name: "Seguridad Ciudadana", channels: ['GC_GUARDIA_10', 'GC_GUARDIA_20', 'GC_GUARDIA_30', 'GC_GUARDIA_40', 'GC_GUARDIA_50', 'GC_GUARDIA_60', 'GC_GUARDIA_70', 'GC_GUARDIA_80'] },
         { name: "Tráfico (ATGC)", channels: ['GC_TRAFICO_10', 'GC_TRAFICO_20', 'GC_TRAFICO_30', 'GC_TRAFICO_40', 'GC_TRAFICO_50'] },
         { name: "SEPRONA", channels: ['GC_SEPRONA_10', 'GC_SEPRONA_20', 'GC_SEPRONA_30', 'GC_SEPRONA_40'] },
         { name: "GEAS - Buceo", channels: ['GC_GEAS_1', 'GC_GEAS_2', 'GC_GEAS_3'] },
@@ -100,7 +100,7 @@ export function RadioGrid({
       ]
     },
     {
-      name: "Bomberos",
+      name: "🚒 Bomberos",
       color: "border-red-600",
       bg: "bg-red-600/5",
       icon: <Flame className="h-4 w-4 text-red-600" />,
@@ -114,7 +114,7 @@ export function RadioGrid({
       ]
     },
     {
-      name: "Servicio Urgencias Canario",
+      name: "🚑 SUC",
       color: "border-orange-500",
       bg: "bg-orange-500/5",
       icon: <Ambulance className="h-4 w-4 text-orange-500" />,
@@ -141,12 +141,23 @@ export function RadioGrid({
     })).filter(cat => cat.units.length > 0);
   }, [search]);
 
+  const formatChannelName = (ch: string) => {
+    // Especial para SUC, CNP, etc. para que se vea limpio
+    return ch
+      .replace(/^(CNP_|PL_|GC_|BOM_|SUC_)/, '')
+      .replace(/_/g, '-')
+      .replace(/POLICIA/g, 'Policía')
+      .replace(/GUARDIA/g, 'Guardia')
+      .replace(/SANITA/g, 'Sanitarizada')
+      .toUpperCase();
+  };
+
   const activeChannelData = useMemo(() => {
     if (!activeChannel) return null;
     for (const cat of categories) {
       for (const unit of cat.units) {
         if (unit.channels.includes(activeChannel)) {
-          return { title: activeChannel.replace(/_/g, ' '), category: cat.name, icon: cat.icon };
+          return { title: formatChannelName(activeChannel), category: cat.name, icon: cat.icon };
         }
       }
     }
@@ -198,7 +209,7 @@ export function RadioGrid({
                             )}
                           >
                             <span className="text-[10px] font-black uppercase tracking-tight truncate">
-                              {ch.replace(/^(CNP_|PL_|GC_|BOM_|SUC_)/, '').replace(/_/g, ' ')}
+                              {formatChannelName(ch)}
                             </span>
                             <div className="flex items-center gap-2">
                               {agents.filter(a => a.radio?.canalActual === ch).length > 0 && (
