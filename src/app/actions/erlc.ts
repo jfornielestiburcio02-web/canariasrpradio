@@ -2,13 +2,12 @@
 'use server';
 
 /**
- * @fileOverview Acción del servidor para interactuar con la API de ERLC (Liberty County).
- * Se ha actualizado con el Server ID proporcionado por el usuario.
+ * @fileOverview Acción del servidor actualizada para la API v2 de ERLC (api.erlc.gg).
  */
 
 const ERLC_TOKEN = 'fYoIctfUSmpezjVNcajg-knDrUYMtahndQKHRHWQVWWVWtQtAEotHpqcLexDq';
 const SERVER_ID = '2534724415';
-const API_BASE = 'https://api.policeroleplay.community/v1/server';
+const API_BASE = 'https://api.erlc.gg/v2/server';
 
 export async function getErlcPlayers() {
   try {
