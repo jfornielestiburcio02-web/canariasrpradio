@@ -34,7 +34,8 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
   const [isEditingPlaca, setIsEditingPlaca] = useState(false);
   const [placaInput, setPlacaInput] = useState('');
   const [pttKey, setPttKey] = useState('Space');
-  const [isListeningKey, setIsListeningKey] = useState(false);
+  const [panicKey, setPanicKey] = useState('Delete');
+  const [isListeningKey, setIsListeningKey] = useState<'ptt' | 'panic' | null>(null);
   const [panicLoading, setPanicLoading] = useState(false);
   const pathname = usePathname();
   const isMobile = useIsMobile();
@@ -43,42 +44,85 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
   const db = useFirestore();
   const sessionStartTime = useRef(Date.now());
 
-  // Escuchar a todos los agentes para saber quién está en qué canal
-  const agentsQuery = useMemoFirebase(() => {
-    if (!db) return null;
-    return query(collection(db, 'users'), where('radio.canalActual', '!=', null));
-  }, [db]);
+  const userRef = useMemoFirebase(() => {
+    if (!db || !discordUser.id) return null;
+    return doc(db, 'users', discordUser.id);
+  }, [db, discordUser.id]);
 
-  const { data: agentsInRadio } = useCollection<any>(agentsQuery);
+  const { data: userData } = useDoc<any>(userRef);
 
-  // Cargar tecla PTT de localStorage
+  const triggerPanic = useCallback(async () => {
+    if (!db || panicLoading) return;
+    setPanicLoading(true);
+    try {
+      const placa = userData?.radio?.placa || 'SIN ASIGNAR';
+      await addDoc(collection(db, 'erlcEvents'), {
+        tipo: 'PANICO',
+        sujeto: discordUser.global_name || discordUser.username,
+        ubicacion: 'UBICACIÓN RADIO',
+        detalles: `Pánico activado por el agente con placa ${placa}`,
+        timestamp: serverTimestamp()
+      });
+      toast({
+        title: "PÁNICO ENVIADO",
+        description: "Se ha alertado a toda la red institucional.",
+      });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setPanicLoading(false);
+    }
+  }, [db, panicLoading, userData?.radio?.placa, discordUser.global_name, discordUser.username, toast]);
+
+  // Cargar teclas de localStorage
   useEffect(() => {
-    const savedKey = localStorage.getItem('radio_ptt_key');
-    if (savedKey) setPttKey(savedKey);
+    const savedPtt = localStorage.getItem('radio_ptt_key');
+    const savedPanic = localStorage.getItem('radio_panic_key');
+    if (savedPtt) setPttKey(savedPtt);
+    if (savedPanic) setPanicKey(savedPanic);
   }, []);
 
-  const handleSetPttKey = (key: string) => {
-    setPttKey(key);
-    localStorage.setItem('radio_ptt_key', key);
-    setIsListeningKey(false);
+  const handleSetKey = (key: string) => {
+    if (isListeningKey === 'ptt') {
+      setPttKey(key);
+      localStorage.setItem('radio_ptt_key', key);
+    } else if (isListeningKey === 'panic') {
+      setPanicKey(key);
+      localStorage.setItem('radio_panic_key', key);
+    }
+    setIsListeningKey(null);
   };
 
   useEffect(() => {
     if (!isListeningKey) return;
     const handleKey = (e: KeyboardEvent) => {
       e.preventDefault();
-      handleSetPttKey(e.code);
+      handleSetKey(e.code);
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [isListeningKey]);
+
+  // Listener global para la tecla de pánico
+  useEffect(() => {
+    const handlePanicKeyDown = (e: KeyboardEvent) => {
+      if (isMobile || isListeningKey) return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.code === panicKey) {
+        e.preventDefault();
+        triggerPanic();
+      }
+    };
+    window.addEventListener('keydown', handlePanicKeyDown);
+    return () => window.removeEventListener('keydown', handlePanicKeyDown);
+  }, [panicKey, triggerPanic, isMobile, isListeningKey]);
 
   // --- Sistema de Audio Institucional y Alertas de Pánico ---
   useEffect(() => {
     if (!db) return;
     const introSoundUrl = "https://res.cloudinary.com/dgvh0c87y/video/upload/v1787391237/1514375003628376116_phw9ti.ogg";
     const outroSoundUrl = "https://res.cloudinary.com/dgvh0c87y/video/upload/v1787391249/radio_finalizar_invertido_aiifyo.ogg";
-    const panicAlertUrl = "https://res.cloudinary.com/dgvh0c87y/video/upload/v1787391237/1514375003628376116_phw9ti.ogg"; // Sonido base para pánico
+    const panicAlertUrl = "https://www.myinstants.com/media/sounds/panic-button.mp3";
 
     // 1. Escuchar Llamadas 112
     const qCalls = query(collection(db, 'emergencyCalls'), orderBy('createdAt', 'desc'), limit(1));
@@ -130,12 +174,18 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
       if (eventTime > sessionStartTime.current && !sessionStorage.getItem(sessionKey)) {
         sessionStorage.setItem(sessionKey, 'true');
         
-        // Sonido de alerta
+        // Sonido de alerta MP3
         const audio = new Audio(panicAlertUrl);
         audio.volume = 1.0;
-        audio.play().catch(e => console.log('Audio blocked by browser policy'));
+        audio.play().then(() => {
+          // Una vez termine o inicie el sonido, usamos TTS local para que "se escuche el aviso"
+          const msg = new SpeechSynthesisUtterance(`Alerta pánico, pulsado por el agente ${event.sujeto} con placa ${event.detalles.split('placa ')[1] || 'desconocida'}`);
+          msg.lang = 'es-ES';
+          msg.rate = 0.9;
+          msg.pitch = 1.0;
+          window.speechSynthesis.speak(msg);
+        }).catch(e => console.log('Audio blocked by browser policy'));
 
-        // Toast visual persistente
         toast({
           variant: "destructive",
           title: "¡BOTÓN DE PÁNICO ACTIVADO!",
@@ -151,12 +201,12 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     };
   }, [db, toast]);
 
-  const userRef = useMemoFirebase(() => {
-    if (!db || !discordUser.id) return null;
-    return doc(db, 'users', discordUser.id);
-  }, [db, discordUser.id]);
+  const agentsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'users'), where('radio.canalActual', '!=', null));
+  }, [db]);
 
-  const { data: userData } = useDoc<any>(userRef);
+  const { data: agentsInRadio } = useCollection<any>(agentsQuery);
 
   useEffect(() => {
     if (db && discordUser.id) {
@@ -177,29 +227,6 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
         radio: { placa: placaInput }
       }, { merge: true });
       setIsEditingPlaca(false);
-    }
-  };
-
-  const triggerPanic = async () => {
-    if (!db || panicLoading) return;
-    setPanicLoading(true);
-    try {
-      const placa = userData?.radio?.placa || 'SIN ASIGNAR';
-      await addDoc(collection(db, 'erlcEvents'), {
-        tipo: 'PANICO',
-        sujeto: discordUser.global_name || discordUser.username,
-        ubicacion: 'UBICACIÓN RADIO',
-        detalles: `Pánico activado por el agente con placa ${placa}`,
-        timestamp: serverTimestamp()
-      });
-      toast({
-        title: "PÁNICO ENVIADO",
-        description: "Se ha alertado a toda la red institucional.",
-      });
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setPanicLoading(false);
     }
   };
 
@@ -310,24 +337,42 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-64 p-4 rounded-2xl border-none shadow-2xl">
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div className="flex items-center gap-2 text-slate-800">
                   <Keyboard className="h-4 w-4" />
-                  <h4 className="text-xs font-black uppercase tracking-widest">Ajustes PTT</h4>
+                  <h4 className="text-xs font-black uppercase tracking-widest">Atajos de Teclado</h4>
                 </div>
-                <div className="space-y-2">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tecla Asignada</p>
-                  <Button 
-                    variant="secondary" 
-                    className={cn(
-                      "w-full h-10 text-[10px] font-black uppercase tracking-widest rounded-xl",
-                      isListeningKey && "animate-pulse bg-primary/10 text-primary border-primary"
-                    )}
-                    onClick={() => setIsListeningKey(true)}
-                  >
-                    {isListeningKey ? 'PULSA UNA TECLA...' : pttKey}
-                  </Button>
-                  <p className="text-[8px] text-slate-400 font-medium uppercase mt-2">
+                
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Tecla PTT (Radio)</p>
+                    <Button 
+                      variant="secondary" 
+                      className={cn(
+                        "w-full h-10 text-[10px] font-black uppercase tracking-widest rounded-xl",
+                        isListeningKey === 'ptt' && "animate-pulse bg-primary/10 text-primary border-primary"
+                      )}
+                      onClick={() => setIsListeningKey('ptt')}
+                    >
+                      {isListeningKey === 'ptt' ? 'PULSA UNA TECLA...' : pttKey}
+                    </Button>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Tecla Botón de Pánico</p>
+                    <Button 
+                      variant="secondary" 
+                      className={cn(
+                        "w-full h-10 text-[10px] font-black uppercase tracking-widest rounded-xl",
+                        isListeningKey === 'panic' && "animate-pulse bg-red-50 text-red-600 border-red-200"
+                      )}
+                      onClick={() => setIsListeningKey('panic')}
+                    >
+                      {isListeningKey === 'panic' ? 'PULSA UNA TECLA...' : panicKey}
+                    </Button>
+                  </div>
+
+                  <p className="text-[8px] text-slate-400 font-medium uppercase mt-2 text-center leading-relaxed">
                     {isMobile ? 'MODO MÓVIL: TOQUE PARA CONMUTAR' : 'MODO ESCRITORIO: MANTENER PULSADA'}
                   </p>
                 </div>
