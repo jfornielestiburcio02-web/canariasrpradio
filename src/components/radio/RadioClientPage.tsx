@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { type DiscordUser } from '@/app/lib/auth-utils';
 import { RadioChannel } from '@/types/radio';
 import { useRadioWebSocket } from '@/hooks/useRadioWebSocket';
 import { useRadioWebRTC } from '@/hooks/useRadioWebRTC';
 import { usePTT } from '@/hooks/usePTT';
 import { RadioGrid } from '@/components/radio/RadioGrid';
-import { Radio as RadioIcon, Info, LogOut, MicOff, Users, Shield, BadgeCheck, Pencil, Map as MapIcon, Activity } from 'lucide-react';
+import { Radio as RadioIcon, Info, LogOut, MicOff, Users, Shield, BadgeCheck, Pencil, Bell, Activity, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { usePathname } from 'next/navigation';
 import { EmergencyCallList } from './EmergencyCallList';
 import { generateEmergencyAudio } from '@/ai/flows/tts-emergency-flow';
+import { getErlcLogs } from '@/app/actions/erlc';
 
 interface RadioClientPageProps {
   discordUser: DiscordUser;
@@ -31,74 +32,100 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
   const [isEditingPlaca, setIsEditingPlaca] = useState(false);
   const [placaInput, setPlacaInput] = useState('');
   const pathname = usePathname();
+  const lastProcessedPanicRef = useRef<number>(0);
   
   const db = useFirestore();
 
-  // --- Sistema de Audio Institucional Ultra-Optimizado ---
+  // --- Sistema de Audio Institucional + Pánico ERLC ---
   useEffect(() => {
     if (!db) return;
 
     const introSoundUrl = "https://res.cloudinary.com/dgvh0c87y/video/upload/v1787391237/1514375003628376116_phw9ti.ogg";
     const outroSoundUrl = "https://res.cloudinary.com/dgvh0c87y/video/upload/v1787391249/radio_finalizar_invertido_aiifyo.ogg";
+    const panicSoundUrl = "https://www.myinstants.com/media/sounds/panic-button.mp3";
 
+    // 1. Escuchar avisos del 112 (Manuales)
     const q = query(collection(db, 'emergencyCalls'), orderBy('createdAt', 'desc'), limit(1));
-    
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
+    const unsubscribe112 = onSnapshot(q, async (snapshot) => {
       if (snapshot.empty) return;
-      
       const doc = snapshot.docs[0];
       const call = doc.data() as any;
-      const callId = doc.id;
-      
-      // Solo procesar si es muy reciente (menos de 5 segundos de antigüedad)
       const isNew = call.createdAt && (Date.now() - call.createdAt.toDate().getTime()) < 5000;
-      const sessionKey = `heard_${callId}`;
+      const sessionKey = `heard_${doc.id}`;
       
       if (isNew && !sessionStorage.getItem(sessionKey)) {
         sessionStorage.setItem(sessionKey, 'true');
-        
         try {
-          // 1. Iniciar generación TTS INMEDIATAMENTE
           const ttsPromise = generateEmergencyAudio({
             nombre: call.nombre,
             ubicacion: call.ubicacion,
             motivo: call.motivo,
             unidades: call.unidades
           });
-
-          // 2. Reproducir Intro (Pitido 1s)
           const intro = new Audio(introSoundUrl);
           intro.volume = 0.6;
-          const introPlayPromise = intro.play();
-
-          // 3. Esperar a que el pitido termine Y el TTS esté listo
-          // Usamos Promise.all para que ambos procesos ocurran en paralelo
-          await Promise.all([introPlayPromise, ttsPromise]);
-          
-          // Si el pitido aún no ha terminado por alguna razón, esperamos a su evento onended
-          if (!intro.ended) {
-            await new Promise((resolve) => {
-              intro.onended = resolve;
-            });
-          }
-
-          // 4. Locución de IA
+          await intro.play();
           const { media } = await ttsPromise;
           const ttsAudio = new Audio(media);
           await ttsAudio.play();
-          
           ttsAudio.onended = () => {
             const outro = new Audio(outroSoundUrl);
             outro.volume = 0.6;
             outro.play();
           };
-        } catch (e) {
-          console.error('[AUDIO_SYSTEM] Latency optimization failed:', e);
-        }
+        } catch (e) {}
       }
     });
 
-    return () => unsubscribe();
+    // 2. Polling para Pánicos ERLC
+    const pollPanic = async () => {
+      const result = await getErlcLogs();
+      if (!result.success || !result.logs) return;
+
+      const panicLogs = result.logs.filter((l: any) => l.Log.toLowerCase().includes('panic button'));
+      if (panicLogs.length === 0) return;
+
+      const latestPanic = panicLogs[0];
+      if (latestPanic.Timestamp > lastProcessedPanicRef.current) {
+        lastProcessedPanicRef.current = latestPanic.Timestamp;
+        
+        // Extraer ubicación del log de ERLC
+        const locationMatch = latestPanic.Log.match(/at\s+(.+)$/i);
+        const location = locationMatch ? locationMatch[1] : 'Ubicación Desconocida';
+        const agentName = latestPanic.Log.split(' has')[0];
+
+        try {
+          // Sonido de pánico inmediato
+          const panic = new Audio(panicSoundUrl);
+          panic.volume = 0.8;
+          await panic.play();
+
+          // TTS Despachador rápido
+          const ttsPromise = generateEmergencyAudio({
+            nombre: agentName,
+            ubicacion: location,
+            motivo: 'BOTÓN DE PÁNICO ACTIVADO',
+            unidades: ['TODAS LAS UNIDADES DISPONIBLES']
+          });
+
+          panic.onended = async () => {
+            const { media } = await ttsPromise;
+            const ttsAudio = new Audio(media);
+            await ttsAudio.play();
+            ttsAudio.onended = () => {
+              new Audio(outroSoundUrl).play();
+            };
+          };
+        } catch (e) {}
+      }
+    };
+
+    const panicInterval = setInterval(pollPanic, 5000);
+
+    return () => {
+      unsubscribe112();
+      clearInterval(panicInterval);
+    };
   }, [db]);
 
   const userRef = useMemoFirebase(() => {
@@ -119,7 +146,7 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
         }
       }, { merge: true });
     }
-  }, [activeChannel, db, discordUser.id, discordUser.username, discordUser.global_name, discordUser.avatar]);
+  }, [activeChannel, db, discordUser.id]);
 
   const handleSavePlaca = async () => {
     if (db && discordUser.id) {
@@ -190,35 +217,15 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
         </div>
 
         <nav className="hidden md:flex items-center gap-10">
-          <Link 
-            href="/rad" 
-            className={cn(
-              "text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 pb-1",
-              pathname === '/rad' ? "text-primary border-primary" : "text-slate-400 border-transparent hover:text-slate-600"
-            )}
-          >
+          <Link href="/rad" className={cn("text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 pb-1", pathname === '/rad' ? "text-primary border-primary" : "text-slate-400 border-transparent hover:text-slate-600")}>
             Frecuencias
           </Link>
-          <Link 
-            href="/rad/map" 
-            className={cn(
-              "text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 pb-1 flex items-center gap-2",
-              pathname === '/rad/map' ? "text-primary border-primary" : "text-slate-400 border-transparent hover:text-slate-600"
-            )}
-          >
-            <MapIcon className="h-3.5 w-3.5" />
-            Mapa Operativo
+          <Link href="/rad/map" className={cn("text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 pb-1 flex items-center gap-2", pathname === '/rad/map' ? "text-primary border-primary" : "text-slate-400 border-transparent hover:text-slate-600")}>
+            <Bell className="h-3.5 w-3.5" /> Monitor Pánico
           </Link>
           {is112 && (
-            <Link 
-              href="/rad/112" 
-              className={cn(
-                "text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 pb-1 flex items-center gap-2",
-                pathname === '/rad/112' ? "text-red-600 border-red-600" : "text-slate-400 border-transparent hover:text-red-500"
-              )}
-            >
-              <Activity className="h-3.5 w-3.5" />
-              Coordinador 112
+            <Link href="/rad/112" className={cn("text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 pb-1 flex items-center gap-2", pathname === '/rad/112' ? "text-red-600 border-red-600" : "text-slate-400 border-transparent hover:text-red-500")}>
+              <Activity className="h-3.5 w-3.5" /> Coordinador 112
             </Link>
           )}
         </nav>
@@ -232,22 +239,12 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
             <div className="flex items-center gap-1.5 mt-0.5">
               {isEditingPlaca ? (
                 <div className="flex items-center gap-1">
-                  <Input 
-                    value={placaInput} 
-                    onChange={(e) => setPlacaInput(e.target.value)}
-                    className="h-5 w-20 text-[9px] font-bold px-1 py-0 uppercase"
-                    autoFocus
-                  />
+                  <Input value={placaInput} onChange={(e) => setPlacaInput(e.target.value)} className="h-5 w-20 text-[9px] font-bold px-1 py-0 uppercase" autoFocus />
                   <Button size="icon" className="h-5 w-5" onClick={handleSavePlaca}>OK</Button>
                 </div>
               ) : (
-                <button 
-                  onClick={() => setIsEditingPlaca(true)}
-                  className="text-[9px] font-bold text-slate-400 hover:text-primary transition-colors flex items-center gap-1 uppercase tracking-tighter"
-                >
-                  <Shield className="h-3 w-3" />
-                  Placa: {userData?.radio?.placa || 'SIN ASIGNAR'}
-                  <Pencil className="h-2 w-2" />
+                <button onClick={() => setIsEditingPlaca(true)} className="text-[9px] font-bold text-slate-400 hover:text-primary transition-colors flex items-center gap-1 uppercase tracking-tighter">
+                  <Shield className="h-3 w-3" /> Placa: {userData?.radio?.placa || 'SIN ASIGNAR'} <Pencil className="h-2 w-2" />
                 </button>
               )}
             </div>
@@ -260,126 +257,11 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
 
       <main className="flex-1 p-8 grid grid-cols-1 lg:grid-cols-4 gap-8 max-w-[1600px] mx-auto w-full">
         <div className="lg:col-span-3 space-y-8">
-          {micStatus === 'denied' && (
-            <Alert variant="destructive" className="bg-red-50 border-red-200">
-              <MicOff className="h-4 w-4" />
-              <AlertTitle className="text-[11px] font-bold uppercase tracking-wider">Acceso al Micrófono Denegado</AlertTitle>
-              <AlertDescription className="text-xs mt-2">
-                Debes permitir el uso del micrófono para operar.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex items-start gap-4">
-            <div className="bg-blue-50 p-2 rounded-lg">
-              <Info className="h-5 w-5 text-blue-500" />
-            </div>
-            <div className="space-y-1">
-              <h3 className="text-sm font-bold text-slate-800 uppercase">Estado Operativo</h3>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                {activeChannel 
-                  ? `Sintonizado en ${activeChannel}. Mantén pulsado ESPACIO para transmitir.` 
-                  : 'Selecciona un canal de la cuadrícula para entrar en servicio.'}
-              </p>
-            </div>
-          </div>
-
-          <RadioGrid 
-            activeChannel={activeChannel}
-            onJoin={setActiveChannel}
-            onLeave={() => setActiveChannel(null)}
-            peers={peers}
-            wsStatus={status}
-            isTransmitting={isTransmitting}
-            onPTTStart={start}
-            onPTTStop={stop}
-          />
+          <RadioGrid activeChannel={activeChannel} onJoin={setActiveChannel} onLeave={() => setActiveChannel(null)} peers={peers} wsStatus={status} isTransmitting={isTransmitting} onPTTStart={start} onPTTStop={stop} />
         </div>
-
         <div className="lg:col-span-1 space-y-6">
           <EmergencyCallList />
-          
-          <Card className="border-slate-200 shadow-sm">
-            <CardHeader className="pb-3 border-b border-slate-50">
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-slate-400" />
-                <CardTitle className="text-xs font-bold uppercase tracking-widest text-slate-500">
-                  Personal en Canal
-                </CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-4 px-4 space-y-3">
-              {activeChannel ? (
-                channelUsers && channelUsers.length > 0 ? (
-                  channelUsers.map((u: any) => {
-                    const isTransmitting = activeTransmissions.has(u.id);
-                    return (
-                      <div key={u.id} className={cn(
-                        "flex items-center justify-between p-2.5 rounded-xl border transition-all duration-300",
-                        isTransmitting 
-                          ? 'bg-red-50 border-red-200 ring-2 ring-red-100' 
-                          : 'bg-white border-slate-100 hover:border-slate-200'
-                      )}>
-                        <div className="flex items-center gap-3 overflow-hidden">
-                          <div className="relative">
-                            <Avatar className="h-8 w-8 border border-slate-200">
-                              <AvatarImage src={getDiscordAvatarUrl(u.id, u.avatar)} alt={u.username} />
-                              <AvatarFallback className="text-[10px] bg-slate-100 text-slate-400">
-                                {u.username?.substring(0, 2).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className={cn(
-                              "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white",
-                              isTransmitting ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'
-                            )} />
-                          </div>
-                          
-                          <div className="flex flex-col min-w-0">
-                            <span className="text-[10px] font-black text-slate-800 truncate uppercase leading-tight">
-                              {u.username}
-                            </span>
-                            <div className="flex items-center gap-1">
-                              <span className="text-[9px] font-bold text-primary uppercase tracking-tighter">
-                                {u.radio?.placa ? `[${u.radio.placa}]` : '[SIN PLACA]'}
-                              </span>
-                              <span className={cn(
-                                "text-[8px] font-bold uppercase tracking-tighter",
-                                isTransmitting ? 'text-red-500 animate-pulse' : 'text-slate-400'
-                              )}>
-                                • {isTransmitting ? 'Hablando' : 'En línea'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="text-center py-6">
-                    <div className="h-8 w-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-2" />
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Localizando agentes...</p>
-                  </div>
-                )
-              ) : (
-                <div className="text-center py-12 space-y-3 opacity-30">
-                  <div className="bg-slate-100 p-4 rounded-full w-fit mx-auto">
-                    <RadioIcon className="h-8 w-8 text-slate-300" />
-                  </div>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">Frecuencia no sintonizada</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
         </div>
-
-        {activeTransmissions.size > 0 && (
-          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-red-600/95 backdrop-blur-md text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4 z-50 ring-2 ring-red-400/50">
-            <div className="h-2 w-2 rounded-full bg-white animate-ping" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em]">
-              Señal entrante de: {activeTransmissions.size} {activeTransmissions.size === 1 ? 'Agente' : 'Agentes'}
-            </span>
-          </div>
-        )}
       </main>
     </div>
   );
