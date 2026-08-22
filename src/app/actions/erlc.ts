@@ -6,7 +6,7 @@
  * Endpoints actualizados según https://apidocs.erlc.gg/
  */
 
-const ERLC_TOKEN = 'fYoIctfUSmpezjVNcajg-knDrUYMtahndQKHRHWQVWWVWtQtAEotHpqcLexDq';
+const ERLC_TOKEN = 'xyeudvMYwXSFSovUiInp-knDrUYMtahndQKHRHWQVWWVWtQtAEotHpqcLexDq';
 const API_BASE = 'https://api.erlc.gg/v2';
 
 export async function getErlcPlayers() {
