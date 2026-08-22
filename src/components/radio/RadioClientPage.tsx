@@ -73,6 +73,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     }
   }, [db, panicLoading, userData?.radio?.placa, discordUser.global_name, discordUser.username, toast]);
 
+  // Cargar teclas guardadas
   useEffect(() => {
     const savedPtt = localStorage.getItem('radio_ptt_key');
     const savedPanic = localStorage.getItem('radio_panic_key');
@@ -101,6 +102,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     return () => window.removeEventListener('keydown', handleKey);
   }, [isListeningKey]);
 
+  // Listener para Pánico (Tecla)
   useEffect(() => {
     const handlePanicKeyDown = (e: KeyboardEvent) => {
       if (isMobile || isListeningKey) return;
@@ -114,6 +116,25 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     return () => window.removeEventListener('keydown', handlePanicKeyDown);
   }, [panicKey, triggerPanic, isMobile, isListeningKey]);
 
+  // Sincronización de Estado en Firestore (Evita bucles)
+  useEffect(() => {
+    if (!db || !discordUser.id) return;
+    
+    // Solo actualizar si el canal ha cambiado realmente
+    if (lastSyncChannel.current !== activeChannel) {
+      lastSyncChannel.current = activeChannel || 'null';
+      setDoc(doc(db, 'users', discordUser.id), {
+        username: discordUser.global_name || discordUser.username,
+        avatar: discordUser.avatar,
+        radio: {
+          canalActual: activeChannel || null,
+          ultimaConexion: serverTimestamp()
+        }
+      }, { merge: true });
+    }
+  }, [activeChannel, db, discordUser]);
+
+  // Listener Global de Pánico (Para recibir alertas)
   useEffect(() => {
     if (!db) return;
     const panicAlertUrl = "https://www.myinstants.com/media/sounds/panic-button.mp3";
@@ -153,22 +174,6 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     return () => unsubscribePanic();
   }, [db, toast]);
 
-  useEffect(() => {
-    if (!db || !discordUser.id) return;
-    if (lastSyncChannel.current === activeChannel) return;
-    
-    lastSyncChannel.current = activeChannel || 'null';
-    
-    setDoc(doc(db, 'users', discordUser.id), {
-      username: discordUser.global_name || discordUser.username,
-      avatar: discordUser.avatar,
-      radio: {
-        canalActual: activeChannel || null,
-        ultimaConexion: serverTimestamp()
-      }
-    }, { merge: true });
-  }, [activeChannel, db, discordUser.id, discordUser.global_name, discordUser.username, discordUser.avatar]);
-
   const agentsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(collection(db, 'users'), where('radio.canalActual', '!=', null));
@@ -191,7 +196,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
       setPlacaInput(userData.radio.placa);
       lastSyncPlaca.current = userData.radio.placa;
     }
-  }, [userData?.radio?.placa, isEditingPlaca, placaInput]);
+  }, [userData?.radio?.placa, isEditingPlaca]);
 
   const { status, peers, send, setOnMessage } = useRadioWebSocket(discordUser.id, activeChannel);
   
@@ -232,14 +237,14 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
           <div className="bg-primary/10 p-2.5 rounded-xl">
             <RadioIcon className="h-6 w-6 text-primary" />
           </div>
-          <div className="hidden sm:block">
+          <div className="hidden sm:block text-left">
             <h1 className="text-xl font-bold tracking-tight text-slate-900 uppercase leading-none">Radio Comunicaciones</h1>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Sistemas Institucionales</p>
           </div>
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex flex-col items-end">
+          <div className="flex flex-col items-end mr-2">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-slate-700">{discordUser.global_name || discordUser.username}</span>
               <BadgeCheck className="h-3.5 w-3.5 text-blue-500" />
@@ -303,7 +308,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
       </header>
 
       <main className="flex-1 p-8 grid grid-cols-1 lg:grid-cols-4 gap-8 max-w-[1600px] mx-auto w-full overflow-hidden">
-        <div className="lg:col-span-3 h-full">
+        <div className="lg:col-span-3 h-full overflow-hidden">
           <RadioGrid 
             activeChannel={activeChannel} 
             onJoin={setActiveChannel} 

@@ -69,7 +69,7 @@ export function RadioCard({
           )}>
             {icon}
           </div>
-          <div>
+          <div className="text-left">
             <CardTitle className="text-2xl font-black uppercase tracking-tighter text-slate-900">{title}</CardTitle>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Sintonización Institucional</p>
           </div>
@@ -89,8 +89,8 @@ export function RadioCard({
       </CardHeader>
       
       <CardContent className="flex-1 p-8 pt-4 flex flex-col lg:flex-row gap-8 overflow-hidden">
-        <div className="flex-1 flex flex-col gap-6">
-          <div className="bg-slate-50 rounded-[2rem] p-6 border border-slate-100 flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col gap-6 overflow-hidden">
+          <div className="bg-slate-50 rounded-[2rem] p-6 border border-slate-100 flex-1 flex flex-col overflow-hidden">
             <div className="flex items-center justify-between mb-4 px-2">
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-slate-400" />
@@ -119,7 +119,7 @@ export function RadioCard({
                           </div>
                         )}
                       </div>
-                      <div className="flex flex-col min-w-0">
+                      <div className="flex flex-col min-w-0 text-left">
                         <span className="text-[11px] font-black text-slate-800 truncate uppercase tracking-tight">{u.username}</span>
                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
                           Placa: {u.radio?.placa || 'SIN ASIGNAR'}
@@ -150,13 +150,13 @@ export function RadioCard({
 
           <div className="bg-red-50/50 p-4 rounded-2xl border border-red-100 flex items-start gap-3">
             <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
-            <p className="text-[9px] font-bold text-red-700/70 uppercase leading-relaxed">
+            <p className="text-[9px] font-bold text-red-700/70 uppercase leading-relaxed text-left">
               ATENCIÓN: TRANSMISIÓN CIFRADA PUNTO A PUNTO. EL USO INDEBIDO SERÁ REGISTRADO POR LA JEFATURA.
             </p>
           </div>
         </div>
 
-        <div className="w-full lg:w-72 flex flex-col gap-4">
+        <div className="w-full lg:w-72 flex flex-col gap-4 shrink-0">
           <Button
             onMouseDown={!isMobile ? onPTTStart : undefined}
             onMouseUp={!isMobile ? onPTTStop : undefined}
