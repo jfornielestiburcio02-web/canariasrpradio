@@ -7,7 +7,7 @@ import { useRadioWebSocket } from '@/hooks/useRadioWebSocket';
 import { useRadioWebRTC } from '@/hooks/useRadioWebRTC';
 import { usePTT } from '@/hooks/usePTT';
 import { RadioGrid } from '@/components/radio/RadioGrid';
-import { Radio as RadioIcon, Info, LogOut, MicOff, Users, Shield, BadgeCheck, Pencil, Bell, Activity, Keyboard, Settings2 } from 'lucide-react';
+import { Radio as RadioIcon, LogOut, Shield, BadgeCheck, Pencil, Bell, Activity, Keyboard, Settings2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,7 +18,6 @@ import { cn } from '@/lib/utils';
 import { usePathname } from 'next/navigation';
 import { EmergencyCallList } from './EmergencyCallList';
 import { generateEmergencyAudio } from '@/ai/flows/tts-emergency-flow';
-import { getErlcLogs } from '@/app/actions/erlc';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
@@ -35,7 +34,6 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
   const [isListeningKey, setIsListeningKey] = useState(false);
   const pathname = usePathname();
   const isMobile = useIsMobile();
-  const lastProcessedPanicRef = useRef<number>(0);
   
   const db = useFirestore();
 
@@ -61,12 +59,11 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
     return () => window.removeEventListener('keydown', handleKey);
   }, [isListeningKey]);
 
-  // --- Sistema de Audio Institucional + Pánico ERLC ---
+  // --- Sistema de Audio Institucional (Exclusivo 112, Pánico ERLC desactivado por falta de endpoint V2) ---
   useEffect(() => {
     if (!db) return;
     const introSoundUrl = "https://res.cloudinary.com/dgvh0c87y/video/upload/v1787391237/1514375003628376116_phw9ti.ogg";
     const outroSoundUrl = "https://res.cloudinary.com/dgvh0c87y/video/upload/v1787391249/radio_finalizar_invertido_aiifyo.ogg";
-    const panicSoundUrl = "https://www.myinstants.com/media/sounds/panic-button.mp3";
 
     const q = query(collection(db, 'emergencyCalls'), orderBy('createdAt', 'desc'), limit(1));
     const unsubscribe112 = onSnapshot(q, async (snapshot) => {
@@ -100,42 +97,8 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
       }
     });
 
-    const pollPanic = async () => {
-      const result = await getErlcLogs();
-      if (!result.success || !result.logs) return;
-      const panicLogs = result.logs.filter((l: any) => l.Log.toLowerCase().includes('panic button'));
-      if (panicLogs.length === 0) return;
-      const latestPanic = panicLogs[0];
-      if (latestPanic.Timestamp > lastProcessedPanicRef.current) {
-        lastProcessedPanicRef.current = latestPanic.Timestamp;
-        const locationMatch = latestPanic.Log.match(/at\s+(.+)$/i);
-        const location = locationMatch ? locationMatch[1] : 'Ubicación Desconocida';
-        const agentName = latestPanic.Log.split(' has')[0];
-        try {
-          const panic = new Audio(panicSoundUrl);
-          panic.volume = 0.8;
-          await panic.play();
-          const ttsPromise = generateEmergencyAudio({
-            nombre: agentName,
-            ubicacion: location,
-            motivo: 'BOTÓN DE PÁNICO ACTIVADO',
-            unidades: ['TODAS LAS UNIDADES DISPONIBLES']
-          });
-          panic.onended = async () => {
-            const { media } = await ttsPromise;
-            const ttsAudio = new Audio(media);
-            await ttsAudio.play();
-            ttsAudio.onended = () => {
-              new Audio(outroSoundUrl).play();
-            };
-          };
-        } catch (e) {}
-      }
-    };
-    const panicInterval = setInterval(pollPanic, 5000);
     return () => {
       unsubscribe112();
-      clearInterval(panicInterval);
     };
   }, [db]);
 
@@ -202,7 +165,7 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
             Frecuencias
           </Link>
           <Link href="/rad/map" className={cn("text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 pb-1 flex items-center gap-2", pathname === '/rad/map' ? "text-primary border-primary" : "text-slate-400 border-transparent hover:text-slate-600")}>
-            <Bell className="h-3.5 w-3.5" /> Monitor Pánico
+            <Bell className="h-3.5 w-3.5" /> Monitor Personal
           </Link>
           {is112 && (
             <Link href="/rad/112" className={cn("text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 pb-1 flex items-center gap-2", pathname === '/rad/112' ? "text-red-600 border-red-600" : "text-slate-400 border-transparent hover:text-red-500")}>

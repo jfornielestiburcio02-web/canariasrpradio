@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -32,32 +31,6 @@ export async function getErlcPlayers() {
     return { success: true, players: Array.isArray(players) ? players : [] };
   } catch (error) {
     return { success: false, error: 'Fallo de conexión con el satélite de Liberty County.' };
-  }
-}
-
-export async function getErlcLogs() {
-  try {
-    const res = await fetch(`${API_BASE}/server/logs`, {
-      method: 'GET',
-      headers: {
-        'server-key': ERLC_TOKEN,
-        'Accept': 'application/json',
-      },
-      cache: 'no-store',
-    });
-
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      return { 
-        success: false, 
-        error: `Error Log ${res.status}: ${errorData.info || 'Verifique su server-key en el panel de ERLC'}` 
-      };
-    }
-    
-    const logs = await res.json();
-    return { success: true, logs: Array.isArray(logs) ? logs : [] };
-  } catch (error) {
-    return { success: false, error: 'Error de red en la descarga de logs.' };
   }
 }
 
