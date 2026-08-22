@@ -1,5 +1,12 @@
 
-export type RadioChannel = 'SUC' | 'POLICIA_NACIONAL' | 'GUARDIA_CIVIL' | 'POLICIA_LOCAL' | 'BOMBEROS' | 'TRANSPORTE';
+export type RadioChannel = 
+  | 'SUC' | 'POLICIA_NACIONAL' | 'GUARDIA_CIVIL' | 'POLICIA_LOCAL' | 'BOMBEROS' | 'TRANSPORTE'
+  | 'CNP_TACTICA_1' | 'CNP_TACTICA_2' | 'CNP_TACTICA_3'
+  | 'CNP_GAC_ZETA_10' | 'CNP_GAC_ZETA_20' | 'CNP_GAC_ZETA_25' | 'CNP_GAC_ZETA_30' | 'CNP_GAC_ZETA_35' 
+  | 'CNP_GAC_ZETA_45' | 'CNP_GAC_ZETA_50' | 'CNP_GAC_ZETA_55' | 'CNP_GAC_ZETA_60' | 'CNP_GAC_INTERCEPTORA'
+  | 'CNP_UPR_FENIX_10' | 'CNP_UPR_FENIX_20' | 'CNP_UPR_FENIX_30'
+  | 'CNP_UIP_LOBO_10' | 'CNP_UIP_LOBO_20' | 'CNP_UIP_LOBO_30'
+  | 'CNP_GEO_BRAVO_10' | 'CNP_GEO_BRAVO_20';
 
 export type WSStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
