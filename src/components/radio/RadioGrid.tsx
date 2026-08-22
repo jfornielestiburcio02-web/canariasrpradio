@@ -5,7 +5,7 @@ import { RadioChannel, WSStatus } from '@/types/radio';
 import { RadioCard } from './RadioCard';
 import { 
   Shield, Ambulance, Truck, Flame, Anchor, User, Zap, 
-  Target, Users, Radio, Mountain, HeartPulse, Crosshair, Stethoscope,
+  Target, Users, Radio as RadioIcon, Mountain, HeartPulse, Crosshair, Stethoscope,
   ChevronRight, Search
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
@@ -53,10 +53,11 @@ export function RadioGrid({
       name: "🇪🇸 Policía Nacional",
       icon: <Shield className="h-4 w-4 text-blue-600" />,
       units: [
-        { name: "Mando y Control", channels: ['CNP_COORD', 'CNP_HOTEL_50'] },
+        { name: "Coordinación CNP", channels: ['CNP_COORD', 'CNP_HOTEL_50'] },
         { name: "Seguridad Ciudadana", channels: ['CNP_ZETA_10', 'CNP_ZETA_20', 'CNP_ZETA_30', 'CNP_ZETA_40', 'CNP_ZETA_50', 'CNP_ZETA_60', 'CNP_ZETA_70', 'CNP_ZETA_80'] },
-        { name: "UIP / UPR", channels: ['CNP_DRAGON_1', 'CNP_DRAGON_2', 'CNP_DRAGON_3', 'CNP_DRAGON_4', 'CNP_UPR_10', 'CNP_UPR_20', 'CNP_UPR_30', 'CNP_UPR_40'] },
-        { name: "Especiales", channels: ['CNP_GEO_1', 'CNP_GEO_2', 'CNP_PJ_10', 'CNP_PJ_20', 'CNP_TEDAX_1', 'CNP_TAC_1'] },
+        { name: "UIP / UPR", channels: ['CNP_DRAGON_1', 'CNP_DRAGON_2', 'CNP_DRAGON_3', 'CNP_DRAGON_4', 'CNP_UPR_10', 'CNP_UPR_20', 'CNP_UPR_30', 'CNP_UPR_40', 'CNP_UPR_50'] },
+        { name: "GEO / Especiales", channels: ['CNP_GEO_1', 'CNP_GEO_2', 'CNP_GEO_3', 'CNP_PJ_10', 'CNP_PJ_20', 'CNP_PJ_30', 'CNP_PJ_40'] },
+        { name: "Información y Otros", channels: ['CNP_INFO_10', 'CNP_INFO_20', 'CNP_INFO_30', 'CNP_FRONTERA_10', 'CNP_TEDAX_1', 'CNP_TAC_1'] },
       ]
     },
     {
@@ -87,8 +88,7 @@ export function RadioGrid({
       name: "🚑 SUC",
       icon: <Ambulance className="h-4 w-4 text-orange-500" />,
       units: [
-        { name: "Soporte Básico (SVB)", channels: ['SUC_SVB_01', 'SUC_SVB_02', 'SUC_SVB_03', 'SUC_SVB_04', 'SUC_SVB_05', 'SUC_SVB_06', 'SUC_SVB_07', 'SUC_SVB_08', 'SUC_SVB_09', 'SUC_SVB_10'] },
-        { name: "Soporte Avanzado (SVA)", channels: ['SUC_SVA_01', 'SUC_SVA_02', 'SUC_SVA_03', 'SUC_SVA_04', 'SUC_SVA_05'] },
+        { name: "Soporte Vital (SVB/SVA)", channels: ['SUC_SVB_01', 'SUC_SVB_02', 'SUC_SVB_03', 'SUC_SVB_04', 'SUC_SVB_05', 'SUC_SVA_01', 'SUC_SVA_02', 'SUC_SVA_03'] },
         { name: "Especiales", channels: ['SUC_SANITA_01', 'SUC_VIR_01', 'SUC_HEMS_01', 'SUC_COORD_01', 'SUC_GESTOR_01'] },
       ]
     }
@@ -121,7 +121,7 @@ export function RadioGrid({
         }
       }
     }
-    return { title: activeChannel, category: 'Personalizada', icon: <Radio /> };
+    return { title: activeChannel, category: 'Personalizada', icon: <RadioIcon /> };
   }, [activeChannel]);
 
   return (
@@ -199,7 +199,7 @@ export function RadioGrid({
           />
         ) : (
           <div className="h-full flex flex-col items-center justify-center text-center p-12 bg-white rounded-[2.5rem] border-2 border-dashed border-slate-100 opacity-40">
-            <Radio className="h-16 w-16 text-slate-200 mb-4" />
+            <RadioIcon className="h-16 w-16 text-slate-200 mb-4" />
             <h3 className="text-xl font-black text-slate-400 uppercase tracking-widest">En Espera</h3>
             <p className="text-[10px] font-bold text-slate-400 uppercase mt-2">Sintoniza un canal lateral para empezar</p>
           </div>
