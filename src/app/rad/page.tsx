@@ -1,52 +1,58 @@
 
 import { getSessionUser } from '@/app/lib/auth-utils';
-import { redirect } from 'next/navigation';
 import RadioClientPage from '@/components/radio/RadioClientPage';
 import { CitizenEmergencyView } from '@/components/radio/CitizenEmergencyView';
 
 export default async function RadioPage() {
   const user = await getSessionUser();
 
-  if (!user) {
-    redirect('/');
-  }
-
-  // 1. Comprobar rol estándar
+  // 1. Comprobar roles solo si el usuario está autenticado
   let authRol = { autorizado: false, mensaje: "" };
-  try {
-    const res = await fetch(`http://nc.lynxnodes.es:25633/comprobar_rol?userId=${user.id}`, { 
-      cache: 'no-store',
-      signal: AbortSignal.timeout(5000)
-    });
-    if (res.ok) {
-      const text = await res.text();
-      if (text) authRol = JSON.parse(text);
-    }
-  } catch (e) {}
-
-  // 2. Comprobar rol 112
   let auth112 = { autorizado: false, mensaje: "" };
-  try {
-    const res = await fetch(`http://nc.lynxnodes.es:25633/comprobar_112?ID=${user.id}`, { 
-      cache: 'no-store',
-      signal: AbortSignal.timeout(5000)
-    });
-    if (res.ok) {
-      const text = await res.text();
-      if (text) auth112 = JSON.parse(text);
-    }
-  } catch (e) {}
+
+  if (user) {
+    try {
+      const resRol = await fetch(`http://nc.lynxnodes.es:25633/comprobar_rol?userId=${user.id}`, { 
+        cache: 'no-store',
+        signal: AbortSignal.timeout(3000)
+      });
+      if (resRol.ok) {
+        const text = await resRol.text();
+        if (text) authRol = JSON.parse(text);
+      }
+    } catch (e) {}
+
+    try {
+      const res112 = await fetch(`http://nc.lynxnodes.es:25633/comprobar_112?ID=${user.id}`, { 
+        cache: 'no-store',
+        signal: AbortSignal.timeout(3000)
+      });
+      if (res112.ok) {
+        const text = await res112.text();
+        if (text) auth112 = JSON.parse(text);
+      }
+    } catch (e) {}
+  }
 
   const isAuthorized = authRol.autorizado || auth112.autorizado;
 
-  // Si no está autorizado como agente, mostramos la vista de emergencia para ciudadanos
+  // Si no está autorizado como agente (o no hay usuario), mostramos la vista de emergencia para ciudadanos
   if (!isAuthorized) {
-    return <CitizenEmergencyView discordUser={user} />;
+    // Si no hay usuario, creamos un perfil de invitado temporal
+    const guestUser = user || {
+      id: `anon_${Math.random().toString(36).substr(2, 9)}`,
+      username: 'Ciudadano Anónimo',
+      avatar: null,
+      global_name: 'Ciudadano Anónimo'
+    };
+
+    return <CitizenEmergencyView discordUser={guestUser as any} />;
   }
 
+  // Si es un agente autenticado y autorizado
   return (
     <div className="min-h-screen bg-slate-50">
-      <RadioClientPage discordUser={user} is112={auth112.autorizado} />
+      <RadioClientPage discordUser={user!} is112={auth112.autorizado} />
     </div>
   );
 }

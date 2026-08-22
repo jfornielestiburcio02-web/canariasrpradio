@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { type DiscordUser } from '@/app/lib/auth-utils';
 import { useRadioWebSocket } from '@/hooks/useRadioWebSocket';
 import { useRadioWebRTC } from '@/hooks/useRadioWebRTC';
@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Activity, Phone, Mic, MicOff, AlertCircle, ShieldAlert, Wifi, Users } from 'lucide-react';
+import { Activity, Phone, Mic, MicOff, ShieldAlert, Wifi, Headset } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -19,6 +19,9 @@ import { RadioChannel } from '@/types/radio';
 export function CitizenEmergencyView({ discordUser }: { discordUser: DiscordUser }) {
   const [selectedChannel, setSelectedChannel] = useState<RadioChannel | null>(null);
   const db = useFirestore();
+
+  // Generar un ID de invitado estable si no hay sesión real de Discord
+  const finalUserId = useMemo(() => discordUser.id, [discordUser.id]);
 
   // Monitorear ocupación de canales 112
   const channelsQuery = useMemoFirebase(() => {
@@ -31,9 +34,8 @@ export function CitizenEmergencyView({ discordUser }: { discordUser: DiscordUser
 
   const { data: usersIn112 } = useCollection<any>(channelsQuery);
 
-  // Lógica de WebSocket y WebRTC para el canal seleccionado
   const { status, peers, send, setOnMessage } = useRadioWebSocket(
-    discordUser.id,
+    finalUserId,
     selectedChannel
   );
 
@@ -41,8 +43,8 @@ export function CitizenEmergencyView({ discordUser }: { discordUser: DiscordUser
     send(msg);
   }, [send]);
 
-  const { handleSignal, toggleLocalPTT, activeTransmissions, micStatus } = useRadioWebRTC(
-    discordUser.id,
+  const { handleSignal, toggleLocalPTT, activeTransmissions } = useRadioWebRTC(
+    finalUserId,
     stableSend,
     peers,
     selectedChannel
@@ -56,26 +58,27 @@ export function CitizenEmergencyView({ discordUser }: { discordUser: DiscordUser
     setOnMessage(handleSignal);
   }, [handleSignal, setOnMessage]);
 
-  // Actualizar estado en Firestore al entrar/salir
+  // Actualizar estado en Firestore al entrar/salir (solo si no es invitado anónimo o según política)
   useEffect(() => {
-    if (db && discordUser.id) {
-      setDoc(doc(db, 'users', discordUser.id), {
+    if (db && finalUserId && selectedChannel) {
+      setDoc(doc(db, 'users', finalUserId), {
         username: discordUser.global_name || discordUser.username,
         avatar: discordUser.avatar,
         radio: {
           canalActual: selectedChannel,
-          isCitizen: !!selectedChannel,
+          isCitizen: true,
           ultimaConexion: serverTimestamp()
         }
       }, { merge: true });
     }
-  }, [selectedChannel, db, discordUser]);
+  }, [selectedChannel, db, finalUserId, discordUser]);
 
   const getLineStatus = (channel: string) => {
-    const occupants = usersIn112.filter(u => u.radio?.canalActual === channel);
+    const occupants = usersIn112?.filter(u => u.radio?.canalActual === channel) || [];
     const operators = occupants.filter(u => u.radio?.isOperator);
     const citizens = occupants.filter(u => u.radio?.isCitizen);
     
+    // Una línea está llena si hay al menos 1 operador y 1 ciudadano
     const isFull = operators.length >= 1 && citizens.length >= 1;
     const hasOperator = operators.length > 0;
     
@@ -105,16 +108,18 @@ export function CitizenEmergencyView({ discordUser }: { discordUser: DiscordUser
                 <Activity className="h-16 w-16" />
               </div>
             </div>
-            <CardTitle className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Comunicación Activa</CardTitle>
-            <p className="text-[10px] font-black text-red-600 uppercase tracking-[0.4em] mt-4">Línea: {selectedChannel.replace('_', ' ')}</p>
+            <CardTitle className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Llamada en Curso</CardTitle>
+            <p className="text-[10px] font-black text-red-600 uppercase tracking-[0.4em] mt-4">
+              Estableciendo contacto con emergencias
+            </p>
           </CardHeader>
           <CardContent className="px-12 pb-16 space-y-10">
             <div className="space-y-8 animate-in fade-in zoom-in duration-500">
               <div className="flex flex-col items-center gap-4">
                 <div className="flex items-center gap-2 px-4 py-2 bg-red-50 rounded-full border border-red-100">
-                  <Wifi className="h-4 w-4 text-red-600 animate-pulse" />
+                  <Wifi className={cn("h-4 w-4", isConnected ? "text-red-600 animate-pulse" : "text-slate-300")} />
                   <span className="text-[10px] font-black text-red-700 uppercase tracking-widest">
-                    {isConnected ? "Enlace Establecido" : "Sincronizando..."}
+                    {isConnected ? "Conexión Segura Activa" : "Sincronizando Frecuencia..."}
                   </span>
                 </div>
               </div>
@@ -135,7 +140,7 @@ export function CitizenEmergencyView({ discordUser }: { discordUser: DiscordUser
                   {isTransmitting ? (
                     <>
                       <Mic className="h-10 w-10 text-white animate-bounce" />
-                      <span className="text-xs font-black text-white uppercase tracking-[0.3em]">Hablando ahora</span>
+                      <span className="text-xs font-black text-white uppercase tracking-[0.3em]">Hablando con el Operador</span>
                     </>
                   ) : (
                     <>
@@ -146,13 +151,19 @@ export function CitizenEmergencyView({ discordUser }: { discordUser: DiscordUser
                 </Button>
               </div>
 
-              <Button 
-                variant="ghost" 
-                onClick={() => setSelectedChannel(null)}
-                className="w-full text-slate-400 hover:text-red-600 hover:bg-transparent text-[10px] font-bold uppercase tracking-[0.3em]"
-              >
-                Finalizar Llamada
-              </Button>
+              <div className="pt-4 flex flex-col items-center gap-6">
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setSelectedChannel(null)}
+                  className="w-full text-slate-400 hover:text-red-600 hover:bg-red-50 text-[10px] font-bold uppercase tracking-[0.3em]"
+                >
+                  Finalizar Comunicación
+                </Button>
+                
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest text-center opacity-50">
+                  ID de sesión: {finalUserId.substring(0, 12)}
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -171,8 +182,8 @@ export function CitizenEmergencyView({ discordUser }: { discordUser: DiscordUser
           <div className="bg-red-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-2xl ring-8 ring-red-600/20">
             <ShieldAlert className="h-10 w-10 text-white" />
           </div>
-          <h1 className="text-4xl font-black text-white uppercase tracking-tighter">Centro de Emergencias 112</h1>
-          <p className="text-slate-400 text-sm font-medium uppercase tracking-[0.3em]">Servicio de Ayuda al Ciudadano - Tenerife RP</p>
+          <h1 className="text-4xl font-black text-white uppercase tracking-tighter">Emergencias Tenerife RP</h1>
+          <p className="text-slate-400 text-sm font-medium uppercase tracking-[0.3em]">Acceso Directo al Centro de Mando 112</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -193,7 +204,7 @@ export function CitizenEmergencyView({ discordUser }: { discordUser: DiscordUser
                       "text-[8px] font-bold uppercase",
                       isFull ? "border-slate-200 text-slate-400" : hasOperator ? "border-emerald-200 text-emerald-600" : "border-red-200 text-red-600"
                     )}>
-                      {isFull ? "LÍNEA OCUPADA" : hasOperator ? "OPERADOR LISTO" : "ESPERANDO OP."}
+                      {isFull ? "OCUPADA" : hasOperator ? "OPERADOR EN LÍNEA" : "ESPERANDO"}
                     </Badge>
                   </div>
                 </CardHeader>
@@ -206,12 +217,12 @@ export function CitizenEmergencyView({ discordUser }: { discordUser: DiscordUser
                       </Avatar>
                       <div className="flex flex-col min-w-0">
                         <span className="text-[10px] font-black text-emerald-700 uppercase truncate">{operator.username}</span>
-                        <span className="text-[8px] font-bold text-emerald-500 uppercase">Operador en línea</span>
+                        <span className="text-[8px] font-bold text-emerald-500 uppercase">Operador Disponible</span>
                       </div>
                     </div>
                   ) : (
                     <div className="flex items-center justify-center p-3 bg-slate-50 rounded-2xl border border-slate-100 italic text-[10px] text-slate-400 font-medium">
-                      Buscando operadores disponibles...
+                      Buscando coordinador...
                     </div>
                   )}
 
@@ -219,11 +230,11 @@ export function CitizenEmergencyView({ discordUser }: { discordUser: DiscordUser
                     onClick={() => setSelectedChannel(line.id as RadioChannel)}
                     disabled={isFull}
                     className={cn(
-                      "w-full h-14 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg",
-                      isFull ? "bg-slate-200" : "bg-red-600 hover:bg-red-700"
+                      "w-full h-14 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all",
+                      isFull ? "bg-slate-200" : "bg-red-600 hover:bg-red-700 active:scale-95"
                     )}
                   >
-                    <Phone className="h-4 w-4 mr-2" /> Entrar en Llamada
+                    <Phone className="h-4 w-4 mr-2" /> Iniciar Llamada
                   </Button>
                 </CardContent>
               </Card>
@@ -232,8 +243,8 @@ export function CitizenEmergencyView({ discordUser }: { discordUser: DiscordUser
         </div>
 
         <div className="bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/10 text-center">
-          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.4em] leading-relaxed">
-            AVISO: EL USO INDEBIDO O FALSO DE ESTA LÍNEA ES MOTIVO DE SANCIÓN DISCIPLINARIA GRAVE POR PARTE DE LA MODERACIÓN.
+          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.4em] leading-relaxed max-w-2xl mx-auto">
+            ESTA LÍNEA ES EXCLUSIVA PARA EMERGENCIAS DE ROL. EL MAL USO, TROLLEO O SPAM SERÁ SANCIONADO CON LA EXPULSIÓN INMEDIATA DEL SERVIDOR.
           </p>
         </div>
       </div>
