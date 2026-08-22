@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -35,7 +34,7 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
   
   const db = useFirestore();
 
-  // --- Sistema de Audio Institucional IA Optimizado ---
+  // --- Sistema de Audio Institucional Ultra-Optimizado ---
   useEffect(() => {
     if (!db) return;
 
@@ -46,17 +45,20 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
     
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       if (snapshot.empty) return;
-      const call = snapshot.docs[0].data() as any;
-      const callId = snapshot.docs[0].id;
       
-      const isNew = call.createdAt && (Date.now() - call.createdAt.toDate().getTime()) < 30000;
+      const doc = snapshot.docs[0];
+      const call = doc.data() as any;
+      const callId = doc.id;
+      
+      // Solo procesar si es muy reciente (menos de 5 segundos de antigüedad)
+      const isNew = call.createdAt && (Date.now() - call.createdAt.toDate().getTime()) < 5000;
       const sessionKey = `heard_${callId}`;
       
       if (isNew && !sessionStorage.getItem(sessionKey)) {
         sessionStorage.setItem(sessionKey, 'true');
         
         try {
-          // 1. Iniciar generación TTS inmediatamente
+          // 1. Iniciar generación TTS INMEDIATAMENTE
           const ttsPromise = generateEmergencyAudio({
             nombre: call.nombre,
             ubicacion: call.ubicacion,
@@ -64,23 +66,34 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
             unidades: call.unidades
           });
 
-          // 2. Tocar Intro (Pitido 1s)
+          // 2. Reproducir Intro (Pitido 1s)
           const intro = new Audio(introSoundUrl);
-          intro.play();
+          intro.volume = 0.6;
+          const introPlayPromise = intro.play();
 
-          // 3. Cuando la intro acabe, reproducir TTS tan pronto como esté listo
-          intro.onended = async () => {
-            const { media } = await ttsPromise;
-            const ttsAudio = new Audio(media);
-            ttsAudio.play();
-            
-            ttsAudio.onended = () => {
-              const outro = new Audio(outroSoundUrl);
-              outro.play();
-            };
+          // 3. Esperar a que el pitido termine Y el TTS esté listo
+          // Usamos Promise.all para que ambos procesos ocurran en paralelo
+          await Promise.all([introPlayPromise, ttsPromise]);
+          
+          // Si el pitido aún no ha terminado por alguna razón, esperamos a su evento onended
+          if (!intro.ended) {
+            await new Promise((resolve) => {
+              intro.onended = resolve;
+            });
+          }
+
+          // 4. Locución de IA
+          const { media } = await ttsPromise;
+          const ttsAudio = new Audio(media);
+          await ttsAudio.play();
+          
+          ttsAudio.onended = () => {
+            const outro = new Audio(outroSoundUrl);
+            outro.volume = 0.6;
+            outro.play();
           };
         } catch (e) {
-          console.error('[AUDIO_SYSTEM] Error en secuencia:', e);
+          console.error('[AUDIO_SYSTEM] Latency optimization failed:', e);
         }
       }
     });
