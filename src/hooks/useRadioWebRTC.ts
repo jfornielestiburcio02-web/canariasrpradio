@@ -68,12 +68,16 @@ export function useRadioWebRTC(
       }
     });
 
-    // Si añadimos pistas después de que la conexión sea estable, re-negociamos
     if (trackAdded && pc.signalingState === 'stable') {
-      console.log(`[WEBRTC] Re-negociando con ${remoteSessionId} por nuevas pistas locales`);
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      sendSignal({ type: 'webrtc_offer', to: remoteSessionId, payload: offer });
+      try {
+        console.log(`[WEBRTC] Re-negociando con ${remoteSessionId} por nuevas pistas locales`);
+        const offer = await pc.createOffer();
+        if (pc.signalingState !== 'stable') return;
+        await pc.setLocalDescription(offer);
+        sendSignal({ type: 'webrtc_offer', to: remoteSessionId, payload: offer });
+      } catch (err) {
+        console.warn(`[WEBRTC] Fallo en re-negociación con ${remoteSessionId}:`, err);
+      }
     }
   }, [localStream, sendSignal]);
 
@@ -107,7 +111,6 @@ export function useRadioWebRTC(
     return pc;
   }, [iceServers, sendSignal, addLocalTracksToPC, activeChannel, localStream]);
 
-  // Asegurar que las pistas se añaden a todas las conexiones existentes cuando el stream local está listo
   useEffect(() => {
     if (localStream) {
       peerConnections.current.forEach((pc, sessionId) => {
@@ -140,62 +143,77 @@ export function useRadioWebRTC(
     const from = msg.from!;
     if (msg.to && msg.to !== mySessionId && msg.type !== 'channel_peers_update') return;
 
-    switch (msg.type) {
-      case 'channel_peers_update':
-        const currentPeers = msg.payload.peers as string[];
-        for (const peerId of currentPeers) {
-          if (peerId !== mySessionId && !peerConnections.current.has(peerId)) {
-            if (mySessionId < peerId) {
-              const pc = createPeerConnection(peerId);
-              if (pc) {
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                sendSignal({ type: 'webrtc_offer', to: peerId, payload: offer });
+    try {
+      switch (msg.type) {
+        case 'channel_peers_update':
+          const currentPeers = msg.payload.peers as string[];
+          for (const peerId of currentPeers) {
+            if (peerId !== mySessionId && !peerConnections.current.has(peerId)) {
+              if (mySessionId < peerId) {
+                const pc = createPeerConnection(peerId);
+                if (pc && pc.signalingState === 'stable') {
+                  const offer = await pc.createOffer();
+                  await pc.setLocalDescription(offer);
+                  sendSignal({ type: 'webrtc_offer', to: peerId, payload: offer });
+                }
               }
             }
           }
-        }
-        break;
+          break;
 
-      case 'webrtc_offer':
-        const pcOffer = createPeerConnection(from);
-        if (pcOffer) {
-          await pcOffer.setRemoteDescription(new RTCSessionDescription(msg.payload));
-          const answer = await pcOffer.createAnswer();
-          await pcOffer.setLocalDescription(answer);
-          sendSignal({ type: 'webrtc_answer', to: from, payload: answer });
-          const candidates = pendingCandidates.current.get(from) || [];
-          for (const c of candidates) await pcOffer.addIceCandidate(new RTCIceCandidate(c));
-          pendingCandidates.current.set(from, []);
-        }
-        break;
+        case 'webrtc_offer':
+          const pcOffer = createPeerConnection(from);
+          if (pcOffer) {
+            const collision = pcOffer.signalingState !== 'stable' || pcOffer.remoteDescription !== null;
+            const ignoreOffer = collision && mySessionId < from;
+            
+            if (ignoreOffer) {
+              console.warn(`[WEBRTC] Ignorando oferta por colisión con ${from}`);
+              return;
+            }
 
-      case 'webrtc_answer':
-        const pcAnswer = peerConnections.current.get(from);
-        if (pcAnswer) await pcAnswer.setRemoteDescription(new RTCSessionDescription(msg.payload));
-        break;
+            await pcOffer.setRemoteDescription(new RTCSessionDescription(msg.payload));
+            const answer = await pcOffer.createAnswer();
+            await pcOffer.setLocalDescription(answer);
+            sendSignal({ type: 'webrtc_answer', to: from, payload: answer });
+            
+            const candidates = pendingCandidates.current.get(from) || [];
+            for (const c of candidates) await pcOffer.addIceCandidate(new RTCIceCandidate(c));
+            pendingCandidates.current.set(from, []);
+          }
+          break;
 
-      case 'webrtc_ice':
-        const pcIce = peerConnections.current.get(from);
-        if (pcIce && pcIce.remoteDescription) {
-          await pcIce.addIceCandidate(new RTCIceCandidate(msg.payload)).catch(() => {});
-        } else {
-          if (!pendingCandidates.current.has(from)) pendingCandidates.current.set(from, []);
-          pendingCandidates.current.get(from)!.push(msg.payload);
-        }
-        break;
+        case 'webrtc_answer':
+          const pcAnswer = peerConnections.current.get(from);
+          if (pcAnswer && pcAnswer.signalingState === 'have-local-offer') {
+            await pcAnswer.setRemoteDescription(new RTCSessionDescription(msg.payload));
+          }
+          break;
 
-      case 'ptt_start':
-        setActiveTransmissions(prev => new Set(prev).add(from));
-        break;
+        case 'webrtc_ice':
+          const pcIce = peerConnections.current.get(from);
+          if (pcIce && pcIce.remoteDescription) {
+            await pcIce.addIceCandidate(new RTCIceCandidate(msg.payload)).catch(() => {});
+          } else {
+            if (!pendingCandidates.current.has(from)) pendingCandidates.current.set(from, []);
+            pendingCandidates.current.get(from)!.push(msg.payload);
+          }
+          break;
 
-      case 'ptt_stop':
-        setActiveTransmissions(prev => {
-          const next = new Set(prev);
-          next.delete(from);
-          return next;
-        });
-        break;
+        case 'ptt_start':
+          setActiveTransmissions(prev => new Set(prev).add(from));
+          break;
+
+        case 'ptt_stop':
+          setActiveTransmissions(prev => {
+            const next = new Set(prev);
+            next.delete(from);
+            return next;
+          });
+          break;
+      }
+    } catch (err) {
+      console.error(`[WEBRTC][ERROR] Fallo en señal ${msg.type} de ${from}:`, err);
     }
   }, [mySessionId, createPeerConnection, sendSignal, isIceReady, activeChannel]);
 
