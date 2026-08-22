@@ -15,7 +15,8 @@ import {
   AlertTriangle,
   Bell,
   Clock,
-  MapPin
+  MapPin,
+  Server
 } from 'lucide-react';
 import { getErlcLogs, getErlcPlayers } from '@/app/actions/erlc';
 import { cn } from '@/lib/utils';
@@ -26,16 +27,22 @@ export function MapTerminal({ discordUser }: { discordUser: DiscordUser }) {
   const [players, setPlayers] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const SERVER_ID = '2534724415';
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     const [logRes, playerRes] = await Promise.all([getErlcLogs(), getErlcPlayers()]);
     
-    if (logRes.success) setLogs(logRes.logs.filter((l: any) => l.Log.toLowerCase().includes('panic button')));
-    if (playerRes.success) setPlayers(playerRes.players);
+    if (logRes.success) {
+      setLogs(logRes.logs.filter((l: any) => l.Log.toLowerCase().includes('panic button')));
+    }
+    
+    if (playerRes.success) {
+      setPlayers(playerRes.players);
+    }
     
     if (!logRes.success && !playerRes.success) {
-      setError('Fallo de conexión satelital');
+      setError(logRes.error || 'Fallo de conexión satelital');
     } else {
       setError(null);
     }
@@ -46,7 +53,7 @@ export function MapTerminal({ discordUser }: { discordUser: DiscordUser }) {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 15000);
+    const interval = setInterval(fetchData, 10000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
@@ -63,7 +70,7 @@ export function MapTerminal({ discordUser }: { discordUser: DiscordUser }) {
                   <Bell className="h-6 w-6 animate-pulse" />
                   <CardTitle className="text-lg font-black uppercase tracking-widest">Alertas de Pánico Recientes</CardTitle>
                 </div>
-                <Badge className="bg-white/20 text-white border-white/30 text-[10px]">{logs.length} ACTIVOS</Badge>
+                <Badge className="bg-white/20 text-white border-white/30 text-[10px] uppercase font-black">{logs.length} ACTIVOS</Badge>
               </div>
             </CardHeader>
             <CardContent className="p-0 flex-1 overflow-y-auto">
@@ -104,7 +111,7 @@ export function MapTerminal({ discordUser }: { discordUser: DiscordUser }) {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-emerald-500" />
+                  <Activity className={cn("h-4 w-4", error ? "text-red-500" : "text-emerald-500")} />
                   <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-400">Enlace Satelital</CardTitle>
                 </div>
                 <Button variant="ghost" size="icon" onClick={fetchData} className="h-6 w-6"><RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} /></Button>
@@ -117,11 +124,15 @@ export function MapTerminal({ discordUser }: { discordUser: DiscordUser }) {
               </div>
               <div className="space-y-4">
                 <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest">
+                  <span className="text-slate-400 flex items-center gap-2"><Server className="h-3 w-3" /> Server ID:</span>
+                  <span className="text-slate-600">{SERVER_ID}</span>
+                </div>
+                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest">
                   <span className="text-slate-400">Estado API:</span>
                   <span className={cn(error ? "text-red-500" : "text-emerald-500")}>{error ? 'FALLO' : 'ACTIVO'}</span>
                 </div>
                 <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest">
-                  <span className="text-slate-400">Última Sinc:</span>
+                  <span className="text-slate-400">Sincronización:</span>
                   <span className="text-slate-600">{lastUpdate.toLocaleTimeString()}</span>
                 </div>
               </div>
@@ -134,8 +145,13 @@ export function MapTerminal({ discordUser }: { discordUser: DiscordUser }) {
               <h4 className="text-xs font-black uppercase tracking-widest">Protocolo de Pánico</h4>
             </div>
             <p className="text-[10px] font-medium leading-relaxed opacity-60 uppercase">
-              El sistema detecta automáticamente cuando un oficial pulsa el botón de pánico en el servidor. La locución por radio se activará instantáneamente en todas las frecuencias autorizadas.
+              El sistema monitoriza el servidor <b>{SERVER_ID}</b>. Si un oficial activa el pánico, se activará la locución IA en todas las radios.
             </p>
+            {error && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+                <p className="text-[9px] text-red-400 font-bold uppercase leading-tight">Error: {error}</p>
+              </div>
+            )}
           </Card>
         </div>
       </div>
