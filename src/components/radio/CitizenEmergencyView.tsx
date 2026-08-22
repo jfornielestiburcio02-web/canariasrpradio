@@ -8,16 +8,33 @@ import { useRadioWebRTC } from '@/hooks/useRadioWebRTC';
 import { usePTT } from '@/hooks/usePTT';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Activity, Phone, Mic, MicOff, AlertCircle, ShieldAlert } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Activity, Phone, Mic, MicOff, AlertCircle, ShieldAlert, Wifi, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { RadioChannel } from '@/types/radio';
 
 export function CitizenEmergencyView({ discordUser }: { discordUser: DiscordUser }) {
-  const [isCalling, setIsCalling] = useState(false);
-  const channel = 'CIUDADANO_112';
+  const [selectedChannel, setSelectedChannel] = useState<RadioChannel | null>(null);
+  const db = useFirestore();
 
+  // Monitorear ocupación de canales 112
+  const channelsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(
+      collection(db, 'users'),
+      where('radio.canalActual', 'in', ['112_LINEA_1', '112_LINEA_2', '112_LINEA_3'])
+    );
+  }, [db]);
+
+  const { data: usersIn112 } = useCollection<any>(channelsQuery);
+
+  // Lógica de WebSocket y WebRTC para el canal seleccionado
   const { status, peers, send, setOnMessage } = useRadioWebSocket(
     discordUser.id,
-    isCalling ? channel : null
+    selectedChannel
   );
 
   const stableSend = useCallback((msg: any) => {
@@ -28,77 +45,78 @@ export function CitizenEmergencyView({ discordUser }: { discordUser: DiscordUser
     discordUser.id,
     stableSend,
     peers,
-    isCalling ? channel : null
+    selectedChannel
   );
 
   const { isTransmitting, start, stop } = usePTT((enabled) => {
     toggleLocalPTT(enabled);
-  }, { disabled: !isCalling });
+  }, { disabled: !selectedChannel });
 
   useEffect(() => {
     setOnMessage(handleSignal);
   }, [handleSignal, setOnMessage]);
 
+  // Actualizar estado en Firestore al entrar/salir
+  useEffect(() => {
+    if (db && discordUser.id) {
+      setDoc(doc(db, 'users', discordUser.id), {
+        username: discordUser.global_name || discordUser.username,
+        avatar: discordUser.avatar,
+        radio: {
+          canalActual: selectedChannel,
+          isCitizen: !!selectedChannel,
+          ultimaConexion: serverTimestamp()
+        }
+      }, { merge: true });
+    }
+  }, [selectedChannel, db, discordUser]);
+
+  const getLineStatus = (channel: string) => {
+    const occupants = usersIn112.filter(u => u.radio?.canalActual === channel);
+    const operators = occupants.filter(u => u.radio?.isOperator);
+    const citizens = occupants.filter(u => u.radio?.isCitizen);
+    
+    const isFull = operators.length >= 1 && citizens.length >= 1;
+    const hasOperator = operators.length > 0;
+    
+    return { occupants, operators, citizens, isFull, hasOperator };
+  };
+
+  const lines = [
+    { id: '112_LINEA_1', name: 'Línea de Emergencia 1' },
+    { id: '112_LINEA_2', name: 'Línea de Emergencia 2' },
+    { id: '112_LINEA_3', name: 'Línea de Emergencia 3' },
+  ];
+
   const isConnected = status === 'connected';
 
-  return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 relative overflow-hidden">
-      {/* Background Decor */}
-      <div className="absolute inset-0 opacity-10 pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-red-600 rounded-full blur-[150px]" />
-      </div>
+  if (selectedChannel) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-red-600 rounded-full blur-[150px]" />
+        </div>
 
-      <Card className="w-full max-w-lg bg-white border-none shadow-[0_0_50px_rgba(220,38,38,0.2)] rounded-[2.5rem] overflow-hidden relative z-10">
-        <div className={cn("h-3 w-full transition-colors duration-500", isCalling ? "bg-red-600 animate-pulse" : "bg-slate-200")} />
-        
-        <CardHeader className="text-center pt-12 pb-8 px-10">
-          <div className="flex justify-center mb-8">
-            <div className={cn(
-              "p-6 rounded-full transition-all duration-500",
-              isCalling ? "bg-red-600 text-white shadow-2xl scale-110" : "bg-slate-100 text-slate-400"
-            )}>
-              <ShieldAlert className="h-16 w-16" />
-            </div>
-          </div>
-          <CardTitle className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">
-            Centro de Emergencias
-          </CardTitle>
-          <div className="flex items-center justify-center gap-3 mt-4">
-            <span className="h-px w-6 bg-slate-200" />
-            <p className="text-[10px] font-black text-red-600 uppercase tracking-[0.4em]">112 Canarias</p>
-            <span className="h-px w-6 bg-slate-200" />
-          </div>
-        </CardHeader>
-
-        <CardContent className="px-12 pb-16 space-y-10">
-          {!isCalling ? (
-            <div className="space-y-8">
-              <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 text-center">
-                <p className="text-slate-500 text-sm font-medium leading-relaxed">
-                  Estás a punto de establecer comunicación con el Centro de Mando 112. 
-                  <span className="block mt-2 font-bold text-red-600 uppercase text-[10px] tracking-widest">Uso exclusivo para reportar incidentes</span>
-                </p>
+        <Card className="w-full max-w-lg bg-white border-none shadow-[0_0_50px_rgba(220,38,38,0.2)] rounded-[2.5rem] overflow-hidden relative z-10">
+          <div className="h-3 w-full bg-red-600 animate-pulse" />
+          <CardHeader className="text-center pt-12 pb-8 px-10">
+            <div className="flex justify-center mb-8">
+              <div className="p-6 rounded-full bg-red-600 text-white shadow-2xl scale-110">
+                <Activity className="h-16 w-16" />
               </div>
-              <Button 
-                onClick={() => setIsCalling(true)}
-                className="w-full h-20 bg-red-600 hover:bg-red-700 text-white rounded-2xl shadow-xl shadow-red-200 transition-all active:scale-95 flex items-center justify-center gap-4"
-              >
-                <Phone className="h-6 w-6" />
-                <span className="text-lg font-black uppercase tracking-widest">Establecer Llamada</span>
-              </Button>
             </div>
-          ) : (
+            <CardTitle className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Comunicación Activa</CardTitle>
+            <p className="text-[10px] font-black text-red-600 uppercase tracking-[0.4em] mt-4">Línea: {selectedChannel.replace('_', ' ')}</p>
+          </CardHeader>
+          <CardContent className="px-12 pb-16 space-y-10">
             <div className="space-y-8 animate-in fade-in zoom-in duration-500">
               <div className="flex flex-col items-center gap-4">
                 <div className="flex items-center gap-2 px-4 py-2 bg-red-50 rounded-full border border-red-100">
-                  <Activity className="h-4 w-4 text-red-600 animate-pulse" />
+                  <Wifi className="h-4 w-4 text-red-600 animate-pulse" />
                   <span className="text-[10px] font-black text-red-700 uppercase tracking-widest">
-                    {isConnected ? "Comunicación Activa" : "Conectando..."}
+                    {isConnected ? "Enlace Establecido" : "Sincronizando..."}
                   </span>
                 </div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                  Operadores disponibles: {peers.length}
-                </p>
               </div>
 
               <div className="relative">
@@ -130,27 +148,95 @@ export function CitizenEmergencyView({ discordUser }: { discordUser: DiscordUser
 
               <Button 
                 variant="ghost" 
-                onClick={() => setIsCalling(false)}
+                onClick={() => setSelectedChannel(null)}
                 className="w-full text-slate-400 hover:text-red-600 hover:bg-transparent text-[10px] font-bold uppercase tracking-[0.3em]"
               >
                 Finalizar Llamada
               </Button>
             </div>
-          )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
-          <div className="pt-4 flex flex-col items-center gap-4 text-center">
-            {micStatus === 'denied' && (
-              <div className="flex items-center gap-2 text-red-500">
-                <AlertCircle className="h-4 w-4" />
-                <span className="text-[9px] font-bold uppercase">Permiso de micrófono requerido</span>
-              </div>
-            )}
-            <p className="text-[8px] text-slate-300 font-bold uppercase tracking-[0.4em]">
-              Tenerife RP • Sistema de Comunicaciones Satelital
-            </p>
+  return (
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 relative overflow-hidden">
+      <div className="absolute inset-0 opacity-10 pointer-events-none">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-red-600 rounded-full blur-[150px]" />
+      </div>
+
+      <div className="w-full max-w-4xl space-y-8 relative z-10">
+        <div className="text-center space-y-4">
+          <div className="bg-red-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-2xl ring-8 ring-red-600/20">
+            <ShieldAlert className="h-10 w-10 text-white" />
           </div>
-        </CardContent>
-      </Card>
+          <h1 className="text-4xl font-black text-white uppercase tracking-tighter">Centro de Emergencias 112</h1>
+          <p className="text-slate-400 text-sm font-medium uppercase tracking-[0.3em]">Servicio de Ayuda al Ciudadano - Tenerife RP</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {lines.map((line) => {
+            const { isFull, hasOperator, operators } = getLineStatus(line.id);
+            const operator = operators[0];
+
+            return (
+              <Card key={line.id} className={cn(
+                "bg-white border-none shadow-2xl rounded-[2rem] overflow-hidden transition-all duration-300",
+                isFull ? "opacity-60 grayscale pointer-events-none" : "hover:scale-[1.02]"
+              )}>
+                <div className={cn("h-2 w-full", isFull ? "bg-slate-300" : hasOperator ? "bg-emerald-500" : "bg-red-500")} />
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-400">{line.name}</CardTitle>
+                    <Badge variant="outline" className={cn(
+                      "text-[8px] font-bold uppercase",
+                      isFull ? "border-slate-200 text-slate-400" : hasOperator ? "border-emerald-200 text-emerald-600" : "border-red-200 text-red-600"
+                    )}>
+                      {isFull ? "LÍNEA OCUPADA" : hasOperator ? "OPERADOR LISTO" : "ESPERANDO OP."}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-6 pt-4">
+                  {hasOperator ? (
+                    <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-2xl border border-emerald-100">
+                      <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
+                        <AvatarImage src={operator.avatar ? `https://cdn.discordapp.com/avatars/${operator.id}/${operator.avatar}.png` : undefined} />
+                        <AvatarFallback className="bg-emerald-100 text-emerald-600 text-[10px] font-bold">112</AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[10px] font-black text-emerald-700 uppercase truncate">{operator.username}</span>
+                        <span className="text-[8px] font-bold text-emerald-500 uppercase">Operador en línea</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center p-3 bg-slate-50 rounded-2xl border border-slate-100 italic text-[10px] text-slate-400 font-medium">
+                      Buscando operadores disponibles...
+                    </div>
+                  )}
+
+                  <Button 
+                    onClick={() => setSelectedChannel(line.id as RadioChannel)}
+                    disabled={isFull}
+                    className={cn(
+                      "w-full h-14 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg",
+                      isFull ? "bg-slate-200" : "bg-red-600 hover:bg-red-700"
+                    )}
+                  >
+                    <Phone className="h-4 w-4 mr-2" /> Entrar en Llamada
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        <div className="bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/10 text-center">
+          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.4em] leading-relaxed">
+            AVISO: EL USO INDEBIDO O FALSO DE ESTA LÍNEA ES MOTIVO DE SANCIÓN DISCIPLINARIA GRAVE POR PARTE DE LA MODERACIÓN.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

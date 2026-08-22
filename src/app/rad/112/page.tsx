@@ -3,7 +3,7 @@ import { getSessionUser } from '@/app/lib/auth-utils';
 import { redirect } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ShieldAlert, ArrowLeft, Activity, Radio, AlertTriangle, Users, PhoneIncoming } from 'lucide-react';
+import { ShieldAlert, ArrowLeft, Activity, Radio, AlertTriangle, Users, Headset } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { CoordinatorVoiceHandler } from '@/components/radio/CoordinatorVoiceHandler';
@@ -39,7 +39,7 @@ export default async function Coordinator112Page() {
       <header className="h-20 border-b border-slate-200 bg-white px-8 flex items-center justify-between shrink-0 sticky top-0 z-50">
         <div className="flex items-center gap-4">
           <div className="bg-red-600/10 p-2.5 rounded-xl">
-            <Activity className="h-6 w-6 text-red-600" />
+            <Headset className="h-6 w-6 text-red-600" />
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight text-slate-900 uppercase leading-none">Centro de Mando 112</h1>
@@ -61,7 +61,7 @@ export default async function Coordinator112Page() {
 
         <div className="flex items-center gap-3">
           <Button asChild variant="outline" size="sm" className="h-9 text-[10px] font-bold uppercase border-slate-200">
-            <Link href="/rad"><ArrowLeft className="h-4 w-4 mr-2" /> Volver</Link>
+            <Link href="/rad"><ArrowLeft className="h-4 w-4 mr-2" /> Salir a Frecuencias</Link>
           </Button>
         </div>
       </header>
@@ -72,13 +72,13 @@ export default async function Coordinator112Page() {
             <div className="h-1.5 bg-red-600 w-full" />
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Alertas Activas</CardTitle>
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Líneas en Servicio</CardTitle>
                 <AlertTriangle className="h-4 w-4 text-red-500 animate-pulse" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-black text-slate-900">0</div>
-              <p className="text-[10px] text-slate-400 font-bold uppercase mt-2">Nivel de Alerta: Verde</p>
+              <div className="text-3xl font-black text-slate-900">3</div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase mt-2">Capacidad Máxima Activa</p>
             </CardContent>
           </Card>
 
@@ -86,13 +86,13 @@ export default async function Coordinator112Page() {
             <div className="h-1.5 bg-blue-600 w-full" />
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Efectivos en Frecuencia</CardTitle>
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Estado de Red</CardTitle>
                 <Radio className="h-4 w-4 text-blue-500" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-black text-slate-900">--</div>
-              <p className="text-[10px] text-slate-400 font-bold uppercase mt-2">Personal Monitoreado</p>
+              <div className="text-3xl font-black text-slate-900 uppercase">Estable</div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase mt-2">Sincronización WebRTC OK</p>
             </CardContent>
           </Card>
 
@@ -100,13 +100,13 @@ export default async function Coordinator112Page() {
             <div className="h-1.5 bg-emerald-600 w-full" />
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Estado del Sistema</CardTitle>
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Seguridad Operativa</CardTitle>
                 <Activity className="h-4 w-4 text-emerald-500" />
               </div>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-black text-slate-900 uppercase">Óptimo</div>
-              <p className="text-[10px] text-slate-400 font-bold uppercase mt-2">Red de Emergencia Canarias</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase mt-2">Canal 112 Aislado</p>
             </CardContent>
           </Card>
         </div>
@@ -123,14 +123,14 @@ export default async function Coordinator112Page() {
                   <Users className="h-12 w-12 text-slate-200" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-black text-slate-900 uppercase tracking-tighter">Panel de Gestión</h2>
-                  <p className="text-[10px] text-slate-500 max-w-xs mx-auto mt-2 font-medium uppercase tracking-widest">
-                    Módulo avanzado para el despacho de unidades críticas.
+                  <h2 className="text-lg font-black text-slate-900 uppercase tracking-tighter">Panel de Gestión 112</h2>
+                  <p className="text-[10px] text-slate-500 max-w-xs mx-auto mt-2 font-medium uppercase tracking-widest leading-relaxed">
+                    Como coordinador, tu deber es responder a las llamadas ciudadanas. El sistema te permite elegir una de las 3 líneas disponibles para atender casos individuales.
                   </p>
                 </div>
                 <div className="pt-2">
                   <Badge variant="outline" className="bg-red-50 text-red-600 border-red-100 px-4 py-1.5 text-[8px] font-bold uppercase tracking-widest">
-                    Sistema Activo
+                    Identificación Real Activa
                   </Badge>
                 </div>
               </div>

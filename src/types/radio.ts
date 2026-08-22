@@ -21,7 +21,7 @@ export type RadioChannel =
   | 'SUC_VIR_DELTA_10' | 'SUC_VIR_DELTA_20' | 'SUC_VIR_DELTA_30'
   | 'CAR_COORDINACION' | 'CAR_SIN_ASIGN'
   | 'PL_CANAL_1' | 'PL_CANAL_2' | 'PL_CANAL_3' | 'PL_CANAL_4' | 'PL_COORD' | 'PL_SIN_ASIGN'
-  | 'CIUDADANO_112';
+  | '112_LINEA_1' | '112_LINEA_2' | '112_LINEA_3';
 
 export type WSStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
