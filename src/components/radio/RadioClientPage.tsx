@@ -32,11 +32,10 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
   const [isEditingPlaca, setIsEditingPlaca] = useState(false);
   const [placaInput, setPlacaInput] = useState('');
   const pathname = usePathname();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   
   const db = useFirestore();
 
-  // --- Sistema de Audio Institucional IA ---
+  // --- Sistema de Audio Institucional IA Optimizado ---
   useEffect(() => {
     if (!db) return;
 
@@ -50,7 +49,6 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
       const call = snapshot.docs[0].data() as any;
       const callId = snapshot.docs[0].id;
       
-      // Solo reproducir si es nuevo (menos de 30 segundos) y no se ha escuchado en esta sesión
       const isNew = call.createdAt && (Date.now() - call.createdAt.toDate().getTime()) < 30000;
       const sessionKey = `heard_${callId}`;
       
@@ -58,24 +56,26 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
         sessionStorage.setItem(sessionKey, 'true');
         
         try {
-          // 1. Play Intro
+          // 1. Empezar a generar el audio de la IA inmediatamente en paralelo
+          const ttsPromise = generateEmergencyAudio({
+            nombre: call.nombre,
+            ubicacion: call.ubicacion,
+            motivo: call.motivo,
+            unidades: call.unidades
+          });
+
+          // 2. Reproducir sonido de entrada (1 seg)
           const intro = new Audio(introSound);
           await intro.play();
           
           intro.onended = async () => {
-            // 2. Generate and Play TTS
-            const { media } = await generateEmergencyAudio({
-              nombre: call.nombre,
-              ubicacion: call.ubicacion,
-              motivo: call.motivo,
-              unidades: call.unidades
-            });
-            
+            // 3. Esperar a que la IA esté lista (si no lo está ya)
+            const { media } = await ttsPromise;
             const ttsAudio = new Audio(media);
             await ttsAudio.play();
             
             ttsAudio.onended = async () => {
-              // 3. Play Outro
+              // 4. Reproducir sonido de salida (1 seg)
               const outro = new Audio(outroSound);
               await outro.play();
             };
