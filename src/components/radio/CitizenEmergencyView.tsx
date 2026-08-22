@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { type DiscordUser } from '@/app/lib/auth-utils';
 import { useRadioWebSocket } from '@/hooks/useRadioWebSocket';
 import { useRadioWebRTC } from '@/hooks/useRadioWebRTC';
@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Activity, Phone, Mic, MicOff, ShieldAlert, Wifi, Headset } from 'lucide-react';
+import { Activity, Phone, Mic, MicOff, ShieldAlert, Wifi } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -19,11 +19,10 @@ import { RadioChannel } from '@/types/radio';
 export function CitizenEmergencyView({ discordUser }: { discordUser: DiscordUser }) {
   const [selectedChannel, setSelectedChannel] = useState<RadioChannel | null>(null);
   const db = useFirestore();
+  const lastSyncChannel = useRef<string | null>(null);
 
-  // Generar un ID de invitado estable si no hay sesión real de Discord
   const finalUserId = useMemo(() => discordUser.id, [discordUser.id]);
 
-  // Monitorear ocupación de canales 112
   const channelsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(
@@ -58,28 +57,29 @@ export function CitizenEmergencyView({ discordUser }: { discordUser: DiscordUser
     setOnMessage(handleSignal);
   }, [handleSignal, setOnMessage]);
 
-  // Actualizar estado en Firestore al entrar/salir
   useEffect(() => {
-    if (db && finalUserId) {
-      setDoc(doc(db, 'users', finalUserId), {
-        username: discordUser.global_name || discordUser.username,
-        avatar: discordUser.avatar,
-        radio: {
-          canalActual: selectedChannel || null,
-          isCitizen: !!selectedChannel,
-          isOperator: false, // Un ciudadano nunca es operador
-          ultimaConexion: serverTimestamp()
-        }
-      }, { merge: true });
-    }
-  }, [selectedChannel, db, finalUserId, discordUser]);
+    if (!db || !finalUserId) return;
+    if (lastSyncChannel.current === selectedChannel) return;
+    
+    lastSyncChannel.current = selectedChannel || 'null';
+
+    setDoc(doc(db, 'users', finalUserId), {
+      username: discordUser.global_name || discordUser.username,
+      avatar: discordUser.avatar,
+      radio: {
+        canalActual: selectedChannel || null,
+        isCitizen: !!selectedChannel,
+        isOperator: false,
+        ultimaConexion: serverTimestamp()
+      }
+    }, { merge: true });
+  }, [selectedChannel, db, finalUserId, discordUser.global_name, discordUser.username, discordUser.avatar]);
 
   const getLineStatus = (channel: string) => {
     const occupants = usersIn112?.filter(u => u.radio?.canalActual === channel) || [];
     const operators = occupants.filter(u => u.radio?.isOperator);
     const citizens = occupants.filter(u => u.radio?.isCitizen);
     
-    // Una línea está llena si hay al menos 1 operador y 1 ciudadano
     const isFull = operators.length >= 1 && citizens.length >= 1;
     const hasOperator = operators.length > 0;
     

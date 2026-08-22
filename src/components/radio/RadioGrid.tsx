@@ -13,6 +13,57 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 
+const CATEGORIES = [
+  {
+    name: "🇪🇸 Policía Nacional",
+    icon: <Shield className="h-4 w-4 text-blue-600" />,
+    units: [
+      { name: "Coordinación CNP", channels: ['CNP_COORD', 'CNP_HOTEL_50'] },
+      { name: "Seguridad Ciudadana", channels: ['CNP_ZETA_10', 'CNP_ZETA_20', 'CNP_ZETA_30', 'CNP_ZETA_40', 'CNP_ZETA_50', 'CNP_ZETA_60', 'CNP_ZETA_70', 'CNP_ZETA_80'] },
+      { name: "UIP / UPR", channels: ['CNP_DRAGON_1', 'CNP_DRAGON_2', 'CNP_DRAGON_3', 'CNP_DRAGON_4', 'CNP_UPR_10', 'CNP_UPR_20', 'CNP_UPR_30', 'CNP_UPR_40', 'CNP_UPR_50'] },
+      { name: "GEO / Especiales", channels: ['CNP_GEO_1', 'CNP_GEO_2', 'CNP_GEO_3', 'CNP_PJ_10', 'CNP_PJ_20', 'CNP_PJ_30', 'CNP_PJ_40'] },
+      { name: "Información y Otros", channels: ['CNP_INFO_10', 'CNP_INFO_20', 'CNP_INFO_30', 'CNP_FRONTERA_10', 'CNP_TEDAX_1', 'CNP_TAC_1'] },
+    ]
+  },
+  {
+    name: "👮 Policía Local",
+    icon: <User className="h-4 w-4 text-sky-400" />,
+    units: [
+      { name: "Seguridad Ciudadana", channels: ['PL_POLICIA_10', 'PL_POLICIA_20', 'PL_POLICIA_30', 'PL_POLICIA_40', 'PL_POLICIA_50', 'PL_POLICIA_60', 'PL_POLICIA_70', 'PL_POLICIA_80'] },
+      { name: "Unidades Especiales", channels: ['PL_MOTO_10', 'PL_TRAFICO_10', 'PL_ATESTA_1', 'PL_INTER_1', 'PL_K9_1', 'PL_MANDO_1'] },
+    ]
+  },
+  {
+    name: "🟢 Guardia Civil",
+    icon: <Anchor className="h-4 w-4 text-emerald-600" />,
+    units: [
+      { name: "Seguridad Ciudadana", channels: ['GC_GUARDIA_10', 'GC_GUARDIA_20', 'GC_GUARDIA_30', 'GC_GUARDIA_40', 'GC_GUARDIA_50', 'GC_GUARDIA_60', 'GC_GUARDIA_70', 'GC_GUARDIA_80'] },
+      { name: "Especialidades", channels: ['GC_TRAFICO_10', 'GC_SEPRONA_10', 'GC_GEAS_1', 'GC_MARITIMO_1', 'GC_USECIC_1', 'GC_UHEL_11', 'GC_COS_1'] },
+    ]
+  },
+  {
+    name: "🚒 Bomberos",
+    icon: <Flame className="h-4 w-4 text-red-600" />,
+    units: [
+      { name: "Extinción", channels: ['BOM_BRAVO_10', 'BOM_BRAVO_20', 'BOM_BRAVO_30', 'BOM_BRAVO_40', 'BOM_BRAVO_50', 'BOM_BRAVO_60'] },
+      { name: "Mando y Rescate", channels: ['BOM_MANDO_1', 'BOM_RESCATE_1', 'BOM_ESPECIAL_1', 'BOM_ESCALA_1', 'BOM_FORESTAL_1'] },
+    ]
+  },
+  {
+    name: "🚑 SUC",
+    icon: <Ambulance className="h-4 w-4 text-orange-500" />,
+    units: [
+      { name: "SVB", channels: ['SUC_SVB_01', 'SUC_SVB_02', 'SUC_SVB_03', 'SUC_SVB_04', 'SUC_SVB_05', 'SUC_SVB_06', 'SUC_SVB_07', 'SUC_SVB_08', 'SUC_SVB_09', 'SUC_SVB_10'] },
+      { name: "SVA", channels: ['SUC_SVA_01', 'SUC_SVA_02', 'SUC_SVA_03', 'SUC_SVA_04', 'SUC_SVA_05'] },
+      { name: "Sanitarizada", channels: ['SUC_SANI_01', 'SUC_SANI_02', 'SUC_SANI_03', 'SUC_SANI_04'] },
+      { name: "VIR", channels: ['SUC_VIR_01', 'SUC_VIR_02', 'SUC_VIR_03'] },
+      { name: "HEMS", channels: ['SUC_HEMS_01'] },
+      { name: "Coordinación", channels: ['SUC_COORD_01', 'SUC_COORD_02', 'SUC_COORD_03'] },
+      { name: "Gestor Recursos", channels: ['SUC_GEST_01', 'SUC_GEST_02', 'SUC_GEST_03'] },
+    ]
+  }
+];
+
 interface RadioGridProps {
   activeChannel: RadioChannel | null;
   onJoin: (channel: RadioChannel) => void;
@@ -48,59 +99,14 @@ export function RadioGrid({
 }: RadioGridProps) {
   const [search, setSearch] = useState('');
 
-  const categories = [
-    {
-      name: "🇪🇸 Policía Nacional",
-      icon: <Shield className="h-4 w-4 text-blue-600" />,
-      units: [
-        { name: "Coordinación CNP", channels: ['CNP_COORD', 'CNP_HOTEL_50'] },
-        { name: "Seguridad Ciudadana", channels: ['CNP_ZETA_10', 'CNP_ZETA_20', 'CNP_ZETA_30', 'CNP_ZETA_40', 'CNP_ZETA_50', 'CNP_ZETA_60', 'CNP_ZETA_70', 'CNP_ZETA_80'] },
-        { name: "UIP / UPR", channels: ['CNP_DRAGON_1', 'CNP_DRAGON_2', 'CNP_DRAGON_3', 'CNP_DRAGON_4', 'CNP_UPR_10', 'CNP_UPR_20', 'CNP_UPR_30', 'CNP_UPR_40', 'CNP_UPR_50'] },
-        { name: "GEO / Especiales", channels: ['CNP_GEO_1', 'CNP_GEO_2', 'CNP_GEO_3', 'CNP_PJ_10', 'CNP_PJ_20', 'CNP_PJ_30', 'CNP_PJ_40'] },
-        { name: "Información y Otros", channels: ['CNP_INFO_10', 'CNP_INFO_20', 'CNP_INFO_30', 'CNP_FRONTERA_10', 'CNP_TEDAX_1', 'CNP_TAC_1'] },
-      ]
-    },
-    {
-      name: "👮 Policía Local",
-      icon: <User className="h-4 w-4 text-sky-400" />,
-      units: [
-        { name: "Seguridad Ciudadana", channels: ['PL_POLICIA_10', 'PL_POLICIA_20', 'PL_POLICIA_30', 'PL_POLICIA_40', 'PL_POLICIA_50', 'PL_POLICIA_60', 'PL_POLICIA_70', 'PL_POLICIA_80'] },
-        { name: "Unidades Especiales", channels: ['PL_MOTO_10', 'PL_TRAFICO_10', 'PL_ATESTA_1', 'PL_INTER_1', 'PL_K9_1', 'PL_MANDO_1'] },
-      ]
-    },
-    {
-      name: "🟢 Guardia Civil",
-      icon: <Anchor className="h-4 w-4 text-emerald-600" />,
-      units: [
-        { name: "Seguridad Ciudadana", channels: ['GC_GUARDIA_10', 'GC_GUARDIA_20', 'GC_GUARDIA_30', 'GC_GUARDIA_40', 'GC_GUARDIA_50', 'GC_GUARDIA_60', 'GC_GUARDIA_70', 'GC_GUARDIA_80'] },
-        { name: "Especialidades", channels: ['GC_TRAFICO_10', 'GC_SEPRONA_10', 'GC_GEAS_1', 'GC_MARITIMO_1', 'GC_USECIC_1', 'GC_UHEL_11', 'GC_COS_1'] },
-      ]
-    },
-    {
-      name: "🚒 Bomberos",
-      icon: <Flame className="h-4 w-4 text-red-600" />,
-      units: [
-        { name: "Extinción", channels: ['BOM_BRAVO_10', 'BOM_BRAVO_20', 'BOM_BRAVO_30', 'BOM_BRAVO_40', 'BOM_BRAVO_50', 'BOM_BRAVO_60'] },
-        { name: "Mando y Rescate", channels: ['BOM_MANDO_1', 'BOM_RESCATE_1', 'BOM_ESPECIAL_1', 'BOM_ESCALA_1', 'BOM_FORESTAL_1'] },
-      ]
-    },
-    {
-      name: "🚑 SUC",
-      icon: <Ambulance className="h-4 w-4 text-orange-500" />,
-      units: [
-        { name: "Soporte Vital (SVB/SVA)", channels: ['SUC_SVB_01', 'SUC_SVB_02', 'SUC_SVB_03', 'SUC_SVB_04', 'SUC_SVB_05', 'SUC_SVA_01', 'SUC_SVA_02', 'SUC_SVA_03'] },
-        { name: "Especiales", channels: ['SUC_SANITA_01', 'SUC_VIR_01', 'SUC_HEMS_01', 'SUC_COORD_01', 'SUC_GESTOR_01'] },
-      ]
-    }
-  ];
-
   const filteredCategories = useMemo(() => {
-    if (!search) return categories;
-    return categories.map(cat => ({
+    if (!search) return CATEGORIES;
+    const term = search.toLowerCase();
+    return CATEGORIES.map(cat => ({
       ...cat,
       units: cat.units.map(unit => ({
         ...unit,
-        channels: unit.channels.filter(ch => ch.toLowerCase().includes(search.toLowerCase()))
+        channels: unit.channels.filter(ch => ch.toLowerCase().includes(term))
       })).filter(unit => unit.channels.length > 0)
     })).filter(cat => cat.units.length > 0);
   }, [search]);
@@ -114,7 +120,7 @@ export function RadioGrid({
 
   const activeChannelData = useMemo(() => {
     if (!activeChannel) return null;
-    for (const cat of categories) {
+    for (const cat of CATEGORIES) {
       for (const unit of cat.units) {
         if (unit.channels.includes(activeChannel)) {
           return { title: formatChannelName(activeChannel), category: cat.name, icon: cat.icon };
@@ -126,7 +132,6 @@ export function RadioGrid({
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 h-full min-h-0">
-      {/* Selector de Canales */}
       <div className="w-full lg:w-80 flex flex-col bg-white rounded-3xl shadow-xl border border-slate-100 min-h-0">
         <div className="p-4 bg-slate-50 border-b border-slate-100">
           <div className="relative">
@@ -176,7 +181,6 @@ export function RadioGrid({
         </ScrollArea>
       </div>
 
-      {/* Terminal de Radio */}
       <div className="flex-1 min-h-0">
         {activeChannel && activeChannelData ? (
           <RadioCard

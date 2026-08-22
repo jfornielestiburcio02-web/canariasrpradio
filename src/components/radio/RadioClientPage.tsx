@@ -8,7 +8,7 @@ import { useRadioWebSocket } from '@/hooks/useRadioWebSocket';
 import { useRadioWebRTC } from '@/hooks/useRadioWebRTC';
 import { usePTT } from '@/hooks/usePTT';
 import { RadioGrid } from '@/components/radio/RadioGrid';
-import { Radio as RadioIcon, LogOut, Shield, BadgeCheck, Pencil, Bell, Activity, Keyboard, Settings2, Loader2 } from 'lucide-react';
+import { Radio as RadioIcon, LogOut, Shield, BadgeCheck, Pencil, Settings2, Keyboard } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,9 +16,7 @@ import { useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase
 import { doc, setDoc, serverTimestamp, collection, query, orderBy, limit, onSnapshot, where, addDoc } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { usePathname } from 'next/navigation';
 import { EmergencyCallList } from './EmergencyCallList';
-import { generateEmergencyAudio } from '@/ai/flows/tts-emergency-flow';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
@@ -37,13 +35,13 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
   const [panicKey, setPanicKey] = useState('Delete');
   const [isListeningKey, setIsListeningKey] = useState<'ptt' | 'panic' | null>(null);
   const [panicLoading, setPanicLoading] = useState(false);
-  const pathname = usePathname();
   const isMobile = useIsMobile();
   const { toast } = useToast();
   
   const db = useFirestore();
   const sessionStartTime = useRef(Date.now());
-  const lastSyncChannel = useRef<RadioChannel | null>(null);
+  const lastSyncChannel = useRef<string | null>(null);
+  const lastSyncPlaca = useRef<string | null>(null);
 
   const userRef = useMemoFirebase(() => {
     if (!db || !discordUser.id) return null;
@@ -75,7 +73,6 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     }
   }, [db, panicLoading, userData?.radio?.placa, discordUser.global_name, discordUser.username, toast]);
 
-  // Cargar teclas
   useEffect(() => {
     const savedPtt = localStorage.getItem('radio_ptt_key');
     const savedPanic = localStorage.getItem('radio_panic_key');
@@ -117,11 +114,8 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     return () => window.removeEventListener('keydown', handlePanicKeyDown);
   }, [panicKey, triggerPanic, isMobile, isListeningKey]);
 
-  // Alertas Globales
   useEffect(() => {
     if (!db) return;
-    const introSoundUrl = "https://res.cloudinary.com/dgvh0c87y/video/upload/v1787391237/1514375003628376116_phw9ti.ogg";
-    const outroSoundUrl = "https://res.cloudinary.com/dgvh0c87y/video/upload/v1787391249/radio_finalizar_invertido_aiifyo.ogg";
     const panicAlertUrl = "https://www.myinstants.com/media/sounds/panic-button.mp3";
 
     const qPanic = query(
@@ -159,10 +153,11 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     return () => unsubscribePanic();
   }, [db, toast]);
 
-  // Sincronizar estado en Firestore sin bucles infinitos
   useEffect(() => {
-    if (!db || !discordUser.id || lastSyncChannel.current === activeChannel) return;
-    lastSyncChannel.current = activeChannel;
+    if (!db || !discordUser.id) return;
+    if (lastSyncChannel.current === activeChannel) return;
+    
+    lastSyncChannel.current = activeChannel || 'null';
     
     setDoc(doc(db, 'users', discordUser.id), {
       username: discordUser.global_name || discordUser.username,
@@ -172,7 +167,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
         ultimaConexion: serverTimestamp()
       }
     }, { merge: true });
-  }, [activeChannel, db, discordUser]);
+  }, [activeChannel, db, discordUser.id, discordUser.global_name, discordUser.username, discordUser.avatar]);
 
   const agentsQuery = useMemoFirebase(() => {
     if (!db) return null;
@@ -182,7 +177,8 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
   const { data: agentsInRadio } = useCollection<any>(agentsQuery);
 
   const handleSavePlaca = async () => {
-    if (db && discordUser.id) {
+    if (db && discordUser.id && placaInput !== lastSyncPlaca.current) {
+      lastSyncPlaca.current = placaInput;
       await setDoc(doc(db, 'users', discordUser.id), {
         radio: { placa: placaInput }
       }, { merge: true });
@@ -191,8 +187,11 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
   };
 
   useEffect(() => {
-    if (userData?.radio?.placa && !isEditingPlaca) setPlacaInput(userData.radio.placa);
-  }, [userData?.radio?.placa, isEditingPlaca]);
+    if (userData?.radio?.placa && !isEditingPlaca && userData.radio.placa !== placaInput) {
+      setPlacaInput(userData.radio.placa);
+      lastSyncPlaca.current = userData.radio.placa;
+    }
+  }, [userData?.radio?.placa, isEditingPlaca, placaInput]);
 
   const { status, peers, send, setOnMessage } = useRadioWebSocket(discordUser.id, activeChannel);
   

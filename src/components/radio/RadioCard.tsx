@@ -6,9 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Mic, MicOff, Users, Wifi, WifiOff, AlertCircle, ShieldOff, LogOut, Activity, Radio } from 'lucide-react';
+import { Mic, MicOff, Users, Wifi, WifiOff, AlertCircle, LogOut, Radio } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface RadioCardProps {
@@ -90,7 +89,6 @@ export function RadioCard({
       </CardHeader>
       
       <CardContent className="flex-1 p-8 pt-4 flex flex-col lg:flex-row gap-8 overflow-hidden">
-        {/* Panel Izquierdo: Usuarios y Estado */}
         <div className="flex-1 flex flex-col gap-6">
           <div className="bg-slate-50 rounded-[2rem] p-6 border border-slate-100 flex-1 flex flex-col">
             <div className="flex items-center justify-between mb-4 px-2">
@@ -150,7 +148,6 @@ export function RadioCard({
             </ScrollArea>
           </div>
 
-          {/* Advertencia de Seguridad */}
           <div className="bg-red-50/50 p-4 rounded-2xl border border-red-100 flex items-start gap-3">
             <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
             <p className="text-[9px] font-bold text-red-700/70 uppercase leading-relaxed">
@@ -159,7 +156,6 @@ export function RadioCard({
           </div>
         </div>
 
-        {/* Panel Derecho: Controles PTT */}
         <div className="w-full lg:w-72 flex flex-col gap-4">
           <Button
             onMouseDown={!isMobile ? onPTTStart : undefined}
