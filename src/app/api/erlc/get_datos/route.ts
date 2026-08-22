@@ -4,9 +4,8 @@ import { initializeFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs } from 'firebase/firestore';
 
 /**
- * @fileOverview Endpoint personalizado para recibir y servir datos externos al Mapa.
- * POST: Recibe un evento (ej. Pánico de Roblox) y lo guarda en Firestore.
- * GET: Devuelve los últimos eventos registrados.
+ * @fileOverview Endpoint ultra-compatible para Webhooks de ERLC.
+ * Mapea los campos automáticos de ERLC (Event, Player, Details) a nuestra estructura de Firestore.
  */
 
 export async function POST(req: Request) {
@@ -14,21 +13,27 @@ export async function POST(req: Request) {
     const { firestore } = initializeFirebase();
     const body = await req.json();
 
-    // Validar estructura básica
-    if (!body.tipo || !body.sujeto) {
-      return NextResponse.json({ error: 'Datos incompletos. Se requiere tipo y sujeto.' }, { status: 400 });
-    }
+    // Mapeo de campos: ERLC utiliza 'Event', 'Player' y 'Details' en su webhook de logs
+    const tipo = (body.Event || body.tipo || 'INFO').toUpperCase();
+    const sujeto = body.Player || body.sujeto || 'Sistema';
+    const detalles = body.Details || body.detalles || 'Sin detalles';
+    
+    // Si es un botón de pánico, guardamos la ubicación si viene en los detalles
+    const ubicacion = body.Location || body.ubicacion || (tipo === 'PANICBUTTON' ? detalles : 'Ubicación Desconocida');
 
     const docRef = await addDoc(collection(firestore, 'erlcEvents'), {
-      tipo: body.tipo.toUpperCase(),
-      sujeto: body.sujeto,
-      ubicacion: body.ubicacion || 'Ubicación Desconocida',
-      detalles: body.detalles || 'Sin detalles adicionales',
+      tipo,
+      sujeto,
+      ubicacion,
+      detalles: tipo === 'PANICBUTTON' ? '¡BOTÓN DE PÁNICO ACTIVADO!' : detalles,
       timestamp: serverTimestamp()
     });
 
+    console.log(`[ERLC_WEBHOOK] Evento registrado: ${tipo} por ${sujeto}`);
+
     return NextResponse.json({ success: true, id: docRef.id });
   } catch (error: any) {
+    console.error('[ERLC_WEBHOOK_ERROR]', error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
