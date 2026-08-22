@@ -28,6 +28,17 @@ export function RadioGrid({
   onPTTStop
 }: RadioGridProps) {
   
+  const generalCoordCategories = [
+    {
+      name: "Coordinación General",
+      icon: <Radio className="h-4 w-4" />,
+      channels: [
+        { id: 'COORD_1', title: 'Coordinación 1', icon: <Radio /> },
+        { id: 'COORD_GENERAL', title: 'Coordinación General', icon: <Zap /> },
+      ]
+    }
+  ];
+
   const cnpCategories = [
     {
       name: "Frecuencias Generales",
@@ -291,6 +302,11 @@ export function RadioGrid({
 
   return (
     <div className="space-y-12 pb-20">
+      {/* SECCIÓN COORDINACIÓN GENERAL (NUEVA) */}
+      <div className="space-y-12">
+        {generalCoordCategories.map(renderCategory)}
+      </div>
+
       {/* SECCIÓN CNP */}
       <div className="space-y-12">
         {cnpCategories.map(renderCategory)}
