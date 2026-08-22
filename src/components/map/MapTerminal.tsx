@@ -161,7 +161,7 @@ export function MapTerminal({ discordUser }: { discordUser: DiscordUser }) {
                 <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest">
                   <span className="text-slate-400">Sincronización:</span>
                   <span className="text-slate-600">
-                    {lastUpdate ? lastUpdate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--:--'}
+                    {mounted && lastUpdate ? lastUpdate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--:--'}
                   </span>
                 </div>
               </div>

@@ -15,6 +15,7 @@ export async function getErlcPlayers() {
       headers: {
         'server-key': ERLC_TOKEN,
         'Accept': 'application/json',
+        'User-Agent': 'TenerifeRP-Radio-System/1.0',
       },
       cache: 'no-store',
     });
@@ -41,6 +42,7 @@ export async function getErlcServerInfo() {
       headers: {
         'server-key': ERLC_TOKEN,
         'Accept': 'application/json',
+        'User-Agent': 'TenerifeRP-Radio-System/1.0',
       },
       cache: 'no-store',
     });
