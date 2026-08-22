@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { ShieldAlert, ArrowLeft, Bell, Activity } from 'lucide-react';
 import Link from 'next/link';
 import { MapTerminal } from '@/components/map/MapTerminal';
-import { cn } from '@/lib/utils';
 
 export default async function MapPage() {
   const user = await getSessionUser();
@@ -15,21 +14,28 @@ export default async function MapPage() {
     redirect('/');
   }
 
-  // Comprobación de roles actualizada
-  let authRol = { autorizado: false, mensaje: "" };
-  try {
-    const res = await fetch(`http://nc.lynxnodes.es:25633/rol_admin_vs?userId=${user.id}`, { cache: 'no-store' });
-    if (res.ok) authRol = await res.json();
-  } catch (e) {}
-
+  let authRolVs = { autorizado: false, mensaje: "" };
+  let authRolGral = { autorizado: false, mensaje: "" };
   let auth112 = { autorizado: false, mensaje: "" };
+
   try {
-    const res = await fetch(`http://nc.lynxnodes.es:25633/comprobar_112?ID=${user.id}`, { cache: 'no-store' });
-    if (res.ok) auth112 = await res.json();
+    const fetchOptions = { cache: 'no-store' as const };
+    const [resRolVs, resRolGral, res112] = await Promise.allSettled([
+      fetch(`http://nc.lynxnodes.es:25633/rol_admin_vs?userId=${user.id}`, fetchOptions),
+      fetch(`http://nc.lynxnodes.es:25633/comprobar_rol?ID=${user.id}`, fetchOptions),
+      fetch(`http://nc.lynxnodes.es:25633/comprobar_112?ID=${user.id}`, fetchOptions)
+    ]);
+
+    if (resRolVs.status === 'fulfilled' && resRolVs.value.ok) authRolVs = await resRolVs.value.json();
+    if (resRolGral.status === 'fulfilled' && resRolGral.value.ok) authRolGral = await resRolGral.value.json();
+    if (res112.status === 'fulfilled' && res112.value.ok) {
+      const text = await res112.value.text();
+      if (text) auth112 = JSON.parse(text);
+    }
   } catch (e) {}
 
-  const isAuthorized = authRol.autorizado || auth112.autorizado;
-  const errorMsg = authRol.mensaje || auth112.mensaje || "Acceso denegado a sistemas restringidos.";
+  const isAuthorized = authRolVs.autorizado || authRolGral.autorizado || auth112.autorizado;
+  const errorMsg = "Tu identidad no ha sido reconocida en la red institucional. Acceso denegado.";
 
   if (!isAuthorized) {
     return (

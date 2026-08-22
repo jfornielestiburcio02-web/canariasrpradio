@@ -17,7 +17,7 @@ interface RadioCardProps {
   active: boolean;
   onJoin: () => void;
   onLeave: () => void;
-  users: any[]; // Ahora recibe objetos de agente
+  users: any[]; 
   wsStatus: WSStatus;
   isTransmitting: boolean;
   onPTTStart: () => void;
@@ -77,28 +77,36 @@ export function RadioCard({
         <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
           <Popover>
             <PopoverTrigger asChild>
-              <button className="flex items-center gap-1.5 hover:text-primary transition-colors cursor-pointer">
-                <Users className="h-3.5 w-3.5" />
-                <span>{users.length} agentes</span>
+              <button className="flex items-center gap-1.5 hover:text-primary transition-colors cursor-pointer group">
+                <Users className="h-3.5 w-3.5 group-hover:scale-110 transition-transform" />
+                <span className="font-black">{users.length} agentes</span>
               </button>
             </PopoverTrigger>
-            <PopoverContent className="w-56 p-3 rounded-xl shadow-2xl border-none">
-              <div className="space-y-3">
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Agentes Sintonizados</h4>
-                <div className="max-h-40 overflow-y-auto space-y-2">
+            <PopoverContent className="w-64 p-4 rounded-[1.5rem] shadow-2xl border-none bg-white">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Personal en frecuencia</h4>
+                  <Badge className="bg-primary/10 text-primary text-[8px] border-none">{users.length}</Badge>
+                </div>
+                <div className="max-h-48 overflow-y-auto space-y-3 pr-2 scrollbar-thin">
                   {users.length > 0 ? users.map((u) => (
-                    <div key={u.id} className="flex items-center gap-2">
-                      <Avatar className="h-6 w-6 border border-slate-100">
+                    <div key={u.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors">
+                      <Avatar className="h-8 w-8 border-2 border-white shadow-sm ring-1 ring-slate-100">
                         <AvatarImage src={u.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png` : undefined} />
-                        <AvatarFallback className="text-[8px] font-bold">{u.username?.substring(0, 2)}</AvatarFallback>
+                        <AvatarFallback className="text-[10px] font-black bg-slate-100 text-slate-600">{u.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
                       </Avatar>
                       <div className="flex flex-col min-w-0">
-                        <span className="text-[10px] font-bold text-slate-700 truncate">{u.username}</span>
-                        {u.radio?.placa && <span className="text-[8px] font-medium text-slate-400">Placa: {u.radio.placa}</span>}
+                        <span className="text-[10px] font-black text-slate-800 truncate uppercase tracking-tight">{u.username}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[8px] font-bold text-primary uppercase">Placa: {u.radio?.placa || '---'}</span>
+                          {u.radio?.isTransmitting && <div className="h-1 w-1 bg-red-500 rounded-full animate-ping" />}
+                        </div>
                       </div>
                     </div>
                   )) : (
-                    <p className="text-[9px] text-slate-400 font-medium py-2">No hay agentes en este canal.</p>
+                    <div className="py-6 text-center">
+                      <p className="text-[9px] text-slate-300 font-bold uppercase tracking-widest">Canal libre de tráfico</p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -108,7 +116,7 @@ export function RadioCard({
           {active && (
             <div className="flex items-center gap-1.5">
               {isConnected ? <Wifi className="h-3.5 w-3.5 text-emerald-500" /> : isError ? <AlertCircle className="h-3.5 w-3.5 text-destructive" /> : <WifiOff className="h-3.5 w-3.5 text-slate-300" />}
-              <span>{isConnected ? "Señal OK" : isError ? "Error" : "Buscando..."}</span>
+              <span className="font-black uppercase text-[9px]">{isConnected ? "Señal OK" : isError ? "Error" : "Buscando..."}</span>
             </div>
           )}
         </div>
