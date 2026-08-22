@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
@@ -12,7 +13,7 @@ export function usePTT(onToggle: (enabled: boolean) => void, options: UsePTTOpti
 
   const start = useCallback(() => {
     if (disabled) {
-      console.warn('[PTT] Bloqueado: el usuario no se encuentra en un canal activo.');
+      console.log('[PTT] Bloqueado: usuario fuera del canal');
       return;
     }
     if (!isTransmitting) {
@@ -54,7 +55,6 @@ export function usePTT(onToggle: (enabled: boolean) => void, options: UsePTTOpti
     };
   }, [start, stop, disabled]);
 
-  // Si se desactiva mientras se transmite (ej: sale del canal), forzar el stop
   useEffect(() => {
     if (disabled && isTransmitting) {
       console.log('[PTT] Forzando detención por desactivación de canal');

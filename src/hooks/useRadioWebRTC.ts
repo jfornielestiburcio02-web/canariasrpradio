@@ -23,7 +23,6 @@ export function useRadioWebRTC(
   const [micStatus, setMicStatus] = useState<MicStatus>('prompt');
   const [isIceReady, setIsIceReady] = useState(false);
 
-  // Cargar servidores ICE (STUN + TURN)
   useEffect(() => {
     const loadIceServers = async () => {
       try {
@@ -34,17 +33,19 @@ export function useRadioWebRTC(
         }
         setIsIceReady(true);
       } catch (err) {
-        console.error('[WEBRTC][ICE_SERVER] Error:', err);
         setIsIceReady(true);
       }
     };
     loadIceServers();
   }, []);
 
-  // LIMPIEZA TOTAL AL SALIR DEL CANAL
   useEffect(() => {
-    if (!activeChannel) {
-      console.log('[CHANNEL] Saliendo: Limpiando recursos...');
+    if (activeChannel) {
+      console.log(`[CHANNEL] Usuario entrando en canal: ${activeChannel}`);
+    } else {
+      console.log(`[CHANNEL] Usuario saliendo del canal`);
+      console.log('[AUDIO] Desconectando audio por salida del canal');
+      console.log('[WEBRTC] Cerrando peers del canal');
       
       peerConnections.current.forEach(pc => pc.close());
       peerConnections.current.clear();
@@ -54,6 +55,7 @@ export function useRadioWebRTC(
         audio.srcObject = null;
       });
       remoteAudios.current.clear();
+      console.log('[WEBRTC] Audio remoto detenido');
 
       statsIntervals.current.forEach(i => clearInterval(i));
       statsIntervals.current.clear();
@@ -68,27 +70,6 @@ export function useRadioWebRTC(
       console.log('[CHANNEL] Limpieza completada');
     }
   }, [activeChannel]);
-
-  // Monitor de estadísticas para depurar P2P/TURN
-  const monitorStats = (peerId: string, pc: RTCPeerConnection) => {
-    if (statsIntervals.current.has(peerId)) return;
-    const interval = setInterval(async () => {
-      if (pc.connectionState === 'closed') {
-        clearInterval(interval);
-        return;
-      }
-      try {
-        const stats = await pc.getStats();
-        stats.forEach(report => {
-          if (report.type === 'candidate-pair' && report.state === 'succeeded') {
-            const local = stats.get(report.localCandidateId);
-            if (local) console.log(`[WEBRTC][STATS] peer=${peerId} type=${local.candidateType}`);
-          }
-        });
-      } catch (e) {}
-    }, 5000);
-    statsIntervals.current.set(peerId, interval);
-  };
 
   const addLocalTracksToPC = useCallback((pc: RTCPeerConnection) => {
     if (!localStream.current) return;
@@ -111,7 +92,6 @@ export function useRadioWebRTC(
       peerConnections.current.forEach(pc => addLocalTracksToPC(pc));
       return stream;
     } catch (e: any) {
-      console.error('[WEBRTC][MIC] Error:', e);
       setMicStatus('denied');
       return null;
     }
@@ -129,7 +109,6 @@ export function useRadioWebRTC(
     };
 
     pc.ontrack = (event) => {
-      console.log(`[WEBRTC][TRACK] Recibida de ${remoteSessionId}`);
       let audio = remoteAudios.current.get(remoteSessionId);
       if (!audio) {
         audio = new Audio();
@@ -138,11 +117,7 @@ export function useRadioWebRTC(
         remoteAudios.current.set(remoteSessionId, audio);
       }
       audio.srcObject = event.streams[0] || new MediaStream([event.track]);
-      audio.play().catch(e => console.warn('[WEBRTC][AUDIO] Play blocked:', e));
-    };
-
-    pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'connected') monitorStats(remoteSessionId, pc);
+      audio.play().catch(() => {});
     };
 
     if (localStream.current) addLocalTracksToPC(pc);
