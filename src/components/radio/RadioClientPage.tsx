@@ -8,12 +8,12 @@ import { useRadioWebSocket } from '@/hooks/useRadioWebSocket';
 import { useRadioWebRTC } from '@/hooks/useRadioWebRTC';
 import { usePTT } from '@/hooks/usePTT';
 import { RadioGrid } from '@/components/radio/RadioGrid';
-import { Radio as RadioIcon, LogOut, Shield, BadgeCheck, Pencil, Bell, Activity, Keyboard, Settings2 } from 'lucide-react';
+import { Radio as RadioIcon, LogOut, Shield, BadgeCheck, Pencil, Bell, Activity, Keyboard, Settings2, AlertTriangle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, setDoc, serverTimestamp, collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, collection, query, orderBy, limit, onSnapshot, where, addDoc } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { usePathname } from 'next/navigation';
@@ -35,11 +35,13 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
   const [placaInput, setPlacaInput] = useState('');
   const [pttKey, setPttKey] = useState('Space');
   const [isListeningKey, setIsListeningKey] = useState(false);
+  const [panicLoading, setPanicLoading] = useState(false);
   const pathname = usePathname();
   const isMobile = useIsMobile();
   const { toast } = useToast();
   
   const db = useFirestore();
+  const sessionStartTime = useRef(Date.now());
 
   // Escuchar a todos los agentes para saber quién está en qué canal
   const agentsQuery = useMemoFirebase(() => {
@@ -71,14 +73,16 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     return () => window.removeEventListener('keydown', handleKey);
   }, [isListeningKey]);
 
-  // --- Sistema de Audio Institucional ---
+  // --- Sistema de Audio Institucional y Alertas de Pánico ---
   useEffect(() => {
     if (!db) return;
     const introSoundUrl = "https://res.cloudinary.com/dgvh0c87y/video/upload/v1787391237/1514375003628376116_phw9ti.ogg";
     const outroSoundUrl = "https://res.cloudinary.com/dgvh0c87y/video/upload/v1787391249/radio_finalizar_invertido_aiifyo.ogg";
+    const panicAlertUrl = "https://res.cloudinary.com/dgvh0c87y/video/upload/v1787391237/1514375003628376116_phw9ti.ogg"; // Sonido base para pánico
 
-    const q = query(collection(db, 'emergencyCalls'), orderBy('createdAt', 'desc'), limit(1));
-    const unsubscribe112 = onSnapshot(q, async (snapshot) => {
+    // 1. Escuchar Llamadas 112
+    const qCalls = query(collection(db, 'emergencyCalls'), orderBy('createdAt', 'desc'), limit(1));
+    const unsubscribe112 = onSnapshot(qCalls, async (snapshot) => {
       if (snapshot.empty) return;
       const doc = snapshot.docs[0];
       const call = doc.data() as any;
@@ -109,10 +113,43 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
       }
     });
 
+    // 2. Escuchar Pánicos (Global en toda la /rad)
+    const qPanic = query(
+      collection(db, 'erlcEvents'), 
+      where('tipo', '==', 'PANICO'),
+      orderBy('timestamp', 'desc'), 
+      limit(1)
+    );
+    const unsubscribePanic = onSnapshot(qPanic, (snapshot) => {
+      if (snapshot.empty) return;
+      const event = snapshot.docs[0].data();
+      const eventId = snapshot.docs[0].id;
+      const eventTime = event.timestamp?.toDate().getTime() || 0;
+      const sessionKey = `panic_${eventId}`;
+
+      if (eventTime > sessionStartTime.current && !sessionStorage.getItem(sessionKey)) {
+        sessionStorage.setItem(sessionKey, 'true');
+        
+        // Sonido de alerta
+        const audio = new Audio(panicAlertUrl);
+        audio.volume = 1.0;
+        audio.play().catch(e => console.log('Audio blocked by browser policy'));
+
+        // Toast visual persistente
+        toast({
+          variant: "destructive",
+          title: "¡BOTÓN DE PÁNICO ACTIVADO!",
+          description: `Alerta panico, pulsado por el agente ${event.sujeto} con placa ${event.detalles.split('placa ')[1] || 'SIN PLACA'}`,
+          duration: 10000,
+        });
+      }
+    });
+
     return () => {
       unsubscribe112();
+      unsubscribePanic();
     };
-  }, [db]);
+  }, [db, toast]);
 
   const userRef = useMemoFirebase(() => {
     if (!db || !discordUser.id) return null;
@@ -143,6 +180,29 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     }
   };
 
+  const triggerPanic = async () => {
+    if (!db || panicLoading) return;
+    setPanicLoading(true);
+    try {
+      const placa = userData?.radio?.placa || 'SIN ASIGNAR';
+      await addDoc(collection(db, 'erlcEvents'), {
+        tipo: 'PANICO',
+        sujeto: discordUser.global_name || discordUser.username,
+        ubicacion: 'UBICACIÓN RADIO',
+        detalles: `Pánico activado por el agente con placa ${placa}`,
+        timestamp: serverTimestamp()
+      });
+      toast({
+        title: "PÁNICO ENVIADO",
+        description: "Se ha alertado a toda la red institucional.",
+      });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setPanicLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (userData?.radio?.placa) setPlacaInput(userData.radio.placa);
   }, [userData?.radio?.placa]);
@@ -150,7 +210,6 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
   const { status, peers, send, setOnMessage } = useRadioWebSocket(discordUser.id, activeChannel);
   
   const handleSignal = useCallback(async (msg: SignalingMessage) => {
-    // Si recibimos una orden de expulsión dirigida a nosotros
     if (msg.type === 'force_leave' && msg.to === discordUser.id) {
       setActiveChannel(null);
       toast({
@@ -160,9 +219,6 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
       });
       return;
     }
-    
-    // De lo contrario, pasar al controlador de WebRTC
-    // Nota: handleSignal de useRadioWebRTC se pasa vía setOnMessage en el useEffect de abajo
   }, [discordUser.id, toast]);
 
   const stableSend = useCallback((msg: any) => send(msg), [send]);
@@ -201,19 +257,31 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
           </div>
         </div>
 
-        <nav className="hidden lg:flex items-center gap-10">
-          <Link href="/rad" className={cn("text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 pb-1", pathname === '/rad' ? "text-primary border-primary" : "text-slate-400 border-transparent hover:text-slate-600")}>
-            Frecuencias
-          </Link>
-          <Link href="/rad/map" className={cn("text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 pb-1 flex items-center gap-2", pathname === '/rad/map' ? "text-primary border-primary" : "text-slate-400 border-transparent hover:text-slate-600")}>
-            <Bell className="h-3.5 w-3.5" /> Monitor Institucional
-          </Link>
-          {is112 && (
-            <Link href="/rad/112" className={cn("text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 pb-1 flex items-center gap-2", pathname === '/rad/112' ? "text-red-600 border-red-600" : "text-slate-400 border-transparent hover:text-red-500")}>
-              <Activity className="h-3.5 w-3.5" /> Coordinador 112
+        <div className="flex items-center gap-6">
+          <Button 
+            onClick={triggerPanic}
+            disabled={panicLoading}
+            variant="destructive"
+            className="h-12 px-6 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-[0.2em] shadow-[0_0_20px_rgba(220,38,38,0.3)] animate-pulse hover:animate-none active:scale-95 transition-all"
+          >
+            {panicLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <AlertTriangle className="h-5 w-5 mr-2" />}
+            Botón de Pánico
+          </Button>
+
+          <nav className="hidden lg:flex items-center gap-10">
+            <Link href="/rad" className={cn("text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 pb-1", pathname === '/rad' ? "text-primary border-primary" : "text-slate-400 border-transparent hover:text-slate-600")}>
+              Frecuencias
             </Link>
-          )}
-        </nav>
+            <Link href="/rad/map" className={cn("text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 pb-1 flex items-center gap-2", pathname === '/rad/map' ? "text-primary border-primary" : "text-slate-400 border-transparent hover:text-slate-600")}>
+              <Bell className="h-3.5 w-3.5" /> Monitor Institucional
+            </Link>
+            {is112 && (
+              <Link href="/rad/112" className={cn("text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 pb-1 flex items-center gap-2", pathname === '/rad/112' ? "text-red-600 border-red-600" : "text-slate-400 border-transparent hover:text-red-500")}>
+                <Activity className="h-3.5 w-3.5" /> Coordinador 112
+              </Link>
+            )}
+          </nav>
+        </div>
         
         <div className="flex items-center gap-4">
           <div className="flex flex-col items-end">
