@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -285,16 +284,6 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
         </div>
 
         <div className="flex items-center gap-6">
-          <Button 
-            onClick={triggerPanic}
-            disabled={panicLoading}
-            variant="destructive"
-            className="h-12 px-6 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-[0.2em] shadow-[0_0_20px_rgba(220,38,38,0.3)] animate-pulse hover:animate-none active:scale-95 transition-all"
-          >
-            {panicLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <AlertTriangle className="h-5 w-5 mr-2" />}
-            Botón de Pánico
-          </Button>
-
           <nav className="hidden lg:flex items-center gap-10">
             <Link href="/rad" className={cn("text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 pb-1", pathname === '/rad' ? "text-primary border-primary" : "text-slate-400 border-transparent hover:text-slate-600")}>
               Frecuencias
