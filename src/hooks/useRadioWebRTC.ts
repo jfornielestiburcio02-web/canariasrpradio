@@ -10,11 +10,10 @@ export function useRadioWebRTC(
   peersList: string[],
   activeChannel: RadioChannel | null
 ) {
-  const localStream = useRef<MediaStream | null>(null);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
   const pendingCandidates = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
   const remoteAudios = useRef<Map<string, HTMLAudioElement>>(new Map());
-  const statsIntervals = useRef<Map<string, NodeJS.Timeout>>(new Map());
   
   const [iceServers, setIceServers] = useState<RTCIceServer[]>([
     { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }
@@ -40,66 +39,48 @@ export function useRadioWebRTC(
   }, []);
 
   useEffect(() => {
-    if (activeChannel) {
-      console.log(`[CHANNEL] Usuario entrando en canal: ${activeChannel}`);
-    } else {
-      console.log(`[CHANNEL] Usuario saliendo del canal`);
-      console.log('[AUDIO] Desconectando audio por salida del canal');
-      console.log('[WEBRTC] Cerrando peers del canal');
-      
+    if (!activeChannel) {
+      console.log(`[WEBRTC] Limpiando conexiones por salida de canal`);
       peerConnections.current.forEach(pc => pc.close());
       peerConnections.current.clear();
-
       remoteAudios.current.forEach(audio => {
         audio.pause();
         audio.srcObject = null;
       });
       remoteAudios.current.clear();
-      console.log('[WEBRTC] Audio remoto detenido');
-
-      statsIntervals.current.forEach(i => clearInterval(i));
-      statsIntervals.current.clear();
-
-      if (localStream.current) {
-        localStream.current.getTracks().forEach(track => track.stop());
-        localStream.current = null;
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        setLocalStream(null);
       }
-
       setActiveTransmissions(new Set());
       pendingCandidates.current.clear();
-      console.log('[CHANNEL] Limpieza completada');
     }
-  }, [activeChannel]);
+  }, [activeChannel, localStream]);
 
-  const addLocalTracksToPC = useCallback((pc: RTCPeerConnection) => {
-    if (!localStream.current) return;
-    localStream.current.getTracks().forEach(track => {
+  const addLocalTracksToPC = useCallback(async (pc: RTCPeerConnection, remoteSessionId: string) => {
+    if (!localStream) return;
+    let trackAdded = false;
+    localStream.getTracks().forEach(track => {
       const alreadyAdded = pc.getSenders().some(s => s.track === track);
-      if (!alreadyAdded) pc.addTrack(track, localStream.current!);
+      if (!alreadyAdded) {
+        pc.addTrack(track, localStream);
+        trackAdded = true;
+      }
     });
-  }, []);
 
-  const initLocalStream = useCallback(async () => {
-    if (!activeChannel || localStream.current) return localStream.current;
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, 
-        video: false 
-      });
-      stream.getAudioTracks().forEach(track => track.enabled = false);
-      localStream.current = stream;
-      setMicStatus('granted');
-      peerConnections.current.forEach(pc => addLocalTracksToPC(pc));
-      return stream;
-    } catch (e: any) {
-      setMicStatus('denied');
-      return null;
+    // Si añadimos pistas después de que la conexión sea estable, re-negociamos
+    if (trackAdded && pc.signalingState === 'stable') {
+      console.log(`[WEBRTC] Re-negociando con ${remoteSessionId} por nuevas pistas locales`);
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      sendSignal({ type: 'webrtc_offer', to: remoteSessionId, payload: offer });
     }
-  }, [addLocalTracksToPC, activeChannel]);
+  }, [localStream, sendSignal]);
 
   const createPeerConnection = useCallback((remoteSessionId: string) => {
     if (!activeChannel || peerConnections.current.has(remoteSessionId)) return peerConnections.current.get(remoteSessionId);
 
+    console.log(`[WEBRTC] Creando conexión para peer: ${remoteSessionId}`);
     const pc = new RTCPeerConnection({ iceServers, iceTransportPolicy: 'all' });
 
     pc.onicecandidate = (event) => {
@@ -109,6 +90,7 @@ export function useRadioWebRTC(
     };
 
     pc.ontrack = (event) => {
+      console.log(`[WEBRTC] Pista remota recibida de: ${remoteSessionId}`);
       let audio = remoteAudios.current.get(remoteSessionId);
       if (!audio) {
         audio = new Audio();
@@ -120,10 +102,38 @@ export function useRadioWebRTC(
       audio.play().catch(() => {});
     };
 
-    if (localStream.current) addLocalTracksToPC(pc);
+    if (localStream) addLocalTracksToPC(pc, remoteSessionId);
     peerConnections.current.set(remoteSessionId, pc);
     return pc;
-  }, [iceServers, sendSignal, addLocalTracksToPC, activeChannel]);
+  }, [iceServers, sendSignal, addLocalTracksToPC, activeChannel, localStream]);
+
+  // Asegurar que las pistas se añaden a todas las conexiones existentes cuando el stream local está listo
+  useEffect(() => {
+    if (localStream) {
+      peerConnections.current.forEach((pc, sessionId) => {
+        addLocalTracksToPC(pc, sessionId);
+      });
+    }
+  }, [localStream, addLocalTracksToPC]);
+
+  const initLocalStream = useCallback(async () => {
+    if (!activeChannel || localStream) return localStream;
+    try {
+      console.log('[WEBRTC] Solicitando acceso al micrófono...');
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, 
+        video: false 
+      });
+      stream.getAudioTracks().forEach(track => track.enabled = false);
+      setLocalStream(stream);
+      setMicStatus('granted');
+      return stream;
+    } catch (e: any) {
+      console.error('[WEBRTC] Micrófono denegado:', e);
+      setMicStatus('denied');
+      return null;
+    }
+  }, [activeChannel, localStream]);
 
   const handleSignal = useCallback(async (msg: SignalingMessage) => {
     if (!activeChannel || !isIceReady) return;
@@ -190,8 +200,8 @@ export function useRadioWebRTC(
   }, [mySessionId, createPeerConnection, sendSignal, isIceReady, activeChannel]);
 
   const toggleLocalPTT = (enabled: boolean) => {
-    if (!activeChannel || !localStream.current) return;
-    const track = localStream.current.getAudioTracks()[0];
+    if (!activeChannel || !localStream) return;
+    const track = localStream.getAudioTracks()[0];
     if (track) {
       track.enabled = enabled;
       sendSignal({ type: enabled ? 'ptt_start' : 'ptt_stop' });
