@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Mic, MicOff, Users, Wifi, WifiOff, AlertCircle, ShieldOff } from 'lucide-react';
+import { Mic, MicOff, Users, Wifi, WifiOff, AlertCircle, ShieldOff, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
@@ -24,6 +24,9 @@ interface RadioCardProps {
   onPTTStop: () => void;
   onPTTToggle: () => void;
   isMobile: boolean;
+  isAdmin?: boolean;
+  onKick?: (userId: string) => void;
+  currentUserId?: string;
 }
 
 export function RadioCard({
@@ -39,7 +42,10 @@ export function RadioCard({
   onPTTStart,
   onPTTStop,
   onPTTToggle,
-  isMobile
+  isMobile,
+  isAdmin = false,
+  onKick,
+  currentUserId
 }: RadioCardProps) {
   const isConnected = wsStatus === 'connected';
   const isConnecting = wsStatus === 'connecting';
@@ -90,18 +96,31 @@ export function RadioCard({
                 </div>
                 <div className="max-h-48 overflow-y-auto space-y-3 pr-2 scrollbar-thin">
                   {users.length > 0 ? users.map((u) => (
-                    <div key={u.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors">
-                      <Avatar className="h-8 w-8 border-2 border-white shadow-sm ring-1 ring-slate-100">
-                        <AvatarImage src={u.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png` : undefined} />
-                        <AvatarFallback className="text-[10px] font-black bg-slate-100 text-slate-600">{u.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-[10px] font-black text-slate-800 truncate uppercase tracking-tight">{u.username}</span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[8px] font-bold text-primary uppercase">Placa: {u.radio?.placa || '---'}</span>
-                          {u.radio?.isTransmitting && <div className="h-1 w-1 bg-red-500 rounded-full animate-ping" />}
+                    <div key={u.id} className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition-colors group/agent">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8 border-2 border-white shadow-sm ring-1 ring-slate-100">
+                          <AvatarImage src={u.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png` : undefined} />
+                          <AvatarFallback className="text-[10px] font-black bg-slate-100 text-slate-600">{u.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-[10px] font-black text-slate-800 truncate uppercase tracking-tight">{u.username}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[8px] font-bold text-primary uppercase">Placa: {u.radio?.placa || '---'}</span>
+                            {u.radio?.isTransmitting && <div className="h-1.5 w-1.5 bg-red-500 rounded-full animate-ping" />}
+                          </div>
                         </div>
                       </div>
+                      
+                      {isAdmin && u.id !== currentUserId && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-7 w-7 text-slate-200 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover/agent:opacity-100 transition-all"
+                          onClick={() => onKick?.(u.id)}
+                        >
+                          <LogOut className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   )) : (
                     <div className="py-6 text-center">

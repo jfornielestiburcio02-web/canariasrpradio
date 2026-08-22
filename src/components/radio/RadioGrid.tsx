@@ -17,6 +17,9 @@ interface RadioGridProps {
   onPTTToggle: () => void;
   isMobile: boolean;
   agents: any[];
+  isAdmin?: boolean;
+  onKick?: (userId: string) => void;
+  currentUserId?: string;
 }
 
 export function RadioGrid({
@@ -30,7 +33,10 @@ export function RadioGrid({
   onPTTStop,
   onPTTToggle,
   isMobile,
-  agents
+  agents,
+  isAdmin = false,
+  onKick,
+  currentUserId
 }: RadioGridProps) {
   
   const generalCoordCategories = [
@@ -305,6 +311,9 @@ export function RadioGrid({
               onPTTStop={onPTTStop}
               onPTTToggle={onPTTToggle}
               isMobile={isMobile}
+              isAdmin={isAdmin}
+              onKick={onKick}
+              currentUserId={currentUserId}
             />
           );
         })}

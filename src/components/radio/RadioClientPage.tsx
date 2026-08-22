@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { type DiscordUser } from '@/app/lib/auth-utils';
-import { RadioChannel } from '@/types/radio';
+import { RadioChannel, SignalingMessage } from '@/types/radio';
 import { useRadioWebSocket } from '@/hooks/useRadioWebSocket';
 import { useRadioWebRTC } from '@/hooks/useRadioWebRTC';
 import { usePTT } from '@/hooks/usePTT';
@@ -21,13 +21,15 @@ import { EmergencyCallList } from './EmergencyCallList';
 import { generateEmergencyAudio } from '@/ai/flows/tts-emergency-flow';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useToast } from '@/hooks/use-toast';
 
 interface RadioClientPageProps {
   discordUser: DiscordUser;
   is112?: boolean;
+  isAdminVs?: boolean;
 }
 
-export default function RadioClientPage({ discordUser, is112 = false }: RadioClientPageProps) {
+export default function RadioClientPage({ discordUser, is112 = false, isAdminVs = false }: RadioClientPageProps) {
   const [activeChannel, setActiveChannel] = useState<RadioChannel | null>(null);
   const [isEditingPlaca, setIsEditingPlaca] = useState(false);
   const [placaInput, setPlacaInput] = useState('');
@@ -35,6 +37,7 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
   const [isListeningKey, setIsListeningKey] = useState(false);
   const pathname = usePathname();
   const isMobile = useIsMobile();
+  const { toast } = useToast();
   
   const db = useFirestore();
 
@@ -145,16 +148,45 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
   }, [userData?.radio?.placa]);
 
   const { status, peers, send, setOnMessage } = useRadioWebSocket(discordUser.id, activeChannel);
+  
+  const handleSignal = useCallback(async (msg: SignalingMessage) => {
+    // Si recibimos una orden de expulsión dirigida a nosotros
+    if (msg.type === 'force_leave' && msg.to === discordUser.id) {
+      setActiveChannel(null);
+      toast({
+        variant: "destructive",
+        title: "Transmisión Interrumpida",
+        description: "Has sido expulsado de la frecuencia por un administrador.",
+      });
+      return;
+    }
+    
+    // De lo contrario, pasar al controlador de WebRTC
+    // Nota: handleSignal de useRadioWebRTC se pasa vía setOnMessage en el useEffect de abajo
+  }, [discordUser.id, toast]);
+
   const stableSend = useCallback((msg: any) => send(msg), [send]);
-  const { handleSignal, toggleLocalPTT, activeTransmissions } = useRadioWebRTC(discordUser.id, stableSend, peers, activeChannel);
+  const { handleSignal: webrtcHandler, toggleLocalPTT, activeTransmissions } = useRadioWebRTC(discordUser.id, stableSend, peers, activeChannel);
   
   const { isTransmitting, start, stop, toggle } = usePTT((enabled) => {
     toggleLocalPTT(enabled);
   }, { disabled: !activeChannel, pttKey, isMobile });
 
   useEffect(() => {
-    setOnMessage(handleSignal);
-  }, [handleSignal, setOnMessage]);
+    setOnMessage((msg) => {
+      handleSignal(msg);
+      webrtcHandler(msg);
+    });
+  }, [handleSignal, webrtcHandler, setOnMessage]);
+
+  const handleKickAgent = (targetUserId: string) => {
+    if (!isAdminVs || !activeChannel) return;
+    send({
+      type: 'force_leave',
+      to: targetUserId,
+      channel: activeChannel
+    });
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -255,6 +287,9 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
             onPTTToggle={toggle}
             isMobile={isMobile}
             agents={agentsInRadio || []}
+            isAdmin={isAdminVs}
+            onKick={handleKickAgent}
+            currentUserId={discordUser.id}
           />
         </div>
         <div className="lg:col-span-1 space-y-6">

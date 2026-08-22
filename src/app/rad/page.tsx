@@ -46,7 +46,11 @@ export default async function RadioPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <RadioClientPage discordUser={user!} is112={auth112.autorizado} />
+      <RadioClientPage 
+        discordUser={user!} 
+        is112={auth112.autorizado} 
+        isAdminVs={authRolVs.autorizado}
+      />
     </div>
   );
 }
