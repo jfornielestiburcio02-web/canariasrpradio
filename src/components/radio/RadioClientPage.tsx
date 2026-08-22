@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -11,8 +12,8 @@ import { Radio as RadioIcon, LogOut, Shield, BadgeCheck, Pencil, Bell, Activity,
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, setDoc, serverTimestamp, collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
+import { doc, setDoc, serverTimestamp, collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { usePathname } from 'next/navigation';
@@ -37,6 +38,14 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
   
   const db = useFirestore();
 
+  // Escuchar a todos los agentes para saber quién está en qué canal
+  const agentsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'users'), where('radio.canalActual', '!=', null));
+  }, [db]);
+
+  const { data: agentsInRadio } = useCollection<any>(agentsQuery);
+
   // Cargar tecla PTT de localStorage
   useEffect(() => {
     const savedKey = localStorage.getItem('radio_ptt_key');
@@ -59,7 +68,7 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
     return () => window.removeEventListener('keydown', handleKey);
   }, [isListeningKey]);
 
-  // --- Sistema de Audio Institucional (Exclusivo 112, Pánico ERLC desactivado por falta de endpoint V2) ---
+  // --- Sistema de Audio Institucional ---
   useEffect(() => {
     if (!db) return;
     const introSoundUrl = "https://res.cloudinary.com/dgvh0c87y/video/upload/v1787391237/1514375003628376116_phw9ti.ogg";
@@ -120,7 +129,7 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
         }
       }, { merge: true });
     }
-  }, [activeChannel, db, discordUser.id]);
+  }, [activeChannel, db, discordUser.id, discordUser.global_name, discordUser.username, discordUser.avatar]);
 
   const handleSavePlaca = async () => {
     if (db && discordUser.id) {
@@ -165,7 +174,7 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
             Frecuencias
           </Link>
           <Link href="/rad/map" className={cn("text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 pb-1 flex items-center gap-2", pathname === '/rad/map' ? "text-primary border-primary" : "text-slate-400 border-transparent hover:text-slate-600")}>
-            <Bell className="h-3.5 w-3.5" /> Monitor Personal
+            <Bell className="h-3.5 w-3.5" /> Monitor Institucional
           </Link>
           {is112 && (
             <Link href="/rad/112" className={cn("text-[10px] font-black uppercase tracking-[0.3em] transition-all border-b-2 pb-1 flex items-center gap-2", pathname === '/rad/112' ? "text-red-600 border-red-600" : "text-slate-400 border-transparent hover:text-red-500")}>
@@ -245,6 +254,7 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
             onPTTStop={stop}
             onPTTToggle={toggle}
             isMobile={isMobile}
+            agents={agentsInRadio || []}
           />
         </div>
         <div className="lg:col-span-1 space-y-6">

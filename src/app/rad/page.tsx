@@ -12,26 +12,31 @@ export default async function RadioPage() {
 
   if (user) {
     try {
-      const resRol = await fetch(`http://nc.lynxnodes.es:25633/comprobar_rol?userId=${user.id}`, { 
+      // Nueva validación de rol de agente según requerimiento
+      const resRol = await fetch(`http://nc.lynxnodes.es:25633/rol_admin_vs?userId=${user.id}`, { 
         cache: 'no-store',
-        signal: AbortSignal.timeout(3000)
+        signal: AbortSignal.timeout(4000)
       });
       if (resRol.ok) {
-        const text = await resRol.text();
-        if (text) authRol = JSON.parse(text);
+        const data = await resRol.json();
+        authRol = data;
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error('Error comprobando rol_admin_vs:', e);
+    }
 
     try {
       const res112 = await fetch(`http://nc.lynxnodes.es:25633/comprobar_112?ID=${user.id}`, { 
         cache: 'no-store',
-        signal: AbortSignal.timeout(3000)
+        signal: AbortSignal.timeout(4000)
       });
       if (res112.ok) {
         const text = await res112.text();
         if (text) auth112 = JSON.parse(text);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error('Error comprobando 112:', e);
+    }
   }
 
   const isAuthorized = authRol.autorizado || auth112.autorizado;

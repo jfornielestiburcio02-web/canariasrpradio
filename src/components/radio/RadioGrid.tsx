@@ -1,9 +1,9 @@
+
 'use client';
 
 import { RadioChannel, WSStatus } from '@/types/radio';
 import { RadioCard } from './RadioCard';
-import { Shield, Ambulance, Truck, Flame, Anchor, User, Zap, Target, Users, Radio, Mountain, HeartPulse, Crosshair, Stethoscope, Wrench } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Shield, Ambulance, Truck, Flame, Anchor, User, Zap, Target, Users, Radio, Mountain, HeartPulse, Crosshair, Stethoscope } from 'lucide-react';
 
 interface RadioGridProps {
   activeChannel: RadioChannel | null;
@@ -16,6 +16,7 @@ interface RadioGridProps {
   onPTTStop: () => void;
   onPTTToggle: () => void;
   isMobile: boolean;
+  agents: any[];
 }
 
 export function RadioGrid({
@@ -28,7 +29,8 @@ export function RadioGrid({
   onPTTStart,
   onPTTStop,
   onPTTToggle,
-  isMobile
+  isMobile,
+  agents
 }: RadioGridProps) {
   
   const generalCoordCategories = [
@@ -283,41 +285,38 @@ export function RadioGrid({
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {cat.channels.map((ch: any) => (
-          <RadioCard
-            key={ch.id}
-            channel={ch.id as RadioChannel}
-            title={ch.title}
-            icon={ch.icon}
-            active={activeChannel === ch.id}
-            onJoin={() => onJoin(ch.id as RadioChannel)}
-            onLeave={onLeave}
-            users={activeChannel === ch.id ? peers : []}
-            wsStatus={wsStatus}
-            isTransmitting={isTransmitting}
-            onPTTStart={onPTTStart}
-            onPTTStop={onPTTStop}
-            onPTTToggle={onPTTToggle}
-            isMobile={isMobile}
-          />
-        ))}
+        {cat.channels.map((ch: any) => {
+          // Filtrar agentes sintonizados en este canal específico
+          const connectedAgents = agents.filter(a => a.radio?.canalActual === ch.id);
+          
+          return (
+            <RadioCard
+              key={ch.id}
+              channel={ch.id as RadioChannel}
+              title={ch.title}
+              icon={ch.icon}
+              active={activeChannel === ch.id}
+              onJoin={() => onJoin(ch.id as RadioChannel)}
+              onLeave={onLeave}
+              users={connectedAgents}
+              wsStatus={wsStatus}
+              isTransmitting={isTransmitting}
+              onPTTStart={onPTTStart}
+              onPTTStop={onPTTStop}
+              onPTTToggle={onPTTToggle}
+              isMobile={isMobile}
+            />
+          );
+        })}
       </div>
     </div>
   );
 
   return (
     <div className="space-y-12 pb-20">
-      {/* SECCIÓN COORDINACIÓN GENERAL */}
-      <div className="space-y-12">
-        {generalCoordCategories.map(renderCategory)}
-      </div>
+      <div className="space-y-12">{generalCoordCategories.map(renderCategory)}</div>
+      <div className="space-y-12">{cnpCategories.map(renderCategory)}</div>
 
-      {/* SECCIÓN CNP */}
-      <div className="space-y-12">
-        {cnpCategories.map(renderCategory)}
-      </div>
-
-      {/* SEPARADOR GRANDE POLICÍA LOCAL */}
       <div className="pt-16 pb-8 border-t-4 border-sky-400/20">
         <div className="flex items-center gap-5">
           <div className="bg-sky-500 p-4 rounded-2xl shadow-xl ring-4 ring-sky-50">
@@ -333,13 +332,8 @@ export function RadioGrid({
           </div>
         </div>
       </div>
+      <div className="space-y-12">{plCategories.map(renderCategory)}</div>
 
-      {/* SECCIÓN PL */}
-      <div className="space-y-12">
-        {plCategories.map(renderCategory)}
-      </div>
-
-      {/* SEPARADOR GRANDE GUARDIA CIVIL */}
       <div className="pt-16 pb-8 border-t-4 border-emerald-500/20">
         <div className="flex items-center gap-5">
           <div className="bg-emerald-600 p-4 rounded-2xl shadow-xl ring-4 ring-emerald-50">
@@ -355,13 +349,8 @@ export function RadioGrid({
           </div>
         </div>
       </div>
+      <div className="space-y-12">{gcCategories.map(renderCategory)}</div>
 
-      {/* SECCIÓN GC */}
-      <div className="space-y-12">
-        {gcCategories.map(renderCategory)}
-      </div>
-
-      {/* SEPARADOR GRANDE BOMBEROS */}
       <div className="pt-16 pb-8 border-t-4 border-red-500/20">
         <div className="flex items-center gap-5">
           <div className="bg-red-600 p-4 rounded-2xl shadow-xl ring-4 ring-red-50">
@@ -377,13 +366,8 @@ export function RadioGrid({
           </div>
         </div>
       </div>
+      <div className="space-y-12">{bomberosCategories.map(renderCategory)}</div>
 
-      {/* SECCIÓN BOMBEROS */}
-      <div className="space-y-12">
-        {bomberosCategories.map(renderCategory)}
-      </div>
-
-      {/* SEPARADOR GRANDE SUC */}
       <div className="pt-16 pb-8 border-t-4 border-amber-500/20">
         <div className="flex items-center gap-5">
           <div className="bg-amber-500 p-4 rounded-2xl shadow-xl ring-4 ring-amber-50">
@@ -399,13 +383,8 @@ export function RadioGrid({
           </div>
         </div>
       </div>
+      <div className="space-y-12">{sucCategories.map(renderCategory)}</div>
 
-      {/* SECCIÓN SUC */}
-      <div className="space-y-12">
-        {sucCategories.map(renderCategory)}
-      </div>
-
-      {/* SEPARADOR GRANDE CONSERVACIÓN DE CARRETERAS */}
       <div className="pt-16 pb-8 border-t-4 border-slate-500/20">
         <div className="flex items-center gap-5">
           <div className="bg-slate-700 p-4 rounded-2xl shadow-xl ring-4 ring-slate-50">
@@ -421,11 +400,7 @@ export function RadioGrid({
           </div>
         </div>
       </div>
-
-      {/* SECCIÓN CARRETERAS */}
-      <div className="space-y-12">
-        {carreteraCategories.map(renderCategory)}
-      </div>
+      <div className="space-y-12">{carreteraCategories.map(renderCategory)}</div>
     </div>
   );
 }

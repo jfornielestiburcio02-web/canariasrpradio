@@ -1,11 +1,14 @@
+
 'use client';
 
 import { RadioChannel, WSStatus } from '@/types/radio';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Mic, MicOff, Users, Wifi, WifiOff, AlertCircle, ShieldOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface RadioCardProps {
   channel: RadioChannel;
@@ -14,7 +17,7 @@ interface RadioCardProps {
   active: boolean;
   onJoin: () => void;
   onLeave: () => void;
-  users: string[];
+  users: any[]; // Ahora recibe objetos de agente
   wsStatus: WSStatus;
   isTransmitting: boolean;
   onPTTStart: () => void;
@@ -72,10 +75,36 @@ export function RadioCard({
       
       <CardContent className="space-y-4">
         <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-          <div className="flex items-center gap-1.5">
-            <Users className="h-3.5 w-3.5" />
-            <span>{active ? users.length : 0} usuarios</span>
-          </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="flex items-center gap-1.5 hover:text-primary transition-colors cursor-pointer">
+                <Users className="h-3.5 w-3.5" />
+                <span>{users.length} agentes</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-3 rounded-xl shadow-2xl border-none">
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Agentes Sintonizados</h4>
+                <div className="max-h-40 overflow-y-auto space-y-2">
+                  {users.length > 0 ? users.map((u) => (
+                    <div key={u.id} className="flex items-center gap-2">
+                      <Avatar className="h-6 w-6 border border-slate-100">
+                        <AvatarImage src={u.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png` : undefined} />
+                        <AvatarFallback className="text-[8px] font-bold">{u.username?.substring(0, 2)}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[10px] font-bold text-slate-700 truncate">{u.username}</span>
+                        {u.radio?.placa && <span className="text-[8px] font-medium text-slate-400">Placa: {u.radio.placa}</span>}
+                      </div>
+                    </div>
+                  )) : (
+                    <p className="text-[9px] text-slate-400 font-medium py-2">No hay agentes en este canal.</p>
+                  )}
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+
           {active && (
             <div className="flex items-center gap-1.5">
               {isConnected ? <Wifi className="h-3.5 w-3.5 text-emerald-500" /> : isError ? <AlertCircle className="h-3.5 w-3.5 text-destructive" /> : <WifiOff className="h-3.5 w-3.5 text-slate-300" />}

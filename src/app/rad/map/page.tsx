@@ -1,3 +1,4 @@
+
 import { getSessionUser } from '@/app/lib/auth-utils';
 import { redirect } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,10 +15,10 @@ export default async function MapPage() {
     redirect('/');
   }
 
-  // Comprobación de roles simplificada
+  // Comprobación de roles actualizada
   let authRol = { autorizado: false, mensaje: "" };
   try {
-    const res = await fetch(`http://nc.lynxnodes.es:25633/comprobar_rol?userId=${user.id}`, { cache: 'no-store' });
+    const res = await fetch(`http://nc.lynxnodes.es:25633/rol_admin_vs?userId=${user.id}`, { cache: 'no-store' });
     if (res.ok) authRol = await res.json();
   } catch (e) {}
 
@@ -28,7 +29,7 @@ export default async function MapPage() {
   } catch (e) {}
 
   const isAuthorized = authRol.autorizado || auth112.autorizado;
-  const errorMsg = auth112.mensaje || authRol.mensaje || "Acceso denegado.";
+  const errorMsg = authRol.mensaje || auth112.mensaje || "Acceso denegado a sistemas restringidos.";
 
   if (!isAuthorized) {
     return (
@@ -64,14 +65,14 @@ export default async function MapPage() {
             <Bell className="h-6 w-6 text-red-600" />
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 uppercase leading-none">Monitor de Pánico</h1>
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 uppercase leading-none">Monitor Institucional</h1>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Liberty County - Detección Satelital</p>
           </div>
         </div>
 
         <nav className="flex items-center gap-10">
           <Link href="/rad" className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-slate-600 transition-all">Frecuencias</Link>
-          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-red-600 border-b-2 border-red-600 pb-1 cursor-default">Monitor Pánico</span>
+          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-red-600 border-b-2 border-red-600 pb-1 cursor-default">Monitor Personal</span>
           {auth112.autorizado && (
             <Link href="/rad/112" className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-red-500 transition-all flex items-center gap-2">
               <Activity className="h-3 w-3" /> Coordinador 112
