@@ -58,15 +58,16 @@ export function CitizenEmergencyView({ discordUser }: { discordUser: DiscordUser
     setOnMessage(handleSignal);
   }, [handleSignal, setOnMessage]);
 
-  // Actualizar estado en Firestore al entrar/salir (solo si no es invitado anónimo o según política)
+  // Actualizar estado en Firestore al entrar/salir
   useEffect(() => {
-    if (db && finalUserId && selectedChannel) {
+    if (db && finalUserId) {
       setDoc(doc(db, 'users', finalUserId), {
         username: discordUser.global_name || discordUser.username,
         avatar: discordUser.avatar,
         radio: {
-          canalActual: selectedChannel,
-          isCitizen: true,
+          canalActual: selectedChannel || null,
+          isCitizen: !!selectedChannel,
+          isOperator: false, // Un ciudadano nunca es operador
           ultimaConexion: serverTimestamp()
         }
       }, { merge: true });
@@ -204,7 +205,7 @@ export function CitizenEmergencyView({ discordUser }: { discordUser: DiscordUser
                       "text-[8px] font-bold uppercase",
                       isFull ? "border-slate-200 text-slate-400" : hasOperator ? "border-emerald-200 text-emerald-600" : "border-red-200 text-red-600"
                     )}>
-                      {isFull ? "OCUPADA" : hasOperator ? "OPERADOR EN LÍNEA" : "ESPERANDO"}
+                      {isFull ? "OCUPADA" : hasOperator ? "DISPONIBLE" : "ESPERANDO OPERADOR"}
                     </Badge>
                   </div>
                 </CardHeader>

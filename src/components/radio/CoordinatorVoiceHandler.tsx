@@ -49,8 +49,9 @@ export function CoordinatorVoiceHandler({ discordUser }: { discordUser: DiscordU
     if (db && discordUser.id) {
       setDoc(doc(db, 'users', discordUser.id), {
         radio: {
-          canalActual: activeChannel,
+          canalActual: activeChannel || null,
           isOperator: !!activeChannel,
+          isCitizen: false, // Un operador nunca es ciudadano
           ultimaConexion: serverTimestamp()
         }
       }, { merge: true });
