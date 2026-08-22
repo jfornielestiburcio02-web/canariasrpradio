@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -10,12 +11,28 @@
         "radio": {
           "type": "object",
           "properties": {
-            "placa": { "type": "string", "description": "Identificador de radio (ej: 10-24)" },
-            "canalActual": { "type": "string", "description": "ID del canal donde está sintonizado" },
+            "placa": { "type": "string" },
+            "canalActual": { "type": "string" },
             "isTransmitting": { "type": "boolean" },
+            "isOperator": { "type": "boolean" },
+            "isCitizen": { "type": "boolean" },
             "ultimaConexion": { "type": "string", "format": "date-time" }
           }
         }
+      }
+    },
+    "EmergencyCall": {
+      "title": "Llamada de Emergencia",
+      "description": "Registro de avisos del 112",
+      "type": "object",
+      "properties": {
+        "nombre": { "type": "string" },
+        "ubicacion": { "type": "string" },
+        "motivo": { "type": "string" },
+        "unidades": { "type": "array", "items": { "type": "string" } },
+        "estado": { "type": "string", "enum": ["En proceso", "Codigo 4", "Cancelado"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "audioGenerated": { "type": "boolean" }
       }
     }
   },
@@ -25,7 +42,11 @@
   "firestore": {
     "users/{userId}": {
       "schema": "User",
-      "description": "Datos de perfil y estado de radio de los agentes"
+      "description": "Datos de perfil y estado de radio"
+    },
+    "emergencyCalls/{callId}": {
+      "schema": "EmergencyCall",
+      "description": "Registro de incidentes activos"
     }
   }
 }

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { type DiscordUser } from '@/app/lib/auth-utils';
 import { RadioChannel } from '@/types/radio';
 import { useRadioWebSocket } from '@/hooks/useRadioWebSocket';
@@ -14,11 +14,13 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, setDoc, serverTimestamp, collection, query, where } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { usePathname } from 'next/navigation';
+import { EmergencyCallList } from './EmergencyCallList';
+import { generateEmergencyAudio } from '@/ai/flows/tts-emergency-flow';
 
 interface RadioClientPageProps {
   discordUser: DiscordUser;
@@ -30,8 +32,62 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
   const [isEditingPlaca, setIsEditingPlaca] = useState(false);
   const [placaInput, setPlacaInput] = useState('');
   const pathname = usePathname();
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   
   const db = useFirestore();
+
+  // --- Sistema de Audio Institucional IA ---
+  useEffect(() => {
+    if (!db) return;
+
+    const introSound = "https://res.cloudinary.com/dgvh0c87y/video/upload/v1787391237/1514375003628376116_phw9ti.ogg";
+    const outroSound = "https://res.cloudinary.com/dgvh0c87y/video/upload/v1787391249/radio_finalizar_invertido_aiifyo.ogg";
+
+    const q = query(collection(db, 'emergencyCalls'), orderBy('createdAt', 'desc'), limit(1));
+    
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      if (snapshot.empty) return;
+      const call = snapshot.docs[0].data() as any;
+      const callId = snapshot.docs[0].id;
+      
+      // Solo reproducir si es nuevo (menos de 30 segundos) y no se ha escuchado en esta sesión
+      const isNew = call.createdAt && (Date.now() - call.createdAt.toDate().getTime()) < 30000;
+      const sessionKey = `heard_${callId}`;
+      
+      if (isNew && !sessionStorage.getItem(sessionKey)) {
+        sessionStorage.setItem(sessionKey, 'true');
+        
+        try {
+          // 1. Play Intro
+          const intro = new Audio(introSound);
+          await intro.play();
+          
+          intro.onended = async () => {
+            // 2. Generate and Play TTS
+            const { media } = await generateEmergencyAudio({
+              nombre: call.nombre,
+              ubicacion: call.ubicacion,
+              motivo: call.motivo,
+              unidades: call.unidades
+            });
+            
+            const ttsAudio = new Audio(media);
+            await ttsAudio.play();
+            
+            ttsAudio.onended = async () => {
+              // 3. Play Outro
+              const outro = new Audio(outroSound);
+              await outro.play();
+            };
+          };
+        } catch (e) {
+          console.error('[AUDIO_SYSTEM] Error en secuencia:', e);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [db]);
 
   const userRef = useMemoFirebase(() => {
     if (!db || !discordUser.id) return null;
@@ -190,7 +246,7 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
         </div>
       </header>
 
-      <main className="flex-1 p-8 grid grid-cols-1 lg:grid-cols-4 gap-8 max-w-7xl mx-auto w-full">
+      <main className="flex-1 p-8 grid grid-cols-1 lg:grid-cols-4 gap-8 max-w-[1600px] mx-auto w-full">
         <div className="lg:col-span-3 space-y-8">
           {micStatus === 'denied' && (
             <Alert variant="destructive" className="bg-red-50 border-red-200">
@@ -229,6 +285,8 @@ export default function RadioClientPage({ discordUser, is112 = false }: RadioCli
         </div>
 
         <div className="lg:col-span-1 space-y-6">
+          <EmergencyCallList />
+          
           <Card className="border-slate-200 shadow-sm">
             <CardHeader className="pb-3 border-b border-slate-50">
               <div className="flex items-center gap-2">
