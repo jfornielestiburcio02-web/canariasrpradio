@@ -3,7 +3,7 @@
 
 import { RadioChannel, WSStatus } from '@/types/radio';
 import { RadioCard } from './RadioCard';
-import { Shield, Ambulance, Truck, Flame, Anchor, User, Zap, Target, Users, Radio, Mountain, HeartPulse, Crosshair, Stethoscope } from 'lucide-react';
+import { Shield, Ambulance, Truck, Flame, Anchor, User, Zap, Target, Users, Radio, Mountain, HeartPulse, Crosshair, Stethoscope, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface RadioGridProps {
@@ -231,6 +231,17 @@ export function RadioGrid({
     }
   ];
 
+  const carreteraCategories = [
+    {
+      name: "Conservación de Carreteras",
+      icon: <Truck className="h-4 w-4" />,
+      channels: [
+        { id: 'CAR_SIN_ASIGN', title: 'Esperando asignación', icon: <Truck /> },
+        { id: 'CAR_COORDINACION', title: 'Radio Coordinación', icon: <Radio /> },
+      ]
+    }
+  ];
+
   const renderCategory = (cat: any) => (
     <div key={cat.name} className="space-y-6">
       <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
@@ -334,6 +345,28 @@ export function RadioGrid({
       {/* SECCIÓN SUC */}
       <div className="space-y-12">
         {sucCategories.map(renderCategory)}
+      </div>
+
+      {/* SEPARADOR GRANDE CONSERVACIÓN DE CARRETERAS */}
+      <div className="pt-16 pb-8 border-t-4 border-slate-500/20">
+        <div className="flex items-center gap-5">
+          <div className="bg-slate-700 p-4 rounded-2xl shadow-xl ring-4 ring-slate-50">
+            <Truck className="h-10 w-10 text-white" />
+          </div>
+          <div>
+            <h2 className="text-4xl font-black uppercase tracking-[0.4em] text-slate-900 leading-none">Conservación de Carreteras</h2>
+            <div className="flex items-center gap-3 mt-2">
+              <span className="h-px w-10 bg-slate-200" />
+              <p className="text-[11px] font-black text-slate-600 uppercase tracking-[0.3em]">Mantenimiento Vial - Tenerife RP</p>
+              <span className="h-px w-10 bg-slate-200" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* SECCIÓN CARRETERAS */}
+      <div className="space-y-12">
+        {carreteraCategories.map(renderCategory)}
       </div>
     </div>
   );
