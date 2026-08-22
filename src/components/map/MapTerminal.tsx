@@ -27,7 +27,7 @@ export function MapTerminal({ discordUser }: { discordUser: DiscordUser }) {
   const [logs, setLogs] = useState<any[]>([]);
   const [players, setPlayers] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [mounted, setMounted] = useState(false);
   const SERVER_ID = '2534724415';
 
@@ -58,12 +58,14 @@ export function MapTerminal({ discordUser }: { discordUser: DiscordUser }) {
   }, []);
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 10000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
+    if (mounted) {
+      fetchData();
+      const interval = setInterval(fetchData, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [fetchData, mounted]);
 
-  // Evitar error de hidratación devolviendo un esqueleto o nada hasta que el cliente esté listo
+  // Evitar error de hidratación
   if (!mounted) return null;
 
   return (
@@ -142,7 +144,7 @@ export function MapTerminal({ discordUser }: { discordUser: DiscordUser }) {
                 </div>
                 <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest">
                   <span className="text-slate-400">Sincronización:</span>
-                  <span className="text-slate-600">{lastUpdate.toLocaleTimeString()}</span>
+                  <span className="text-slate-600">{lastUpdate?.toLocaleTimeString() || '--:--:--'}</span>
                 </div>
               </div>
             </CardContent>
@@ -158,7 +160,7 @@ export function MapTerminal({ discordUser }: { discordUser: DiscordUser }) {
             </p>
             {error && (
               <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
-                <p className="text-[9px] text-red-400 font-bold uppercase leading-tight">Error: {error}</p>
+                <p className="text-[9px] text-red-400 font-bold uppercase leading-tight">Detalle: {error}</p>
               </div>
             )}
           </Card>

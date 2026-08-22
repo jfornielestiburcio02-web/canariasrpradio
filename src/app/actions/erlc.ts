@@ -6,7 +6,6 @@
  */
 
 const ERLC_TOKEN = 'fYoIctfUSmpezjVNcajg-knDrUYMtahndQKHRHWQVWWVWtQtAEotHpqcLexDq';
-const SERVER_ID = '2534724415';
 const API_BASE = 'https://api.erlc.gg/v2/server';
 
 export async function getErlcPlayers() {
@@ -21,8 +20,11 @@ export async function getErlcPlayers() {
     });
 
     if (!res.ok) {
-      const errorText = await res.text();
-      return { success: false, error: `Error ${res.status}: ${errorText.substring(0, 60)}` };
+      const errorData = await res.json().catch(() => ({}));
+      return { 
+        success: false, 
+        error: `Error ${res.status}: ${errorData.info || errorData.message || 'Error Desconocido'} (Código: ${errorData.code || 'N/A'})` 
+      };
     }
 
     const players = await res.json();
@@ -44,8 +46,11 @@ export async function getErlcLogs() {
     });
 
     if (!res.ok) {
-      const errorText = await res.text();
-      return { success: false, error: `Error Log ${res.status}: ${errorText.substring(0, 60)}` };
+      const errorData = await res.json().catch(() => ({}));
+      return { 
+        success: false, 
+        error: `Error Log ${res.status}: ${errorData.info || 'Error de permisos/Token'}` 
+      };
     }
     
     const logs = await res.json();
