@@ -3,7 +3,15 @@
 
 import { RadioChannel, WSStatus } from '@/types/radio';
 import { RadioCard } from './RadioCard';
-import { Shield, Ambulance, Truck, Flame, Anchor, User, Zap, Target, Users, Radio, Mountain, HeartPulse, Crosshair, Stethoscope } from 'lucide-react';
+import { 
+  Shield, Ambulance, Truck, Flame, Anchor, User, Zap, 
+  Target, Users, Radio, Mountain, HeartPulse, Crosshair, Stethoscope,
+  ChevronRight, Search
+} from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { cn } from '@/lib/utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
 
 interface RadioGridProps {
   activeChannel: RadioChannel | null;
@@ -38,273 +46,190 @@ export function RadioGrid({
   onKick,
   currentUserId
 }: RadioGridProps) {
-  
-  const generalCoordCategories = [
+  const [search, setSearch] = useState('');
+
+  const categories = [
     {
-      name: "Coordinación General",
-      icon: <Radio className="h-4 w-4" />,
-      channels: [
-        { id: 'COORD_1', title: 'Coordinación 1', icon: <Radio /> },
-        { id: 'COORD_GENERAL', title: 'Coordinación General', icon: <Zap /> },
+      name: "Policía Nacional",
+      color: "border-blue-600",
+      bg: "bg-blue-600/5",
+      icon: <Shield className="h-4 w-4 text-blue-600" />,
+      units: [
+        { name: "Coordinación CNP", channels: ['CNP_COORD'] },
+        { name: "Mando", channels: ['CNP_HOTEL_50'] },
+        { name: "Seguridad Ciudadana", channels: ['CNP_ZETA_10', 'CNP_ZETA_20', 'CNP_ZETA_30', 'CNP_ZETA_40', 'CNP_ZETA_50', 'CNP_ZETA_60', 'CNP_ZETA_70', 'CNP_ZETA_80'] },
+        { name: "UIP - Antidisturbios", channels: ['CNP_DRAGON_1', 'CNP_DRAGON_2', 'CNP_DRAGON_3', 'CNP_DRAGON_4'] },
+        { name: "UPR - Reacción", channels: ['CNP_UPR_10', 'CNP_UPR_20', 'CNP_UPR_30', 'CNP_UPR_40', 'CNP_UPR_50'] },
+        { name: "GEO - Operaciones", channels: ['CNP_GEO_1', 'CNP_GEO_2', 'CNP_GEO_3'] },
+        { name: "Policía Judicial", channels: ['CNP_PJ_10', 'CNP_PJ_20', 'CNP_PJ_30', 'CNP_PJ_40'] },
+        { name: "Información", channels: ['CNP_INFO_10', 'CNP_INFO_20', 'CNP_INFO_30'] },
+        { name: "Extranjería", channels: ['CNP_FRONTERA_10', 'CNP_FRONTERA_20', 'CNP_FRONTERA_30'] },
+        { name: "TEDAX-NRBQ", channels: ['CNP_TEDAX_1', 'CNP_TEDAX_2', 'CNP_TEDAX_3'] },
+        { name: "TAC", channels: ['CNP_TAC_1', 'CNP_TAC_2', 'CNP_TAC_3'] },
+      ]
+    },
+    {
+      name: "Policía Local",
+      color: "border-sky-400",
+      bg: "bg-sky-400/5",
+      icon: <User className="h-4 w-4 text-sky-400" />,
+      units: [
+        { name: "Seguridad Ciudadana", channels: ['PL_SC_10', 'PL_SC_20', 'PL_SC_30', 'PL_SC_40', 'PL_SC_50', 'PL_SC_60', 'PL_SC_70', 'PL_SC_80'] },
+        { name: "Motoristas", channels: ['PL_MOTO_10', 'PL_MOTO_20', 'PL_MOTO_30', 'PL_MOTO_40'] },
+        { name: "Tráfico", channels: ['PL_TRAFICO_10', 'PL_TRAFICO_20', 'PL_TRAFICO_30', 'PL_TRAFICO_40'] },
+        { name: "Atestados", channels: ['PL_ATESTA_1', 'PL_ATESTA_2', 'PL_ATESTA_3'] },
+        { name: "Intervención", channels: ['PL_INTER_1', 'PL_INTER_2', 'PL_INTER_3'] },
+        { name: "Unidad Canina", channels: ['PL_K9_1', 'PL_K9_2', 'PL_K9_3'] },
+        { name: "Mando Local", channels: ['PL_MANDO_1', 'PL_MANDO_2', 'PL_MANDO_3'] },
+      ]
+    },
+    {
+      name: "Guardia Civil",
+      color: "border-emerald-600",
+      bg: "bg-emerald-600/5",
+      icon: <Anchor className="h-4 w-4 text-emerald-600" />,
+      units: [
+        { name: "Seguridad Ciudadana", channels: ['GC_SC_10', 'GC_SC_20', 'GC_SC_30', 'GC_SC_40', 'GC_SC_50', 'GC_SC_60', 'GC_SC_70', 'GC_SC_80'] },
+        { name: "Tráfico (ATGC)", channels: ['GC_TRAFICO_10', 'GC_TRAFICO_20', 'GC_TRAFICO_30', 'GC_TRAFICO_40', 'GC_TRAFICO_50'] },
+        { name: "SEPRONA", channels: ['GC_SEPRONA_10', 'GC_SEPRONA_20', 'GC_SEPRONA_30', 'GC_SEPRONA_40'] },
+        { name: "GEAS - Buceo", channels: ['GC_GEAS_1', 'GC_GEAS_2', 'GC_GEAS_3'] },
+        { name: "Servicio Marítimo", channels: ['GC_MARITIMO_1', 'GC_MARITIMO_2', 'GC_MARITIMO_3'] },
+        { name: "USECIC", channels: ['GC_USECIC_1', 'GC_USECIC_2', 'GC_USECIC_3'] },
+        { name: "Aire / UHEL", channels: ['GC_UHEL_11', 'GC_AIRE_11'] },
+        { name: "COS - Central", channels: ['GC_COS_1', 'GC_COS_2', 'GC_COS_3'] },
+      ]
+    },
+    {
+      name: "Bomberos",
+      color: "border-red-600",
+      bg: "bg-red-600/5",
+      icon: <Flame className="h-4 w-4 text-red-600" />,
+      units: [
+        { name: "Extinción (Bravo)", channels: ['BOM_BRAVO_10', 'BOM_BRAVO_20', 'BOM_BRAVO_30', 'BOM_BRAVO_40', 'BOM_BRAVO_50', 'BOM_BRAVO_60'] },
+        { name: "Mando Bomberos", channels: ['BOM_MANDO_1', 'BOM_MANDO_2', 'BOM_MANDO_3'] },
+        { name: "Rescate", channels: ['BOM_RESCATE_1', 'BOM_RESCATE_2', 'BOM_RESCATE_3'] },
+        { name: "Vehículos Especiales", channels: ['BOM_ESPECIAL_1', 'BOM_ESPECIAL_2', 'BOM_ESPECIAL_3'] },
+        { name: "Auto-Escala", channels: ['BOM_ESCALA_1', 'BOM_ESCALA_2', 'BOM_ESCALA_3'] },
+        { name: "Forestal", channels: ['BOM_FORESTAL_1', 'BOM_FORESTAL_2', 'BOM_FORESTAL_3'] },
+      ]
+    },
+    {
+      name: "Servicio Urgencias Canario",
+      color: "border-orange-500",
+      bg: "bg-orange-500/5",
+      icon: <Ambulance className="h-4 w-4 text-orange-500" />,
+      units: [
+        { name: "SVB (Básico)", channels: ['SUC_SVB_01', 'SUC_SVB_02', 'SUC_SVB_03', 'SUC_SVB_04', 'SUC_SVB_05', 'SUC_SVB_06', 'SUC_SVB_07', 'SUC_SVB_08', 'SUC_SVB_09', 'SUC_SVB_10'] },
+        { name: "SVA (Avanzado)", channels: ['SUC_SVA_01', 'SUC_SVA_02', 'SUC_SVA_03', 'SUC_SVA_04', 'SUC_SVA_05'] },
+        { name: "Sanitarizada", channels: ['SUC_SANITA_01', 'SUC_SANITA_02', 'SUC_SANITA_03', 'SUC_SANITA_04'] },
+        { name: "VIR - Rápido", channels: ['SUC_VIR_01', 'SUC_VIR_02', 'SUC_VIR_03'] },
+        { name: "HEMS - Aéreo", channels: ['SUC_HEMS_01'] },
+        { name: "Coordinación", channels: ['SUC_COORD_01', 'SUC_COORD_02', 'SUC_COORD_03'] },
+        { name: "Gestor Recursos", channels: ['SUC_GESTOR_01', 'SUC_GESTOR_02', 'SUC_GESTOR_03'] },
       ]
     }
   ];
 
-  const cnpCategories = [
-    {
-      name: "Frecuencias Generales",
-      icon: <Radio className="h-4 w-4" />,
-      channels: [
-        { id: 'SUC', title: 'SUC - Emergencias', icon: <Ambulance /> },
-        { id: 'POLICIA_NACIONAL', title: 'CNP - General', icon: <Shield /> },
-        { id: 'GUARDIA_CIVIL', title: 'Guardia Civil', icon: <Anchor /> },
-        { id: 'POLICIA_LOCAL', title: 'Policía Local', icon: <User /> },
-        { id: 'BOMBEROS', title: 'Bomberos', icon: <Flame /> },
-        { id: 'TRANSPORTE', title: 'Transporte / Conser.', icon: <Truck /> },
-      ]
-    },
-    {
-      name: "Tácticas CNP",
-      icon: <Target className="h-4 w-4" />,
-      channels: [
-        { id: 'CNP_TACTICA_1', title: 'CNP - Táctica 1', icon: <Zap /> },
-        { id: 'CNP_TACTICA_2', title: 'CNP - Táctica 2', icon: <Zap /> },
-        { id: 'CNP_TACTICA_3', title: 'CNP - Táctica 3', icon: <Zap /> },
-      ]
-    },
-    {
-      name: "GAC - Grupo de Atención Ciudadana",
-      icon: <Shield className="h-4 w-4" />,
-      channels: [
-        { id: 'CNP_GAC_ZETA_10', title: 'GAC - Zeta 10', icon: <Shield /> },
-        { id: 'CNP_GAC_ZETA_20', title: 'GAC - Zeta 20', icon: <Shield /> },
-        { id: 'CNP_GAC_ZETA_25', title: 'GAC - Zeta 25', icon: <Shield /> },
-        { id: 'CNP_GAC_ZETA_30', title: 'GAC - Zeta 30', icon: <Shield /> },
-        { id: 'CNP_GAC_ZETA_35', title: 'GAC - Zeta 35', icon: <Shield /> },
-        { id: 'CNP_GAC_ZETA_45', title: 'GAC - Zeta 45', icon: <Shield /> },
-        { id: 'CNP_GAC_ZETA_50', title: 'GAC - Zeta 50', icon: <Shield /> },
-        { id: 'CNP_GAC_ZETA_55', title: 'GAC - Zeta 55', icon: <Shield /> },
-        { id: 'CNP_GAC_ZETA_60', title: 'GAC - Zeta 60', icon: <Shield /> },
-        { id: 'CNP_GAC_INTERCEPTORA', title: 'GAC - Interceptora', icon: <Zap /> },
-      ]
-    },
-    {
-      name: "UPR - Unidad de Prevención y Reacción",
-      icon: <Users className="h-4 w-4" />,
-      channels: [
-        { id: 'CNP_UPR_FENIX_10', title: 'UPR - Fenix 10', icon: <Zap /> },
-        { id: 'CNP_UPR_FENIX_20', title: 'UPR - Fenix 20', icon: <Zap /> },
-        { id: 'CNP_UPR_FENIX_30', title: 'UPR - Fenix 30', icon: <Zap /> },
-      ]
-    },
-    {
-      name: "UIP - Unidad de Intervención Policial",
-      icon: <Users className="h-4 w-4" />,
-      channels: [
-        { id: 'CNP_UIP_LOBO_10', title: 'UIP - Lobo 10', icon: <Zap /> },
-        { id: 'CNP_UIP_LOBO_20', title: 'UIP - Lobo 20', icon: <Zap /> },
-        { id: 'CNP_UIP_LOBO_30', title: 'UIP - Lobo 30', icon: <Zap /> },
-      ]
-    },
-    {
-      name: "GEO - Grupo Especial de Operaciones",
-      icon: <Target className="h-4 w-4" />,
-      channels: [
-        { id: 'CNP_GEO_BRAVO_10', title: 'GEO - Bravo 10', icon: <Target /> },
-        { id: 'CNP_GEO_BRAVO_20', title: 'GEO - Bravo 20', icon: <Target /> },
-      ]
-    }
-  ];
+  const filteredCategories = useMemo(() => {
+    if (!search) return categories;
+    return categories.map(cat => ({
+      ...cat,
+      units: cat.units.map(unit => ({
+        ...unit,
+        channels: unit.channels.filter(ch => ch.toLowerCase().includes(search.toLowerCase()))
+      })).filter(unit => unit.channels.length > 0)
+    })).filter(cat => cat.units.length > 0);
+  }, [search]);
 
-  const plCategories = [
-    {
-      name: "Policía Local - Operativa Principal",
-      icon: <User className="h-4 w-4" />,
-      channels: [
-        { id: 'PL_CANAL_1', title: 'Canal 1 (PL-1) - Principal', icon: <Shield /> },
-        { id: 'PL_CANAL_2', title: 'Canal 2 (PL-2) - Tráfico', icon: <Truck /> },
-        { id: 'PL_CANAL_3', title: 'Canal 3 (PL-3) - Operativos', icon: <Target /> },
-        { id: 'PL_CANAL_4', title: 'Canal 4 (PL-4) - Comisaría', icon: <Radio /> },
-        { id: 'PL_COORD', title: 'Canal COORD - Intercuerpos', icon: <Zap /> },
-        { id: 'PL_SIN_ASIGN', title: 'Esperando Asignación', icon: <User /> },
-      ]
+  const activeChannelData = useMemo(() => {
+    if (!activeChannel) return null;
+    for (const cat of categories) {
+      for (const unit of cat.units) {
+        if (unit.channels.includes(activeChannel)) {
+          return { title: activeChannel.replace(/_/g, ' '), category: cat.name, icon: cat.icon };
+        }
+      }
     }
-  ];
+    return { title: activeChannel, category: 'Desconocido', icon: <Radio /> };
+  }, [activeChannel]);
 
-  const gcCategories = [
-    {
-      name: "GC - Asignaciones y Coordinación",
-      icon: <Anchor className="h-4 w-4" />,
-      channels: [
-        { id: 'GC_ESP_ASIGN', title: 'GC - Esp. Asign', icon: <Shield /> },
-        { id: 'GC_COS', title: 'COS - Centro Operativo', icon: <Radio /> },
-        { id: 'GC_COTA', title: 'COTA - Tráfico', icon: <Radio /> },
-      ]
-    },
-    {
-      name: "GC - Supervisión y Seguridad Ciudadana",
-      icon: <Shield className="h-4 w-4" />,
-      channels: [
-        { id: 'GC_M620_JS', title: 'GC - M-620-JS', icon: <Shield /> },
-        { id: 'GC_M620_A', title: 'SC - M-620-A', icon: <Shield /> },
-        { id: 'GC_M620_B', title: 'SC - M-620-B', icon: <Shield /> },
-        { id: 'GC_M620_C', title: 'SC - M-620-C', icon: <Shield /> },
-        { id: 'GC_M620_D', title: 'SC - M-620-D', icon: <Shield /> },
-        { id: 'GC_M620_E', title: 'SC - M-620-E', icon: <Shield /> },
-      ]
-    },
-    {
-      name: "GC - Agrupación de Tráfico (ATGC)",
-      icon: <Truck className="h-4 w-4" />,
-      channels: [
-        { id: 'GC_M324', title: 'ATGC - M-324', icon: <Zap /> },
-        { id: 'GC_M325', title: 'ATGC - M-325', icon: <Zap /> },
-        { id: 'GC_M326', title: 'ATGC - M-326', icon: <Zap /> },
-        { id: 'GC_M327', title: 'ATGC - M-327', icon: <Zap /> },
-      ]
-    },
-    {
-      name: "GC - GRS (Grupo de Reserva y Seguridad)",
-      icon: <Users className="h-4 w-4" />,
-      channels: [
-        { id: 'GC_PUMA_0', title: 'GRS - Puma 0 (Jefe)', icon: <Target /> },
-        { id: 'GC_PUMA_10', title: 'GRS - Puma 10', icon: <Shield /> },
-        { id: 'GC_PUMA_20', title: 'GRS - Puma 20', icon: <Shield /> },
-      ]
-    },
-    {
-      name: "GC - USECIC (Seguridad Ciudadana Comandancia)",
-      icon: <Shield className="h-4 w-4" />,
-      channels: [
-        { id: 'GC_LOBO_0', title: 'USECIC - Lobo 0 (Jefe)', icon: <Target /> },
-        { id: 'GC_LOBO_10', title: 'USECIC - Lobo 10', icon: <Shield /> },
-        { id: 'GC_LOBO_20', title: 'USECIC - Lobo 20', icon: <Shield /> },
-      ]
-    },
-    {
-      name: "GC - GREIM (Rescate e Intervención en Montaña)",
-      icon: <Mountain className="h-4 w-4" />,
-      channels: [
-        { id: 'GC_M680', title: 'GREIM - M-680', icon: <Shield /> },
-        { id: 'GC_M681', title: 'GREIM - M-681', icon: <Shield /> },
-      ]
-    }
-  ];
-
-  const bomberosCategories = [
-    {
-      name: "Bomberos - Coordinación y Asignación",
-      icon: <Flame className="h-4 w-4" />,
-      channels: [
-        { id: 'BOM_SIN_ASIGN', title: 'Sin Asignación', icon: <Flame /> },
-        { id: 'BOM_CUB', title: 'CUB - Coordinadora Unitaria', icon: <Radio /> },
-      ]
-    },
-    {
-      name: "BUP - Bomba Urbana Pesada",
-      icon: <Flame className="h-4 w-4" />,
-      channels: [
-        { id: 'BOM_BUP_BRAVO_10', title: 'BRAVO - 10', icon: <Flame /> },
-        { id: 'BOM_BUP_BRAVO_20', title: 'BRAVO - 20', icon: <Flame /> },
-        { id: 'BOM_BUP_BRAVO_30', title: 'BRAVO - 30', icon: <Flame /> },
-      ]
-    },
-    {
-      name: "AEA - Auto Escalera Automatica",
-      icon: <Flame className="h-4 w-4" />,
-      channels: [
-        { id: 'BOM_AEA_ALPHA_10', title: 'ALPHA - 10', icon: <Flame /> },
-        { id: 'BOM_AEA_ALPHA_20', title: 'ALPHA - 20', icon: <Flame /> },
-        { id: 'BOM_AEA_ALPHA_30', title: 'ALPHA - 30', icon: <Flame /> },
-      ]
-    },
-    {
-      name: "SE - Sector Sanitario",
-      icon: <HeartPulse className="h-4 w-4" />,
-      channels: [
-        { id: 'BOM_SE_NOVEMBER_10', title: 'NOVEMBER - 10', icon: <HeartPulse /> },
-        { id: 'BOM_SE_NOVEMBER_20', title: 'NOVEMBER - 20', icon: <HeartPulse /> },
-        { id: 'BOM_SE_NOVEMBER_30', title: 'NOVEMBER - 30', icon: <HeartPulse /> },
-      ]
-    }
-  ];
-
-  const sucCategories = [
-    {
-      name: "SUC - Coordinación y Hospital",
-      icon: <HeartPulse className="h-4 w-4" />,
-      channels: [
-        { id: 'SUC_SIN_ASIGN', title: 'Sin Asignación', icon: <HeartPulse /> },
-        { id: 'SUC_CCS', title: 'CCS - Central Coordinación', icon: <Radio /> },
-        { id: 'SUC_HOSPITAL', title: 'Hospital', icon: <Mountain /> },
-      ]
-    },
-    {
-      name: "SVB | Soporte Vital Básico",
-      icon: <Ambulance className="h-4 w-4" />,
-      channels: [
-        { id: 'SUC_SVB_ALPHA_10', title: 'ALPHA - 10', icon: <Ambulance /> },
-        { id: 'SUC_SVB_ALPHA_20', title: 'ALPHA - 20', icon: <Ambulance /> },
-        { id: 'SUC_SVB_ALPHA_30', title: 'ALPHA - 30', icon: <Ambulance /> },
-      ]
-    },
-    {
-      name: "SVA | Soporte Vital Avanzado",
-      icon: <Stethoscope className="h-4 w-4" />,
-      channels: [
-        { id: 'SUC_SVA_BRAVO_10', title: 'BRAVO - 10', icon: <Stethoscope /> },
-        { id: 'SUC_SVA_BRAVO_20', title: 'BRAVO - 20', icon: <Stethoscope /> },
-        { id: 'SUC_SVA_BRAVO_30', title: 'BRAVO - 30', icon: <Stethoscope /> },
-      ]
-    },
-    {
-      name: "VIR | Vehículo de Intervención Rápida",
-      icon: <Zap className="h-4 w-4" />,
-      channels: [
-        { id: 'SUC_VIR_DELTA_10', title: 'DELTA - 10', icon: <Zap /> },
-        { id: 'SUC_VIR_DELTA_20', title: 'DELTA - 20', icon: <Zap /> },
-        { id: 'SUC_VIR_DELTA_30', title: 'DELTA - 30', icon: <Zap /> },
-      ]
-    }
-  ];
-
-  const carreteraCategories = [
-    {
-      name: "Conservación de Carreteras",
-      icon: <Truck className="h-4 w-4" />,
-      channels: [
-        { id: 'CAR_SIN_ASIGN', title: 'Esperando asignación', icon: <Truck /> },
-        { id: 'CAR_COORDINACION', title: 'Radio Coordinación', icon: <Radio /> },
-      ]
-    }
-  ];
-
-  const renderCategory = (cat: any) => (
-    <div key={cat.name} className="space-y-6">
-      <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
-        <div className="bg-primary/10 p-2 rounded-lg text-primary">
-          {cat.icon}
+  return (
+    <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-12rem)]">
+      {/* Sidebar de Frecuencias */}
+      <div className="w-full lg:w-80 flex flex-col bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100">
+        <div className="p-4 bg-slate-50 border-b border-slate-100 space-y-3">
+          <div className="flex items-center gap-2">
+            <Radio className="h-4 w-4 text-primary" />
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-800">Explorador de Frecuencias</h3>
+          </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <Input 
+              placeholder="Buscar canal..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 h-9 text-[10px] font-bold uppercase border-slate-200 bg-white rounded-xl"
+            />
+          </div>
         </div>
-        <h2 className="text-sm font-black uppercase tracking-[0.2em] text-slate-400">
-          {cat.name}
-        </h2>
+        
+        <ScrollArea className="flex-1">
+          <div className="p-3 space-y-6">
+            {filteredCategories.map((cat) => (
+              <div key={cat.name} className="space-y-2">
+                <div className="flex items-center gap-2 px-2">
+                  {cat.icon}
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{cat.name}</span>
+                </div>
+                <div className="space-y-1">
+                  {cat.units.map((unit) => (
+                    <div key={unit.name} className="space-y-0.5">
+                      <div className="px-3 py-1 text-[8px] font-bold text-slate-300 uppercase tracking-tighter">{unit.name}</div>
+                      <div className="grid grid-cols-1 gap-0.5 px-2">
+                        {unit.channels.map((ch) => (
+                          <button
+                            key={ch}
+                            onClick={() => onJoin(ch)}
+                            className={cn(
+                              "flex items-center justify-between px-3 py-2 rounded-xl text-left transition-all group",
+                              activeChannel === ch 
+                                ? "bg-primary text-white shadow-lg shadow-primary/20 scale-[1.02]" 
+                                : "hover:bg-slate-50 text-slate-600"
+                            )}
+                          >
+                            <span className="text-[10px] font-black uppercase tracking-tight truncate">
+                              {ch.replace(/^(CNP_|PL_|GC_|BOM_|SUC_)/, '').replace(/_/g, ' ')}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              {agents.filter(a => a.radio?.canalActual === ch).length > 0 && (
+                                <div className="h-1.5 w-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                              )}
+                              <ChevronRight className={cn("h-3 w-3", activeChannel === ch ? "text-white" : "text-slate-300 opacity-0 group-hover:opacity-100")} />
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
       </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {cat.channels.map((ch: any) => {
-          // Filtrar agentes sintonizados en este canal específico
-          const connectedAgents = agents.filter(a => a.radio?.canalActual === ch.id);
-          
-          return (
+
+      {/* Terminal de Control */}
+      <div className="flex-1 flex flex-col gap-6">
+        {activeChannel && activeChannelData ? (
+          <div className="animate-in fade-in slide-in-from-right-4 duration-500 h-full">
             <RadioCard
-              key={ch.id}
-              channel={ch.id as RadioChannel}
-              title={ch.title}
-              icon={ch.icon}
-              active={activeChannel === ch.id}
-              onJoin={() => onJoin(ch.id as RadioChannel)}
+              channel={activeChannel}
+              title={activeChannelData.title}
+              icon={activeChannelData.icon}
+              active={true}
+              onJoin={() => {}}
               onLeave={onLeave}
-              users={connectedAgents}
+              users={agents.filter(a => a.radio?.canalActual === activeChannel)}
               wsStatus={wsStatus}
               isTransmitting={isTransmitting}
               onPTTStart={onPTTStart}
@@ -315,101 +240,51 @@ export function RadioGrid({
               onKick={onKick}
               currentUserId={currentUserId}
             />
-          );
-        })}
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="space-y-12 pb-20">
-      <div className="space-y-12">{generalCoordCategories.map(renderCategory)}</div>
-      <div className="space-y-12">{cnpCategories.map(renderCategory)}</div>
-
-      <div className="pt-16 pb-8 border-t-4 border-sky-400/20">
-        <div className="flex items-center gap-5">
-          <div className="bg-sky-500 p-4 rounded-2xl shadow-xl ring-4 ring-sky-50">
-            <User className="h-10 w-10 text-white" />
           </div>
-          <div>
-            <h2 className="text-4xl font-black uppercase tracking-[0.4em] text-slate-900 leading-none">Policía Local Tenerife</h2>
-            <div className="flex items-center gap-3 mt-2">
-              <span className="h-px w-10 bg-sky-200" />
-              <p className="text-[11px] font-black text-sky-600 uppercase tracking-[0.3em]">Cuerpo de Policía Local - Tenerife RP</p>
-              <span className="h-px w-10 bg-sky-200" />
+        ) : (
+          <div className="flex-1 bg-white rounded-[2.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-center p-12 opacity-40">
+            <div className="bg-slate-50 p-8 rounded-full mb-6">
+              <Radio className="h-16 w-16 text-slate-300" />
+            </div>
+            <h3 className="text-xl font-black text-slate-400 uppercase tracking-[0.2em]">Terminal en Espera</h3>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 max-w-xs leading-relaxed">
+              Selecciona una frecuencia del explorador lateral para sintonizar la red institucional.
+            </p>
+          </div>
+        )}
+
+        {/* Resumen de actividad */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
+          <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-3">
+            <div className="bg-blue-50 p-2 rounded-xl"><Shield className="h-4 w-4 text-blue-600" /></div>
+            <div>
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Agentes CNP</p>
+              <p className="text-sm font-black text-slate-800">{agents.filter(a => a.radio?.canalActual?.startsWith('CNP')).length}</p>
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-3">
+            <div className="bg-emerald-50 p-2 rounded-xl"><Anchor className="h-4 w-4 text-emerald-600" /></div>
+            <div>
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Agentes GC</p>
+              <p className="text-sm font-black text-slate-800">{agents.filter(a => a.radio?.canalActual?.startsWith('GC')).length}</p>
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-3">
+            <div className="bg-red-50 p-2 rounded-xl"><Flame className="h-4 w-4 text-red-600" /></div>
+            <div>
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Bomberos</p>
+              <p className="text-sm font-black text-slate-800">{agents.filter(a => a.radio?.canalActual?.startsWith('BOM')).length}</p>
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-3">
+            <div className="bg-orange-50 p-2 rounded-xl"><Ambulance className="h-4 w-4 text-orange-500" /></div>
+            <div>
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Servicio SUC</p>
+              <p className="text-sm font-black text-slate-800">{agents.filter(a => a.radio?.canalActual?.startsWith('SUC')).length}</p>
             </div>
           </div>
         </div>
       </div>
-      <div className="space-y-12">{plCategories.map(renderCategory)}</div>
-
-      <div className="pt-16 pb-8 border-t-4 border-emerald-500/20">
-        <div className="flex items-center gap-5">
-          <div className="bg-emerald-600 p-4 rounded-2xl shadow-xl ring-4 ring-emerald-50">
-            <Anchor className="h-10 w-10 text-white" />
-          </div>
-          <div>
-            <h2 className="text-4xl font-black uppercase tracking-[0.4em] text-slate-900 leading-none">Guardia Civil</h2>
-            <div className="flex items-center gap-3 mt-2">
-              <span className="h-px w-10 bg-emerald-200" />
-              <p className="text-[11px] font-black text-emerald-600 uppercase tracking-[0.3em]">Benemérita - Tenerife RP</p>
-              <span className="h-px w-10 bg-emerald-200" />
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="space-y-12">{gcCategories.map(renderCategory)}</div>
-
-      <div className="pt-16 pb-8 border-t-4 border-red-500/20">
-        <div className="flex items-center gap-5">
-          <div className="bg-red-600 p-4 rounded-2xl shadow-xl ring-4 ring-red-50">
-            <Flame className="h-10 w-10 text-white" />
-          </div>
-          <div>
-            <h2 className="text-4xl font-black uppercase tracking-[0.4em] text-slate-900 leading-none">Bomberos Tenerife</h2>
-            <div className="flex items-center gap-3 mt-2">
-              <span className="h-px w-10 bg-red-200" />
-              <p className="text-[11px] font-black text-red-600 uppercase tracking-[0.3em]">Consorcio de Bomberos - Tenerife RP</p>
-              <span className="h-px w-10 bg-red-200" />
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="space-y-12">{bomberosCategories.map(renderCategory)}</div>
-
-      <div className="pt-16 pb-8 border-t-4 border-amber-500/20">
-        <div className="flex items-center gap-5">
-          <div className="bg-amber-500 p-4 rounded-2xl shadow-xl ring-4 ring-amber-50">
-            <HeartPulse className="h-10 w-10 text-white" />
-          </div>
-          <div>
-            <h2 className="text-4xl font-black uppercase tracking-[0.4em] text-slate-900 leading-none">Servicio de Urgencias Canario</h2>
-            <div className="flex items-center gap-3 mt-2">
-              <span className="h-px w-10 bg-amber-200" />
-              <p className="text-[11px] font-black text-amber-600 uppercase tracking-[0.3em]">SUC - Tenerife RP</p>
-              <span className="h-px w-10 bg-amber-200" />
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="space-y-12">{sucCategories.map(renderCategory)}</div>
-
-      <div className="pt-16 pb-8 border-t-4 border-slate-500/20">
-        <div className="flex items-center gap-5">
-          <div className="bg-slate-700 p-4 rounded-2xl shadow-xl ring-4 ring-slate-50">
-            <Truck className="h-10 w-10 text-white" />
-          </div>
-          <div>
-            <h2 className="text-4xl font-black uppercase tracking-[0.4em] text-slate-900 leading-none">Conservación de Carreteras</h2>
-            <div className="flex items-center gap-3 mt-2">
-              <span className="h-px w-10 bg-slate-200" />
-              <p className="text-[11px] font-black text-slate-600 uppercase tracking-[0.3em]">Mantenimiento Vial - Tenerife RP</p>
-              <span className="h-px w-10 bg-slate-200" />
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="space-y-12">{carreteraCategories.map(renderCategory)}</div>
     </div>
   );
 }

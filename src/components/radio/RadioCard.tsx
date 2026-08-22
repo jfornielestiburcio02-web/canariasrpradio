@@ -6,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Mic, MicOff, Users, Wifi, WifiOff, AlertCircle, ShieldOff, LogOut } from 'lucide-react';
+import { Mic, MicOff, Users, Wifi, WifiOff, AlertCircle, ShieldOff, LogOut, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface RadioCardProps {
   channel: RadioChannel;
@@ -53,138 +54,161 @@ export function RadioCard({
 
   return (
     <Card className={cn(
-      "relative overflow-hidden transition-all duration-300",
-      active ? "border-primary shadow-xl ring-2 ring-primary/20 scale-[1.02]" : "border-slate-200 opacity-80 hover:opacity-100"
+      "h-full relative overflow-hidden transition-all duration-300 rounded-[2.5rem] border-none shadow-2xl flex flex-col bg-white",
+      active ? "ring-4 ring-primary/10" : "opacity-80"
     )}>
       <div className={cn(
-        "h-1.5 w-full",
+        "h-3 w-full",
         active ? (isTransmitting ? "bg-red-500 animate-pulse" : isError ? "bg-destructive" : isConnected ? "bg-primary" : "bg-orange-400 animate-pulse") : "bg-slate-200"
       )} />
       
-      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-        <div className="flex items-center gap-2">
+      <CardHeader className="flex flex-row items-center justify-between p-8 pb-4 shrink-0">
+        <div className="flex items-center gap-4">
           <div className={cn(
-            "p-2 rounded-lg",
-            active ? "bg-primary/10 text-primary" : "bg-slate-100 text-slate-400"
+            "p-4 rounded-[1.5rem] shadow-xl",
+            active ? "bg-primary text-white" : "bg-slate-100 text-slate-400"
           )}>
             {icon}
           </div>
-          <CardTitle className="text-sm font-bold uppercase tracking-wider">{title}</CardTitle>
+          <div>
+            <CardTitle className="text-2xl font-black uppercase tracking-tighter text-slate-900">{title}</CardTitle>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Sintonización Institucional</p>
+          </div>
         </div>
-        <Badge 
-          variant={active ? (isConnected ? "default" : isError ? "destructive" : "secondary") : "outline"} 
-          className="text-[9px]"
-        >
-          {!active ? "DISPONIBLE" : isConnected ? "CONECTADO" : isConnecting ? "CONECTANDO..." : isError ? "ERROR RED" : "SIN CONEXIÓN"}
-        </Badge>
+        <div className="flex flex-col items-end gap-2">
+          <Badge 
+            variant={active ? (isConnected ? "default" : isError ? "destructive" : "secondary") : "outline"} 
+            className="text-[10px] font-black tracking-widest px-4 py-1.5 rounded-full"
+          >
+            {isConnected ? "SISTEMA ONLINE" : isConnecting ? "SINCRONIZANDO..." : isError ? "FALLO DE RED" : "EN ESPERA"}
+          </Badge>
+          <div className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+            {isConnected ? <Wifi className="h-3 w-3 text-emerald-500" /> : <WifiOff className="h-3 w-3 text-slate-300" />}
+            {isConnected ? "Señal Cifrada" : "Sin Cobertura"}
+          </div>
+        </div>
       </CardHeader>
       
-      <CardContent className="space-y-4">
-        <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-          <Popover>
-            <PopoverTrigger asChild>
-              <button className="flex items-center gap-1.5 hover:text-primary transition-colors cursor-pointer group">
-                <Users className="h-3.5 w-3.5 group-hover:scale-110 transition-transform" />
-                <span className="font-black">{users.length} agentes</span>
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64 p-4 rounded-[1.5rem] shadow-2xl border-none bg-white">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Personal en frecuencia</h4>
-                  <Badge className="bg-primary/10 text-primary text-[8px] border-none">{users.length}</Badge>
-                </div>
-                <div className="max-h-48 overflow-y-auto space-y-3 pr-2 scrollbar-thin">
-                  {users.length > 0 ? users.map((u) => (
-                    <div key={u.id} className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition-colors group/agent">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8 border-2 border-white shadow-sm ring-1 ring-slate-100">
-                          <AvatarImage src={u.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png` : undefined} />
-                          <AvatarFallback className="text-[10px] font-black bg-slate-100 text-slate-600">{u.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-[10px] font-black text-slate-800 truncate uppercase tracking-tight">{u.username}</span>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[8px] font-bold text-primary uppercase">Placa: {u.radio?.placa || '---'}</span>
-                            {u.radio?.isTransmitting && <div className="h-1.5 w-1.5 bg-red-500 rounded-full animate-ping" />}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {isAdmin && u.id !== currentUserId && (
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-7 w-7 text-slate-200 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover/agent:opacity-100 transition-all"
-                          onClick={() => onKick?.(u.id)}
-                        >
-                          <LogOut className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                    </div>
-                  )) : (
-                    <div className="py-6 text-center">
-                      <p className="text-[9px] text-slate-300 font-bold uppercase tracking-widest">Canal libre de tráfico</p>
-                    </div>
-                  )}
-                </div>
+      <CardContent className="flex-1 p-8 pt-4 flex flex-col lg:flex-row gap-8 overflow-hidden">
+        {/* Panel Izquierdo: Usuarios y Estado */}
+        <div className="flex-1 flex flex-col gap-6">
+          <div className="bg-slate-50 rounded-[2rem] p-6 border border-slate-100 flex-1 flex flex-col">
+            <div className="flex items-center justify-between mb-4 px-2">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-slate-400" />
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Personal en frecuencia</h4>
               </div>
-            </PopoverContent>
-          </Popover>
-
-          {active && (
-            <div className="flex items-center gap-1.5">
-              {isConnected ? <Wifi className="h-3.5 w-3.5 text-emerald-500" /> : isError ? <AlertCircle className="h-3.5 w-3.5 text-destructive" /> : <WifiOff className="h-3.5 w-3.5 text-slate-300" />}
-              <span className="font-black uppercase text-[9px]">{isConnected ? "Señal OK" : isError ? "Error" : "Buscando..."}</span>
+              <Badge className="bg-slate-200 text-slate-600 text-[10px] font-black rounded-full border-none">
+                {users.length} ACTIVOS
+              </Badge>
             </div>
-          )}
+            
+            <ScrollArea className="flex-1">
+              <div className="space-y-3 pr-4">
+                {users.length > 0 ? users.map((u) => (
+                  <div key={u.id} className="flex items-center justify-between p-3 rounded-2xl bg-white border border-slate-100 shadow-sm transition-all hover:border-primary/20 group/agent">
+                    <div className="flex items-center gap-4">
+                      <div className="relative">
+                        <Avatar className="h-10 w-10 border-2 border-white shadow-md ring-1 ring-slate-100">
+                          <AvatarImage src={u.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png` : undefined} />
+                          <AvatarFallback className="text-[10px] font-black bg-slate-100 text-slate-600">
+                            {u.username?.substring(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        {u.radio?.isTransmitting && (
+                          <div className="absolute -bottom-1 -right-1 bg-red-500 rounded-full p-1 border-2 border-white animate-pulse">
+                            <Mic className="h-2 w-2 text-white" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[11px] font-black text-slate-800 truncate uppercase tracking-tight">{u.username}</span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
+                          Placa: {u.radio?.placa || 'SIN ASIGNAR'}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {isAdmin && u.id !== currentUserId && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-slate-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover/agent:opacity-100 transition-all rounded-xl"
+                        onClick={() => onKick?.(u.id)}
+                      >
+                        <LogOut className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                )) : (
+                  <div className="h-40 flex flex-col items-center justify-center opacity-30">
+                    <Radio className="h-10 w-10 text-slate-300 mb-2" />
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Canal despejado</p>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+
+          {/* Advertencia de Seguridad */}
+          <div className="bg-red-50/50 p-4 rounded-2xl border border-red-100 flex items-start gap-3">
+            <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+            <p className="text-[9px] font-bold text-red-700/70 uppercase leading-relaxed">
+              ATENCIÓN: TRANSMISIÓN CIFRADA PUNTO A PUNTO. EL USO INDEBIDO SERÁ REGISTRADO POR LA JEFATURA.
+            </p>
+          </div>
         </div>
 
-        {!active ? (
-          <Button 
-            className="w-full h-10 bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-bold uppercase tracking-[0.2em]"
-            onClick={onJoin}
+        {/* Panel Derecho: Controles PTT */}
+        <div className="w-full lg:w-72 flex flex-col gap-4">
+          <Button
+            onMouseDown={!isMobile ? onPTTStart : undefined}
+            onMouseUp={!isMobile ? onPTTStop : undefined}
+            onMouseLeave={!isMobile ? onPTTStop : undefined}
+            onClick={isMobile ? onPTTToggle : undefined}
+            disabled={!isConnected}
+            className={cn(
+              "w-full flex-1 min-h-[200px] rounded-[2.5rem] text-sm font-black uppercase tracking-[0.3em] transition-all duration-300 flex flex-col gap-6 items-center justify-center border-b-8 active:border-b-0 active:translate-y-2",
+              isTransmitting 
+                ? "bg-red-600 border-red-800 text-white shadow-2xl shadow-red-200" 
+                : isConnected 
+                  ? "bg-slate-900 border-slate-700 text-white hover:bg-slate-800" 
+                  : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+            )}
           >
-            Sintonizar
+            {isTransmitting ? (
+              <>
+                <div className="bg-white/20 p-6 rounded-full animate-bounce">
+                  <Mic className="h-12 w-12 text-white" />
+                </div>
+                <div className="space-y-1 text-center">
+                  <span className="block text-lg">EN AIRE</span>
+                  <span className="text-[8px] opacity-60 tracking-[0.5em]">CANAL {channel.split('_').pop()}</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="bg-white/10 p-6 rounded-full opacity-40">
+                  <MicOff className="h-12 w-12 text-white" />
+                </div>
+                <div className="space-y-1 text-center">
+                  <span className="block text-lg">PULSAR PTT</span>
+                  <span className="text-[8px] opacity-60 tracking-[0.5em]">
+                    {isMobile ? 'TOCAR PARA ACTIVAR' : 'MANTENER TECLA'}
+                  </span>
+                </div>
+              </>
+            )}
           </Button>
-        ) : (
-          <div className="space-y-3">
-            <Button
-              onMouseDown={!isMobile ? onPTTStart : undefined}
-              onMouseUp={!isMobile ? onPTTStop : undefined}
-              onMouseLeave={!isMobile ? onPTTStop : undefined}
-              onClick={isMobile ? onPTTToggle : undefined}
-              disabled={!isConnected}
-              className={cn(
-                "w-full h-14 text-sm font-bold uppercase tracking-[0.3em] transition-all rounded-2xl",
-                isTransmitting 
-                  ? "bg-red-600 hover:bg-red-700 shadow-lg shadow-red-200 scale-[0.98]" 
-                  : isConnected ? "bg-primary hover:bg-primary/90" : "bg-slate-200 text-slate-400 cursor-not-allowed"
-              )}
-            >
-              {!isConnected ? (
-                <div className="flex items-center gap-2">
-                  <ShieldOff className="h-5 w-5 opacity-50" /> BLOQUEADO
-                </div>
-              ) : isTransmitting ? (
-                <div className="flex items-center gap-2">
-                  <Mic className="h-5 w-5 animate-bounce" /> TRANSMITIENDO
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <MicOff className="h-5 w-5 opacity-50" /> PTT
-                </div>
-              )}
-            </Button>
-            <Button 
-              variant="outline" 
-              className="w-full text-[10px] font-bold uppercase text-slate-400 hover:text-red-500 transition-colors"
-              onClick={onLeave}
-            >
-              Cerrar Canal
-            </Button>
-          </div>
-        )}
+
+          <Button 
+            variant="outline" 
+            className="w-full h-14 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-red-600 hover:bg-red-50 border-slate-200 transition-colors"
+            onClick={onLeave}
+          >
+            Finalizar Servicio
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
