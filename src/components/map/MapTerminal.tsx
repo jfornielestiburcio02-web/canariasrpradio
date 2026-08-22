@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -103,7 +102,7 @@ export function MapTerminal({ discordUser }: { discordUser: DiscordUser }) {
                 <div className="flex flex-col items-center justify-center p-12 text-center space-y-6">
                   <WifiOff className="h-12 w-12 text-red-500" />
                   <div className="max-w-md space-y-2">
-                    <h3 className="text-sm font-black text-slate-800 uppercase">Error de Autenticación V2</h3>
+                    <h3 className="text-sm font-black text-slate-800 uppercase">Error de Conexión</h3>
                     <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
                       La API de ER:LC no ha podido validar la sesión. Verifica tu Server Key.
                     </p>
@@ -156,20 +155,10 @@ export function MapTerminal({ discordUser }: { discordUser: DiscordUser }) {
               </div>
             </CardHeader>
             <CardContent className="px-6 pb-6 space-y-4">
-               <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest">
-                  <span className="text-slate-400">Server ID:</span>
-                  <span className="text-slate-600 font-black">{SERVER_ID}</span>
-                </div>
                 <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest">
                   <span className="text-slate-400">API Status:</span>
                   <span className={cn(error ? "text-red-600" : "text-emerald-600 font-black")}>
                     {error ? 'FALLO V2' : 'OK'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest">
-                  <span className="text-slate-400">Última Sinc:</span>
-                  <span className="text-slate-600">
-                    {mounted && lastUpdate ? lastUpdate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--:--'}
                   </span>
                 </div>
             </CardContent>
@@ -183,7 +172,7 @@ export function MapTerminal({ discordUser }: { discordUser: DiscordUser }) {
                 <AlertTriangle className="h-5 w-5 text-red-500" />
                 <CardTitle className="text-xs font-black uppercase tracking-widest text-white">Eventos de Campo</CardTitle>
               </div>
-              <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">Datos recibidos vía /api/erlc/get_datos</p>
+              <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">Datos recibidos vía Webhook</p>
             </CardHeader>
             <CardContent className="p-0">
               <div className="max-h-[400px] overflow-y-auto divide-y divide-white/5">
@@ -193,7 +182,7 @@ export function MapTerminal({ discordUser }: { discordUser: DiscordUser }) {
                       <div className="flex items-center justify-between">
                         <Badge className={cn(
                           "text-[8px] font-black uppercase px-2 h-4",
-                          event.tipo === 'PANICO' ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-300'
+                          event.tipo === 'PANICO' || event.tipo === 'PANICBUTTON' || event.tipo === 'PANIC BUTTON' ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-300'
                         )}>
                           {event.tipo}
                         </Badge>
@@ -207,14 +196,14 @@ export function MapTerminal({ discordUser }: { discordUser: DiscordUser }) {
                         <div className="flex items-center gap-2 text-[9px] text-slate-400 font-medium italic">
                           <MapPin className="h-2.5 w-2.5" /> {event.ubicacion}
                         </div>
-                        <p className="text-[9px] text-slate-500 leading-tight">"{event.detalles}"</p>
+                        <p className="text-[9px] text-slate-500 leading-tight">{event.detalles}</p>
                       </div>
                     </div>
                   ))
                 ) : (
                   <div className="py-12 text-center space-y-3 opacity-20">
                     <Wifi className="h-10 w-10 text-white mx-auto" />
-                    <p className="text-[9px] font-bold text-white uppercase tracking-widest">Esperando telemetría externa...</p>
+                    <p className="text-[9px] font-bold text-white uppercase tracking-widest">Esperando telemetría...</p>
                   </div>
                 )}
               </div>
