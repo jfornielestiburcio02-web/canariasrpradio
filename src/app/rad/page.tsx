@@ -31,7 +31,6 @@ export default async function RadioPage() {
     }
   }
 
-  // Si tiene CUALQUIERA de los 3 roles, es personal autorizado
   const isAuthorized = authRolVs.autorizado || authRolGral.autorizado || auth112.autorizado;
 
   if (!isAuthorized) {

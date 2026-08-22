@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Mic, MicOff, Users, Wifi, WifiOff, AlertCircle, LogOut, Radio } from 'lucide-react';
+import { Mic, MicOff, Users, Wifi, WifiOff, AlertCircle, LogOut, Radio as RadioIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -140,7 +140,7 @@ export function RadioCard({
                   </div>
                 )) : (
                   <div className="h-40 flex flex-col items-center justify-center opacity-30">
-                    <Radio className="h-10 w-10 text-slate-300 mb-2" />
+                    <RadioIcon className="h-10 w-10 text-slate-300 mb-2" />
                     <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Canal despejado</p>
                   </div>
                 )}

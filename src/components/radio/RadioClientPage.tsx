@@ -8,7 +8,7 @@ import { useRadioWebSocket } from '@/hooks/useRadioWebSocket';
 import { useRadioWebRTC } from '@/hooks/useRadioWebRTC';
 import { usePTT } from '@/hooks/usePTT';
 import { RadioGrid } from '@/components/radio/RadioGrid';
-import { Radio as RadioIcon, LogOut, Shield, BadgeCheck, Pencil, Settings2, Keyboard } from 'lucide-react';
+import { Radio as RadioIcon, LogOut, Shield, BadgeCheck, Pencil, Settings2, Keyboard, Headset, Bell, Activity } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,9 +35,9 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
   const [panicKey, setPanicKey] = useState('Delete');
   const [isListeningKey, setIsListeningKey] = useState<'ptt' | 'panic' | null>(null);
   const [panicLoading, setPanicLoading] = useState(false);
+  
   const isMobile = useIsMobile();
   const { toast } = useToast();
-  
   const db = useFirestore();
   const sessionStartTime = useRef(Date.now());
   const lastSyncChannel = useRef<string | null>(null);
@@ -73,7 +73,6 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     }
   }, [db, panicLoading, userData?.radio?.placa, discordUser.global_name, discordUser.username, toast]);
 
-  // Cargar teclas guardadas
   useEffect(() => {
     const savedPtt = localStorage.getItem('radio_ptt_key');
     const savedPanic = localStorage.getItem('radio_panic_key');
@@ -102,7 +101,6 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     return () => window.removeEventListener('keydown', handleKey);
   }, [isListeningKey]);
 
-  // Listener para Pánico (Tecla)
   useEffect(() => {
     const handlePanicKeyDown = (e: KeyboardEvent) => {
       if (isMobile || isListeningKey) return;
@@ -116,25 +114,21 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     return () => window.removeEventListener('keydown', handlePanicKeyDown);
   }, [panicKey, triggerPanic, isMobile, isListeningKey]);
 
-  // Sincronización de Estado en Firestore (Evita bucles)
   useEffect(() => {
     if (!db || !discordUser.id) return;
+    if (lastSyncChannel.current === activeChannel) return;
     
-    // Solo actualizar si el canal ha cambiado realmente
-    if (lastSyncChannel.current !== activeChannel) {
-      lastSyncChannel.current = activeChannel || 'null';
-      setDoc(doc(db, 'users', discordUser.id), {
-        username: discordUser.global_name || discordUser.username,
-        avatar: discordUser.avatar,
-        radio: {
-          canalActual: activeChannel || null,
-          ultimaConexion: serverTimestamp()
-        }
-      }, { merge: true });
-    }
+    lastSyncChannel.current = activeChannel;
+    setDoc(doc(db, 'users', discordUser.id), {
+      username: discordUser.global_name || discordUser.username,
+      avatar: discordUser.avatar,
+      radio: {
+        canalActual: activeChannel || null,
+        ultimaConexion: serverTimestamp()
+      }
+    }, { merge: true });
   }, [activeChannel, db, discordUser]);
 
-  // Listener Global de Pánico (Para recibir alertas)
   useEffect(() => {
     if (!db) return;
     const panicAlertUrl = "https://www.myinstants.com/media/sounds/panic-button.mp3";
@@ -200,7 +194,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
 
   const { status, peers, send, setOnMessage } = useRadioWebSocket(discordUser.id, activeChannel);
   
-  const handleSignal = useCallback((msg: SignalingMessage) => {
+  const handleKickSignal = useCallback((msg: SignalingMessage) => {
     if (msg.type === 'force_leave' && msg.to === discordUser.id) {
       setActiveChannel(null);
       toast({
@@ -220,10 +214,10 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
 
   useEffect(() => {
     setOnMessage((msg) => {
-      handleSignal(msg);
+      handleKickSignal(msg);
       webrtcHandler(msg);
     });
-  }, [handleSignal, webrtcHandler, setOnMessage]);
+  }, [handleKickSignal, webrtcHandler, setOnMessage]);
 
   const handleKickAgent = (targetUserId: string) => {
     if (!isAdminVs || !activeChannel) return;
@@ -233,30 +227,45 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <header className="bg-white border-b border-slate-200 px-8 h-20 flex items-center justify-between shrink-0 sticky top-0 z-50">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <div className="bg-primary/10 p-2.5 rounded-xl">
             <RadioIcon className="h-6 w-6 text-primary" />
           </div>
-          <div className="hidden sm:block text-left">
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 uppercase leading-none">Radio Comunicaciones</h1>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Sistemas Institucionales</p>
-          </div>
+          <nav className="hidden md:flex items-center gap-8 ml-4">
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary border-b-2 border-primary pb-1">Radio</span>
+            <Link href="/rad/map" className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-slate-600 transition-all flex items-center gap-2">
+              <Bell className="h-3 w-3" /> Monitor Institucional
+            </Link>
+            {is112 && (
+              <Link href="/rad/112" className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-red-500 transition-all flex items-center gap-2">
+                <Headset className="h-3 w-3" /> Coordinador 112
+              </Link>
+            )}
+          </nav>
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex flex-col items-end mr-2">
+          <div className="flex flex-col items-end mr-2 min-w-[120px]">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-700">{discordUser.global_name || discordUser.username}</span>
+              <span className="text-xs font-bold text-slate-700 truncate max-w-[150px]">{discordUser.global_name || discordUser.username}</span>
               <BadgeCheck className="h-3.5 w-3.5 text-blue-500" />
             </div>
             <div className="flex items-center gap-1.5 mt-0.5">
               {isEditingPlaca ? (
                 <div className="flex items-center gap-1">
-                  <Input value={placaInput} onChange={(e) => setPlacaInput(e.target.value)} className="h-5 w-20 text-[9px] font-bold px-1 py-0 uppercase" autoFocus />
-                  <Button size="icon" className="h-5 w-5" onClick={handleSavePlaca}>OK</Button>
+                  <Input 
+                    value={placaInput} 
+                    onChange={(e) => setPlacaInput(e.target.value.toUpperCase())} 
+                    className="h-5 w-20 text-[9px] font-bold px-1 py-0 uppercase" 
+                    autoFocus 
+                  />
+                  <Button size="icon" className="h-5 w-5 bg-primary text-white" onClick={handleSavePlaca}>OK</Button>
                 </div>
               ) : (
-                <button onClick={() => setIsEditingPlaca(true)} className="text-[9px] font-bold text-slate-400 hover:text-primary transition-colors flex items-center gap-1 uppercase tracking-tighter">
+                <button 
+                  onClick={() => setIsEditingPlaca(true)} 
+                  className="text-[9px] font-bold text-slate-400 hover:text-primary transition-colors flex items-center gap-1 uppercase tracking-tighter"
+                >
                   <Shield className="h-3 w-3" /> Placa: {userData?.radio?.placa || 'SIN ASIGNAR'} <Pencil className="h-2 w-2" />
                 </button>
               )}
@@ -327,7 +336,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
           />
         </div>
         <div className="lg:col-span-1">
-          <EmergencyCallList />
+          <EmergencyCallList isCoordinator={is112} />
         </div>
       </main>
     </div>
