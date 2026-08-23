@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -103,7 +104,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     return () => unsubscribePanic();
   }, [db, toast]);
 
-  // Avisos 112 Globales con Sonido Entrada/Salida
+  // Avisos 112 Globales
   useEffect(() => {
     if (!db) return;
     const qCalls = query(collection(db, 'emergencyCalls'), orderBy('createdAt', 'desc'), limit(1));
@@ -177,7 +178,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     return () => window.removeEventListener('keydown', handlePanicKeyDown);
   }, [panicKey, triggerPanic, isMobile, isListeningKey]);
 
-  // Sincronización con Firestore (Evita recargas infinitas)
+  // Sincronización con Firestore
   useEffect(() => {
     if (!db || !discordUser.id) return;
     if (lastSyncChannel.current === activeChannel) return;
@@ -220,11 +221,22 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
   const { status, peers, send, setOnMessage } = useRadioWebSocket(discordUser.id, activeChannel);
   
   const stableSend = useCallback((msg: any) => send(msg), [send]);
-  const { handleSignal: webrtcHandler, toggleLocalPTT, activeTransmissions } = useRadioWebRTC(discordUser.id, stableSend, peers, activeChannel);
+  const { handleSignal: webrtcHandler, toggleLocalPTT, activeTransmissions, micStatus } = useRadioWebRTC(discordUser.id, stableSend, peers, activeChannel);
   
   const { isTransmitting, start, stop, toggle } = usePTT((enabled) => {
     toggleLocalPTT(enabled);
   }, { disabled: !activeChannel, pttKey, isMobile });
+
+  // Manejar errores de micrófono
+  useEffect(() => {
+    if (micStatus === 'denied') {
+      toast({
+        variant: "destructive",
+        title: "ERROR DE MICRÓFONO",
+        description: "Permiso denegado. Por favor, permite el acceso al micrófono en los ajustes de tu navegador.",
+      });
+    }
+  }, [micStatus, toast]);
 
   useEffect(() => {
     setOnMessage((msg) => {

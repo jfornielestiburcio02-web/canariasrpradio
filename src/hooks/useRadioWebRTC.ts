@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { SignalingMessage, MicStatus, RadioChannel } from '@/types/radio';
+import { errorEmitter } from '@/firebase/error-emitter';
 
 export function useRadioWebRTC(
   mySessionId: string, 
@@ -65,7 +66,6 @@ export function useRadioWebRTC(
     if (!activeChannel || peerConnections.current.has(remoteSessionId)) return peerConnections.current.get(remoteSessionId);
 
     const pc = new RTCPeerConnection({ iceServers });
-    const isPolite = mySessionId > remoteSessionId;
 
     pc.onicecandidate = ({ candidate }) => {
       if (candidate) {
@@ -79,9 +79,12 @@ export function useRadioWebRTC(
         audio = new Audio();
         audio.autoplay = true;
         audio.playsInline = true;
+        // En móviles, a veces es necesario interactuar para que el audio suene
+        audio.muted = false;
         remoteAudios.current.set(remoteSessionId, audio);
       }
       audio.srcObject = stream;
+      audio.play().catch(e => console.warn('[WEBRTC] Error autoplaying remote audio:', e));
     };
 
     pc.onnegotiationneeded = async () => {
@@ -96,19 +99,13 @@ export function useRadioWebRTC(
       }
     };
 
-    pc.oniceconnectionstatechange = () => {
-      if (pc.iceConnectionState === 'failed') {
-        pc.restartIce();
-      }
-    };
-
     if (localStream) {
       localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
     }
 
     peerConnections.current.set(remoteSessionId, pc);
     return pc;
-  }, [iceServers, sendSignal, activeChannel, localStream, mySessionId]);
+  }, [iceServers, sendSignal, activeChannel, localStream]);
 
   const handleSignal = useCallback(async (msg: SignalingMessage) => {
     if (!activeChannel || !isIceReady) return;
@@ -158,7 +155,6 @@ export function useRadioWebRTC(
 
         case 'channel_peers_update':
           const currentPeers = msg.payload.peers as string[];
-          // Limpiar peers que ya no están
           peerConnections.current.forEach((_, id) => {
             if (!currentPeers.includes(id)) closeConnection(id);
           });
@@ -172,17 +168,29 @@ export function useRadioWebRTC(
   const initLocalStream = useCallback(async () => {
     if (localStream) return localStream;
     try {
+      console.log('[WEBRTC] Solicitando acceso al micrófono...');
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, 
+        audio: { 
+          echoCancellation: true, 
+          noiseSuppression: true, 
+          autoGainControl: true 
+        }, 
         video: false 
       });
+      
+      // Muteamos inicialmente el track para que el PTT lo active
       stream.getAudioTracks().forEach(track => track.enabled = false);
       setLocalStream(stream);
       setMicStatus('granted');
       return stream;
     } catch (e: any) {
-      console.error('[WEBRTC] Error obteniendo micrófono:', e);
-      setMicStatus('denied');
+      if (e.name === 'NotAllowedError') {
+        console.warn('[WEBRTC] Permiso de micrófono denegado.');
+        setMicStatus('denied');
+      } else {
+        console.error('[WEBRTC] Error al acceder al micrófono:', e);
+        setMicStatus('error');
+      }
       return null;
     }
   }, [localStream]);
@@ -196,6 +204,7 @@ export function useRadioWebRTC(
         localStream.getTracks().forEach(t => t.stop());
         setLocalStream(null);
       }
+      setMicStatus('prompt');
     }
   }, [activeChannel, initLocalStream, closeConnection]);
 
@@ -208,5 +217,5 @@ export function useRadioWebRTC(
     }
   };
 
-  return { handleSignal, toggleLocalPTT, activeTransmissions, micStatus };
+  return { handleSignal, toggleLocalPTT, activeTransmissions, micStatus, initLocalStream };
 }
