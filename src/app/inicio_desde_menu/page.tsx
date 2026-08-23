@@ -2,24 +2,42 @@ import { getSessionUser } from '@/app/lib/auth-utils';
 import { redirect } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ShieldCheck, Radio, LogOut } from 'lucide-react';
+import { ShieldCheck, Radio, LogOut, AlertTriangle } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
 /**
- * Página de inicio post-login (Server Component).
- * Verifica la existencia de la sesión directamente desde las cookies.
+ * Página de inicio post-login.
  */
-export default async function InicioDesdeMenuPage() {
+export default async function InicioDesdeMenuPage({ searchParams }: { searchParams: any }) {
   const user = await getSessionUser();
+  const params = await searchParams;
 
-  if (!user) {
+  // Si no hay cookie pero hay ID en la URL, es que la cookie está en proceso de guardado
+  // O el usuario acaba de llegar. Mostramos un estado de "Cargando" o reintentamos.
+  if (!user && !params.id) {
     redirect('/');
   }
 
-  const avatarUrl = user.avatar 
+  // Si llegamos aquí y no hay 'user' pero sí 'id', mostramos un error de sesión
+  if (!user && params.id) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
+        <Card className="w-full max-w-md border-none shadow-2xl bg-white text-center p-10">
+          <AlertTriangle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-slate-900">Error de Sesión</h2>
+          <p className="text-sm text-slate-500 mt-2">Tu navegador ha bloqueado la cookie de identidad. Asegúrate de tener las cookies habilitadas y no usar navegación privada estricta.</p>
+          <Button asChild className="mt-6 w-full bg-primary">
+            <Link href="/">Reintentar Acceso</Link>
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  const avatarUrl = user?.avatar 
     ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
-    : `https://cdn.discordapp.com/embed/avatars/${Number(user.id) % 5}.png`;
+    : `https://cdn.discordapp.com/embed/avatars/${Number(user?.id || 0) % 5}.png`;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 relative overflow-hidden">
@@ -33,7 +51,7 @@ export default async function InicioDesdeMenuPage() {
             <div className="relative h-24 w-24 rounded-full overflow-hidden border-4 border-white shadow-2xl ring-2 ring-primary/5">
               <Image 
                 src={avatarUrl} 
-                alt={user.username} 
+                alt={user?.username || 'Usuario'} 
                 fill 
                 className="object-cover"
                 unoptimized
@@ -41,7 +59,7 @@ export default async function InicioDesdeMenuPage() {
             </div>
           </div>
           <CardTitle className="text-2xl font-bold text-slate-900 leading-tight">
-            {user.global_name || user.username}
+            {user?.global_name || user?.username}
           </CardTitle>
           <p className="text-[10px] font-bold text-primary uppercase tracking-[0.3em] mt-2">Agente Identificado</p>
         </CardHeader>

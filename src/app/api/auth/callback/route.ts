@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { DISCORD_CONFIG, setSessionUser, getRedirectUri, getPublicUrl, type DiscordUser } from '@/app/lib/auth-utils';
+import { DISCORD_CONFIG, getRedirectUri, getPublicUrl, SESSION_COOKIE, type DiscordUser } from '@/app/lib/auth-utils';
 
 /**
  * Route Handler centralizado para el intercambio de tokens de Discord.
- * Corrige el error de redirección a host interno (0.0.0.0).
+ * Corrige el error de persistencia de cookies en entornos con Proxy (Render).
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -53,7 +53,6 @@ export async function GET(request: Request) {
       return NextResponse.redirect(getPublicUrl('/?error=no_user_data', request));
     }
 
-    // 3. Establecer la sesión y cookie
     const user: DiscordUser = {
       id: userData.id,
       username: userData.username,
@@ -61,14 +60,23 @@ export async function GET(request: Request) {
       global_name: userData.global_name,
     };
 
-    await setSessionUser(user);
+    // 3. Crear la respuesta y establecer la cookie manualmente en los headers
+    // Esto es mucho más fiable que cookies().set() durante una redirección en Route Handlers.
+    const targetUrl = getPublicUrl(`/inicio_desde_menu?id=${user.id}`, request);
+    const response = NextResponse.redirect(targetUrl);
 
-    // 4. Redirigir al panel principal usando la URL pública detectada
-    const targetUrl = getPublicUrl('/inicio_desde_menu', request);
-    console.log('[AUTH_CALLBACK] Redirigiendo a:', targetUrl);
-    return NextResponse.redirect(targetUrl);
+    response.cookies.set(SESSION_COOKIE, JSON.stringify(user), {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 1 semana
+      path: '/',
+    });
+
+    console.log('[AUTH_CALLBACK] Sesión establecida y redirigiendo a:', targetUrl);
+    return response;
   } catch (error) {
     console.error('[AUTH_CALLBACK] Error crítico en el servidor:', error);
-    return NextResponse.redirect(getPublicUrl('/?error=server_error', request));
+    return NextResponse.redirect(getPublicUrl('/?error=server_error', error));
   }
 }

@@ -13,7 +13,7 @@ export interface DiscordUser {
   global_name?: string;
 }
 
-const SESSION_COOKIE = 'tenerife_rp_session';
+export const SESSION_COOKIE = 'tenerife_rp_session';
 
 /**
  * Persiste la sesión del usuario.
@@ -58,6 +58,7 @@ export async function logout() {
 
 /**
  * Detecta la información del host público de forma robusta.
+ * En Render, 'x-forwarded-host' es la única forma de obtener el dominio real.
  */
 export function getHostInfo(requestOrHeaders: Request | any) {
   let host = '';
@@ -74,14 +75,17 @@ export function getHostInfo(requestOrHeaders: Request | any) {
   const xProto = getHeader('x-forwarded-proto');
   const standardHost = getHeader('host');
 
-  // En entornos como Render o Workstations, x-forwarded-host es la verdad absoluta
+  // PRIORIDAD MÁXIMA: x-forwarded-host (Dominio de Render/Vercel)
   host = xHost || standardHost || '';
   proto = xProto || (host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https');
 
-  // Limpiar puertos internos o direcciones de enlace local
-  if (host.includes('0.0.0.0') || host.includes('127.0.0.1') || host.includes('localhost')) {
+  // Limpiar puertos internos de Render (0.0.0.0:10000)
+  if (host.includes('0.0.0.0') || host.includes('10000')) {
     if (xHost) {
       host = xHost.split(':')[0];
+    } else {
+      // Fallback si no hay x-forwarded-host (poco probable en Render)
+      host = 'teneriferpradio.onrender.com';
     }
   }
 
@@ -95,9 +99,8 @@ export function getHostInfo(requestOrHeaders: Request | any) {
 
 export function getRedirectUri(requestOrHeaders: Request | any) {
   const { host, proto } = getHostInfo(requestOrHeaders);
-  const uri = `${proto}://${host}/api/auth/callback`;
-  console.log('[AUTH_UTILS] Redirect URI Calculado:', uri);
-  return uri;
+  // IMPORTANTE: El redirect_uri debe ser exactamente el mismo en el Login y en el Callback
+  return `${proto}://${host}/api/auth/callback`;
 }
 
 export function getPublicUrl(path: string, requestOrHeaders: Request | any) {
