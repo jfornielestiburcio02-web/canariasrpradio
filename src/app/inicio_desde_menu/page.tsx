@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { handleDiscordAuth } from '@/app/actions/auth';
 import { type DiscordUser } from '@/app/lib/auth-utils';
-import { Loader2, ShieldCheck, Radio, AlertCircle, LogOut } from 'lucide-react';
+import { Loader2, ShieldCheck, Radio, AlertCircle, LogOut, RefreshCcw } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -20,19 +20,22 @@ function AuthContent() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (code && !user) {
+    if (code && !user && !error) {
       handleDiscordAuth(code)
         .then((res) => {
           if (res.success) {
             setUser(res.user);
           } else {
-            setError(res.error || 'Error de autenticación');
+            setError(res.error || 'Error de autenticación desconocido');
           }
         })
-        .catch(() => setError('Error de conexión'))
+        .catch((err) => {
+          console.error('Connection error:', err);
+          setError('Fallo de conexión con el servidor de identidad');
+        })
         .finally(() => setLoading(false));
     }
-  }, [code, user]);
+  }, [code, user, error]);
 
   if (loading) {
     return (
@@ -40,7 +43,7 @@ function AuthContent() {
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <div className="text-center space-y-2">
           <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Sincronizando con la red...</p>
-          <p className="text-[10px] text-slate-400 uppercase tracking-tighter">Estableciendo sesión segura</p>
+          <p className="text-[10px] text-slate-400 uppercase tracking-tighter">Validando credenciales de agente</p>
         </div>
       </div>
     );
@@ -55,13 +58,22 @@ function AuthContent() {
               <AlertCircle className="h-10 w-10 text-destructive" />
             </div>
           </div>
-          <CardTitle className="text-xl font-bold text-destructive">Error de Acceso</CardTitle>
+          <CardTitle className="text-xl font-bold text-destructive">Fallo de Identificación</CardTitle>
         </CardHeader>
         <CardContent className="text-center space-y-6">
-          <p className="text-sm text-slate-500">{error}</p>
-          <Button asChild variant="outline" className="w-full h-12">
-            <Link href="/">Volver al Inicio</Link>
-          </Button>
+          <div className="p-4 bg-red-50 rounded-xl border border-red-100">
+            <p className="text-xs text-red-700 font-medium leading-relaxed">{error}</p>
+          </div>
+          <div className="grid gap-3">
+            <Button asChild className="w-full h-12 bg-primary hover:bg-primary/90">
+              <Link href="/" className="flex items-center gap-2">
+                <RefreshCcw className="h-4 w-4" /> Reintentar Acceso
+              </Link>
+            </Button>
+            <Button asChild variant="ghost" className="text-slate-400">
+              <Link href="/">Volver al Inicio</Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );
@@ -138,11 +150,15 @@ function AuthContent() {
 export default function CallbackPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 relative overflow-hidden">
-      {/* Elementos decorativos de fondo */}
       <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl -mr-48 -mt-48" />
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl -ml-48 -mb-48" />
       
-      <Suspense fallback={<Loader2 className="h-10 w-10 animate-spin text-slate-200" />}>
+      <Suspense fallback={
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-slate-200" />
+          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Cargando Módulo de Seguridad...</p>
+        </div>
+      }>
         <AuthContent />
       </Suspense>
     </div>
