@@ -17,21 +17,20 @@ const SESSION_COOKIE = 'tenerife_rp_session';
 
 /**
  * Persiste la sesión del usuario.
- * Ajustado para máxima compatibilidad con Render (HTTPS) y entornos de desarrollo.
+ * Ajustado para máxima compatibilidad con Render (HTTPS) y dominios personalizados.
  */
 export async function setSessionUser(user: DiscordUser) {
   const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
   
-  // Determinamos si estamos en un entorno seguro (HTTPS)
-  const isProd = process.env.NODE_ENV === 'production';
+  console.log('[AUTH_UTILS] Estableciendo sesión para:', user.username);
 
   cookieStore.set(SESSION_COOKIE, JSON.stringify(user), {
     httpOnly: true,
-    secure: true, // Siempre true para Discord OAuth y Render
+    secure: true, // Siempre true para producción en Render/Vercel
     sameSite: 'lax',
     maxAge: 60 * 60 * 24 * 7, // 1 semana
-    path: '/',
+    path: '/', // Crucial para que sea accesible en /rad y /jef
   });
 }
 
@@ -41,7 +40,6 @@ export async function getSessionUser(): Promise<DiscordUser | null> {
   const cookie = cookieStore.get(SESSION_COOKIE);
   
   if (!cookie || !cookie.value) {
-    console.log('[AUTH_UTILS] Cookie de sesión no encontrada');
     return null;
   }
   
@@ -60,8 +58,8 @@ export async function logout() {
 }
 
 /**
- * Genera el redirect_uri dinámicamente basado en los headers de la petición.
- * Optimizado para Render, Vercel y Cloud Workstations.
+ * Genera el redirect_uri dinámicamente.
+ * El endpoint de callback debe ser el mismo que el registrado en Discord.
  */
 export function getRedirectUri(requestOrHeaders: Request | any) {
   let host = '';
@@ -78,20 +76,16 @@ export function getRedirectUri(requestOrHeaders: Request | any) {
   const xProto = getHeader('x-forwarded-proto');
   const standardHost = getHeader('host');
 
+  // En Render/Vercel, x-forwarded-host contiene el dominio público
   host = xHost || standardHost || '';
   proto = xProto || (host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https');
 
-  // Limpiar puertos internos si existen en la URL pública (común en Workstations)
-  if (host.includes(':') && (host.includes('.cloudworkstations.dev') || host.includes('.onrender.com') || host.includes('.vercel.app'))) {
+  // Limpiar puertos internos de Render si aparecen
+  if (host.includes('.onrender.com') || host.includes('.vercel.app')) {
     host = host.split(':')[0];
   }
 
-  // Caso especial para local en Workstations
-  if (host.includes('127.0.0.1') || host.includes('localhost')) {
-    proto = 'http';
-  }
-
-  const uri = `${proto}://${host}/inicio_desde_menu`;
-  console.log('[AUTH_UTILS] Generando Redirect URI:', uri);
+  const uri = `${proto}://${host}/api/auth/callback`;
+  console.log('[AUTH_UTILS] Redirect URI Calculado:', uri);
   return uri;
 }

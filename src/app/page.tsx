@@ -7,7 +7,7 @@ import { headers } from 'next/headers';
 import { DISCORD_CONFIG, getRedirectUri } from '@/app/lib/auth-utils';
 
 export default async function LoginPage() {
-  // Generar URL de Discord dinámica basada en el host actual (Render/Workstation)
+  // Generar URL de Discord dinámica basada en el host actual
   const headersList = await headers();
   const redirectUri = getRedirectUri(headersList);
   
@@ -18,12 +18,10 @@ export default async function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-white font-sans">
       <Card className="w-full max-w-md border-slate-200 shadow-2xl bg-white rounded-2xl overflow-hidden">
-        {/* Línea superior institucional */}
         <div className="h-2 bg-primary w-full" />
         
         <CardHeader className="space-y-6 text-center pt-12 pb-8 px-8">
           <div className="flex justify-center">
-            {/* Logo Circular Institucional */}
             <div className="relative h-32 w-32 rounded-full overflow-hidden border-4 border-slate-50 shadow-xl ring-1 ring-slate-100 bg-slate-50">
               {bgImage && (
                 <Image
@@ -52,7 +50,6 @@ export default async function LoginPage() {
         </CardHeader>
         
         <CardContent className="space-y-8 px-10 pb-12">
-          {/* Divisor estético */}
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t border-slate-100" />
@@ -78,7 +75,6 @@ export default async function LoginPage() {
               Acceso restringido. El uso no autorizado de este sistema será sancionado según la normativa vigente del cuerpo.
             </p>
             
-            {/* Lema Institucional */}
             <div className="flex justify-center items-center gap-6 text-[8px] font-black text-slate-300 uppercase tracking-[0.4em]">
               <span>Seguridad</span>
               <span>•</span>
