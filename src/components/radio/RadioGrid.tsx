@@ -1,4 +1,3 @@
-
 'use client';
 
 import { RadioChannel, WSStatus } from '@/types/radio';
@@ -127,7 +126,7 @@ export function RadioGrid({
         }
       }
     }
-    return { title: activeChannel, category: 'Personalizada', icon: <RadioIcon /> };
+    return { title: activeChannel, category: 'Personalizada', icon: <RadioIcon className="h-6 w-6" /> };
   }, [activeChannel]);
 
   return (

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -40,7 +39,6 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
   const { toast } = useToast();
   const db = useFirestore();
   
-  // Capturamos el inicio de sesión EXACTO para filtrar avisos antiguos
   const sessionStartTime = useRef(Date.now());
   const lastSyncChannel = useRef<string | null>(null);
   const lastSyncPlaca = useRef<string | null>(null);
@@ -85,39 +83,44 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
       collection(db, 'erlcEvents'), 
       where('tipo', '==', 'PANICO'),
       orderBy('timestamp', 'desc'), 
-      limit(1)
+      limit(5)
     );
     
     const unsubscribePanic = onSnapshot(qPanic, (snapshot) => {
-      if (snapshot.empty) return;
-      const event = snapshot.docs[0].data();
-      const eventId = snapshot.docs[0].id;
-      const eventTime = event.timestamp?.toDate().getTime() || 0;
-      const sessionKey = `panic_${eventId}`;
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const event = change.doc.data();
+          const eventId = change.doc.id;
+          if (!event.timestamp) return;
+          
+          const eventTime = event.timestamp.toDate().getTime();
+          const sessionKey = `panic_${eventId}`;
 
-      if (eventTime > sessionStartTime.current && !sessionStorage.getItem(sessionKey)) {
-        sessionStorage.setItem(sessionKey, 'true');
-        
-        const audio = new Audio(panicAlertUrl);
-        audio.play().catch(() => {});
-        
-        const msg = new SpeechSynthesisUtterance(`Alerta pánico, pulsado por el agente ${event.sujeto}. Repito, pánico activado.`);
-        msg.lang = 'es-ES';
-        window.speechSynthesis.speak(msg);
+          if (eventTime > sessionStartTime.current && !sessionStorage.getItem(sessionKey)) {
+            sessionStorage.setItem(sessionKey, 'true');
+            
+            const audio = new Audio(panicAlertUrl);
+            audio.play().catch(() => {});
+            
+            const msg = new SpeechSynthesisUtterance(`Alerta pánico, pulsado por el agente ${event.sujeto}. Repito, pánico activado.`);
+            msg.lang = 'es-ES';
+            window.speechSynthesis.speak(msg);
 
-        toast({
-          variant: "destructive",
-          title: "¡BOTÓN DE PÁNICO ACTIVADO!",
-          description: `Agente ${event.sujeto}`,
-          duration: 10000,
-        });
-      }
+            toast({
+              variant: "destructive",
+              title: "¡BOTÓN DE PÁNICO ACTIVADO!",
+              description: `Agente ${event.sujeto}`,
+              duration: 10000,
+            });
+          }
+        }
+      });
     });
 
     return () => unsubscribePanic();
   }, [db, toast]);
 
-  // --- Listener Global de Emergencias 112 (Audio Sincronizado) ---
+  // --- Listener Global de Emergencias 112 (Secuencia de Audio) ---
   useEffect(() => {
     if (!db) return;
     const startSoundUrl = "https://res.cloudinary.com/dgvh0c87y/video/upload/v1787391237/1514375003628376116_phw9ti.ogg";
@@ -126,47 +129,53 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     const qCalls = query(
       collection(db, 'emergencyCalls'), 
       orderBy('createdAt', 'desc'), 
-      limit(1)
+      limit(5)
     );
 
     const unsubscribeCalls = onSnapshot(qCalls, (snapshot) => {
-      if (snapshot.empty) return;
-      const call = snapshot.docs[0].data();
-      const callId = snapshot.docs[0].id;
-      const callTime = call.createdAt?.toDate().getTime() || 0;
-      const sessionKey = `call_alert_${callId}`;
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const call = change.doc.data();
+          const callId = change.doc.id;
+          if (!call.createdAt) return;
 
-      // Solo avisos posteriores a la carga de la página que no hayan sonado
-      if (callTime > sessionStartTime.current && !sessionStorage.getItem(sessionKey)) {
-        sessionStorage.setItem(sessionKey, 'true');
-        
-        const startAudio = new Audio(startSoundUrl);
-        startAudio.play().then(() => {
-          startAudio.onended = () => {
-            const text = `${call.motivo}. En ${call.ubicacion}. Unidades: ${call.unidades.join(', ')}.`;
-            const msg = new SpeechSynthesisUtterance(text);
-            msg.lang = 'es-ES';
-            msg.rate = 0.9;
-            msg.onend = () => {
-              const endAudio = new Audio(endSoundUrl);
-              endAudio.play().catch(() => {});
-            };
-            window.speechSynthesis.speak(msg);
-          };
-        }).catch(() => {
-          // Si el audio inicial falla (bloqueo navegador), ejecutamos al menos el TTS
-          const text = `${call.motivo}. En ${call.ubicacion}. Unidades: ${call.unidades.join(', ')}.`;
-          const msg = new SpeechSynthesisUtterance(text);
-          msg.lang = 'es-ES';
-          window.speechSynthesis.speak(msg);
-        });
+          const callTime = call.createdAt.toDate().getTime();
+          const sessionKey = `call_alert_${callId}`;
 
-        toast({
-          title: "CENTRO DE MANDO 112",
-          description: `${call.motivo} en ${call.ubicacion}`,
-          duration: 12000,
-        });
-      }
+          if (callTime > sessionStartTime.current && !sessionStorage.getItem(sessionKey)) {
+            sessionStorage.setItem(sessionKey, 'true');
+            
+            const startAudio = new Audio(startSoundUrl);
+            const endAudio = new Audio(endSoundUrl);
+
+            // Secuencia: Sonido Inicio -> TTS -> Sonido Fin
+            startAudio.play().then(() => {
+              startAudio.onended = () => {
+                const text = `${call.motivo}. En ${call.ubicacion}. Unidades: ${call.unidades.join(', ')}.`;
+                const msg = new SpeechSynthesisUtterance(text);
+                msg.lang = 'es-ES';
+                msg.rate = 0.9;
+                msg.onend = () => {
+                  endAudio.play().catch(() => {});
+                };
+                window.speechSynthesis.speak(msg);
+              };
+            }).catch(() => {
+              // Fail-safe si el navegador bloquea el audio inicial
+              const text = `${call.motivo}. En ${call.ubicacion}. Unidades: ${call.unidades.join(', ')}.`;
+              const msg = new SpeechSynthesisUtterance(text);
+              msg.lang = 'es-ES';
+              window.speechSynthesis.speak(msg);
+            });
+
+            toast({
+              title: "CENTRO DE MANDO 112",
+              description: `${call.motivo} en ${call.ubicacion}`,
+              duration: 12000,
+            });
+          }
+        }
+      });
     });
 
     return () => unsubscribeCalls();
@@ -254,7 +263,6 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
   }, [db]);
 
   const { data: agentsInRadio } = useCollection<any>(agentsQuery);
-
   const { status, peers, send, setOnMessage } = useRadioWebSocket(discordUser.id, activeChannel);
   
   const handleKickSignal = useCallback((msg: SignalingMessage) => {
