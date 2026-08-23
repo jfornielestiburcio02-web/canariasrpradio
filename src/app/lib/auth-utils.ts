@@ -47,30 +47,32 @@ export async function logout() {
 
 /**
  * Genera el redirect_uri dinámicamente basado en los headers de la petición.
- * Prioriza X-Forwarded-Host para detectar el dominio público en Workstations y Vercel.
+ * Optimizado para Vercel y Cloud Workstations.
  */
 export function getRedirectUri(requestOrHeaders: Request | any) {
   let host = '';
   let proto = 'https';
 
-  if (requestOrHeaders instanceof Request) {
-    const xHost = requestOrHeaders.headers.get('x-forwarded-host');
-    const xProto = requestOrHeaders.headers.get('x-forwarded-proto');
-    host = xHost || requestOrHeaders.headers.get('host') || '';
-    proto = xProto || (host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https');
-  } else if (typeof requestOrHeaders.get === 'function') {
-    const xHost = requestOrHeaders.get('x-forwarded-host');
-    const xProto = requestOrHeaders.get('x-forwarded-proto');
-    host = xHost || requestOrHeaders.get('host') || '';
-    proto = xProto || (host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https');
-  }
+  const getHeader = (name: string) => {
+    if (requestOrHeaders instanceof Request) return requestOrHeaders.headers.get(name);
+    if (typeof requestOrHeaders.get === 'function') return requestOrHeaders.get(name);
+    if (requestOrHeaders.headers && typeof requestOrHeaders.headers.get === 'function') return requestOrHeaders.headers.get(name);
+    return null;
+  };
 
-  // Limpiar el host si contiene puertos internos que Discord no acepta desde el exterior
-  if (host.includes('.cloudworkstations.dev') && host.includes(':')) {
+  const xHost = getHeader('x-forwarded-host');
+  const xProto = getHeader('x-forwarded-proto');
+  const standardHost = getHeader('host');
+
+  host = xHost || standardHost || '';
+  proto = xProto || (host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https');
+
+  // Limpiar puertos internos de Workstations si existen en la URL pública
+  if (host.includes(':') && (host.includes('.cloudworkstations.dev') || host.includes('.vercel.app'))) {
     host = host.split(':')[0];
   }
 
   const uri = `${proto}://${host}/inicio_desde_menu`;
-  console.log('[AUTH_UTILS] Redirect URI detectada:', uri);
+  console.log('[AUTH_UTILS] Redirect URI Final:', uri);
   return uri;
 }

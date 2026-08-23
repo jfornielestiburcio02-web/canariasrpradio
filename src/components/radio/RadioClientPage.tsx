@@ -7,7 +7,7 @@ import { useRadioWebSocket } from '@/hooks/useRadioWebSocket';
 import { useRadioWebRTC } from '@/hooks/useRadioWebRTC';
 import { usePTT } from '@/hooks/usePTT';
 import { RadioGrid } from '@/components/radio/RadioGrid';
-import { Radio as RadioIcon, LogOut, Shield, BadgeCheck, Pencil, Settings2, Keyboard, Headset, Bell, Activity } from 'lucide-react';
+import { Radio, LogOut, Shield, BadgeCheck, Pencil, Settings2, Keyboard, Headset, Bell, Activity } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,14 +73,14 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     }
   }, [db, panicLoading, userData?.radio?.placa, discordUser.global_name, discordUser.username, toast]);
 
-  // Alertas de Pánico
+  // Alertas de Pánico Globales
   useEffect(() => {
     if (!db) return;
     const qPanic = query(
       collection(db, 'erlcEvents'), 
       where('tipo', '==', 'PANICO'),
       orderBy('timestamp', 'desc'), 
-      limit(5)
+      limit(1)
     );
     
     const unsubscribePanic = onSnapshot(qPanic, (snapshot) => {
@@ -103,10 +103,10 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     return () => unsubscribePanic();
   }, [db, toast]);
 
-  // Alertas 112
+  // Avisos 112 Globales con Sonido Entrada/Salida
   useEffect(() => {
     if (!db) return;
-    const qCalls = query(collection(db, 'emergencyCalls'), orderBy('createdAt', 'desc'), limit(5));
+    const qCalls = query(collection(db, 'emergencyCalls'), orderBy('createdAt', 'desc'), limit(1));
     const unsubscribeCalls = onSnapshot(qCalls, (snapshot) => {
       snapshot.docChanges().forEach((change) => {
         if (change.type === 'added') {
@@ -116,12 +116,15 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
           if (callTime > sessionStartTime.current) {
             const startAudio = new Audio("https://res.cloudinary.com/dgvh0c87y/video/upload/v1787391237/1514375003628376116_phw9ti.ogg");
             const endAudio = new Audio("https://res.cloudinary.com/dgvh0c87y/video/upload/v1787391249/radio_finalizar_invertido_aiifyo.ogg");
+            
             startAudio.play().then(() => {
               startAudio.onended = () => {
                 const text = `${call.motivo}. En ${call.ubicacion}. Unidades: ${call.unidades.join(', ')}.`;
                 const msg = new SpeechSynthesisUtterance(text);
                 msg.lang = 'es-ES';
-                msg.onend = () => endAudio.play().catch(() => {});
+                msg.onend = () => {
+                  endAudio.play().catch(() => {});
+                };
                 window.speechSynthesis.speak(msg);
               };
             }).catch(() => {});
@@ -132,7 +135,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     return () => unsubscribeCalls();
   }, [db, toast]);
 
-  // Ajustes PTT
+  // Ajustes de teclado
   useEffect(() => {
     const savedPtt = localStorage.getItem('radio_ptt_key');
     const savedPanic = localStorage.getItem('radio_panic_key');
@@ -174,7 +177,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     return () => window.removeEventListener('keydown', handlePanicKeyDown);
   }, [panicKey, triggerPanic, isMobile, isListeningKey]);
 
-  // Sincronización Estable Firestore
+  // Sincronización con Firestore (Evita recargas infinitas)
   useEffect(() => {
     if (!db || !discordUser.id) return;
     if (lastSyncChannel.current === activeChannel) return;
@@ -188,7 +191,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
         ultimaConexion: serverTimestamp()
       }
     }, { merge: true });
-  }, [activeChannel, db, discordUser.id]);
+  }, [activeChannel, db, discordUser.id, discordUser.global_name, discordUser.username, discordUser.avatar]);
 
   const handleSavePlaca = async () => {
     if (db && discordUser.id && placaInput !== lastSyncPlaca.current) {
@@ -207,7 +210,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     }
   }, [userData?.radio?.placa, isEditingPlaca]);
 
-  // WebRTC / WS
+  // WebSocket y WebRTC
   const agentsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(collection(db, 'users'), where('radio.canalActual', '!=', null));
@@ -216,13 +219,6 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
   const { data: agentsInRadio } = useCollection<any>(agentsQuery);
   const { status, peers, send, setOnMessage } = useRadioWebSocket(discordUser.id, activeChannel);
   
-  const handleKickSignal = useCallback((msg: SignalingMessage) => {
-    if (msg.type === 'force_leave' && msg.to === discordUser.id) {
-      setActiveChannel(null);
-      toast({ variant: "destructive", title: "SISTEMA: EXPULSIÓN", description: "Fuiste retirado de la frecuencia." });
-    }
-  }, [discordUser.id, toast]);
-
   const stableSend = useCallback((msg: any) => send(msg), [send]);
   const { handleSignal: webrtcHandler, toggleLocalPTT, activeTransmissions } = useRadioWebRTC(discordUser.id, stableSend, peers, activeChannel);
   
@@ -232,40 +228,38 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
 
   useEffect(() => {
     setOnMessage((msg) => {
-      handleKickSignal(msg);
+      if (msg.type === 'force_leave' && msg.to === discordUser.id) {
+        setActiveChannel(null);
+        toast({ variant: "destructive", title: "EXPULSIÓN", description: "Has sido retirado de la frecuencia." });
+      }
       webrtcHandler(msg);
     });
-  }, [handleKickSignal, webrtcHandler, setOnMessage]);
-
-  const handleKickAgent = (targetUserId: string) => {
-    if (!isAdminVs || !activeChannel) return;
-    send({ type: 'force_leave', to: targetUserId, channel: activeChannel });
-  };
+  }, [discordUser.id, toast, webrtcHandler, setOnMessage]);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <header className="bg-white border-b border-slate-200 px-8 h-20 flex items-center justify-between shrink-0 sticky top-0 z-50">
         <div className="flex items-center gap-4">
           <div className="bg-primary/10 p-2.5 rounded-xl">
-            <RadioIcon className="h-6 w-6 text-primary" />
+            <Radio className="h-6 w-6 text-primary" />
           </div>
           <nav className="hidden md:flex items-center gap-8 ml-4">
             <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary border-b-2 border-primary pb-1">Red Radio</span>
             <Link href="/rad/map" className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-slate-600 transition-all flex items-center gap-2">
-              <Bell className="h-3 w-3" /> Monitor Institucional
+              <Bell className="h-3 w-3" /> Monitor Satelital
             </Link>
             {is112 && (
               <Link href="/rad/112" className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-red-500 transition-all flex items-center gap-2">
-                <Headset className="h-3 w-3" /> Coordinador 112
+                <Headset className="h-3 w-3" /> Centro 112
               </Link>
             )}
           </nav>
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex flex-col items-end mr-2 min-w-[120px]">
+          <div className="flex flex-col items-end mr-2">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-700 truncate max-w-[150px]">{discordUser.global_name || discordUser.username}</span>
+              <span className="text-xs font-bold text-slate-700">{discordUser.global_name || discordUser.username}</span>
               <BadgeCheck className="h-3.5 w-3.5 text-blue-500" />
             </div>
             <div className="flex items-center gap-1.5 mt-0.5">
@@ -300,7 +294,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
               <div className="space-y-6">
                 <div className="flex items-center gap-2 text-slate-800">
                   <Keyboard className="h-4 w-4" />
-                  <h4 className="text-xs font-black uppercase tracking-widest">Ajustes</h4>
+                  <h4 className="text-xs font-black uppercase tracking-widest">Ajustes Rápidos</h4>
                 </div>
                 <div className="space-y-4">
                   <div className="space-y-2">
@@ -349,7 +343,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
             isMobile={isMobile}
             agents={agentsInRadio || []}
             isAdmin={isAdminVs}
-            onKick={handleKickAgent}
+            onKick={(tid) => send({ type: 'force_leave', to: tid, channel: activeChannel! })}
             currentUserId={discordUser.id}
           />
         </div>
