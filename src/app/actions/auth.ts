@@ -9,7 +9,7 @@ export async function handleDiscordAuth(code: string) {
     const headersList = await headers();
     const redirectUri = getRedirectUri(headersList);
     
-    console.log('[AUTH_ACTION] Iniciando intercambio de token con URI:', redirectUri);
+    console.log('[AUTH_ACTION] Intercambio de token en:', redirectUri);
 
     const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
       method: 'POST',
@@ -25,18 +25,15 @@ export async function handleDiscordAuth(code: string) {
       },
     });
 
-    const tokenText = await tokenResponse.text();
-    if (!tokenText) throw new Error('La respuesta del token de Discord está vacía');
-    
-    const tokens = JSON.parse(tokenText);
+    const tokens = await tokenResponse.json();
 
     if (tokens.error) {
-      console.error('[AUTH_ACTION] Discord Token Error:', tokens.error, tokens.error_description);
+      console.error('[AUTH_ACTION] Error de Discord:', tokens.error_description || tokens.error);
       throw new Error(tokens.error_description || `Error de Discord: ${tokens.error}`);
     }
 
     if (!tokens.access_token) {
-      throw new Error('No se recibió el access_token de Discord');
+      throw new Error('No se recibió el token de acceso');
     }
 
     const userResponse = await fetch('https://discord.com/api/users/@me', {
@@ -48,8 +45,7 @@ export async function handleDiscordAuth(code: string) {
     const userData = await userResponse.json();
     
     if (!userData.id) {
-      console.error('[AUTH_ACTION] Perfil inválido recibido:', userData);
-      throw new Error(userData.message || 'No se pudo obtener el ID del perfil de Discord');
+      throw new Error('No se pudo obtener el perfil de Discord');
     }
 
     const discordUser: DiscordUser = {
@@ -64,6 +60,6 @@ export async function handleDiscordAuth(code: string) {
     return { success: true, user: discordUser };
   } catch (error: any) {
     console.error('[AUTH_ACTION] Error crítico:', error.message);
-    return { success: false, error: error.message || 'Error interno del servidor de autenticación' };
+    return { success: false, error: error.message || 'Error en el servidor de autenticación' };
   }
 }

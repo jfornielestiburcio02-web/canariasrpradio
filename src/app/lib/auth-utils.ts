@@ -48,19 +48,23 @@ export async function logout() {
 
 /**
  * Genera el redirect_uri dinámicamente basado en los headers de la petición.
+ * Prioriza X-Forwarded-Host para detectar el dominio público en Workstations y Vercel.
  */
 export function getRedirectUri(requestOrHeaders: Request | any) {
-  let host = '';
-  
-  if (requestOrHeaders instanceof Request) {
-    host = requestOrHeaders.headers.get('host') || '';
-  } else if (typeof requestOrHeaders.get === 'function') {
-    host = requestOrHeaders.get('host') || '';
-  }
+  const getHeader = (name: string) => {
+    if (requestOrHeaders instanceof Request) {
+      return requestOrHeaders.headers.get(name);
+    } else if (typeof requestOrHeaders.get === 'function') {
+      return requestOrHeaders.get(name);
+    }
+    return null;
+  };
 
-  // Detectar protocolo
-  const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
-  const protocol = isLocal ? 'http' : 'https';
+  const xHost = getHeader('x-forwarded-host');
+  const host = xHost || getHeader('host') || '';
+  const proto = getHeader('x-forwarded-proto') || (host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https');
   
-  return `${protocol}://${host}/inicio_desde_menu`;
+  console.log('[AUTH_UTILS] Detectando URI:', { proto, host, isForwarded: !!xHost });
+
+  return `${proto}://${host}/inicio_desde_menu`;
 }
