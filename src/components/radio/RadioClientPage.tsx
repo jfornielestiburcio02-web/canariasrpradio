@@ -39,6 +39,8 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const db = useFirestore();
+  
+  // Capturamos el inicio de sesión EXACTO para filtrar avisos antiguos
   const sessionStartTime = useRef(Date.now());
   const lastSyncChannel = useRef<string | null>(null);
   const lastSyncPlaca = useRef<string | null>(null);
@@ -74,7 +76,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     }
   }, [db, panicLoading, userData?.radio?.placa, discordUser.global_name, discordUser.username, toast]);
 
-  // --- Listener de Pánico (Audio Global) ---
+  // --- Listener Global de Pánico (Audio) ---
   useEffect(() => {
     if (!db) return;
     const panicAlertUrl = "https://www.myinstants.com/media/sounds/panic-button.mp3";
@@ -97,16 +99,11 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
         sessionStorage.setItem(sessionKey, 'true');
         
         const audio = new Audio(panicAlertUrl);
-        audio.play().then(() => {
-          const msg = new SpeechSynthesisUtterance(`Alerta pánico, pulsado por el agente ${event.sujeto}. Repito, pánico activado.`);
-          msg.lang = 'es-ES';
-          window.speechSynthesis.speak(msg);
-        }).catch(() => {
-          // Si el audio falla, al menos el TTS
-          const msg = new SpeechSynthesisUtterance(`Alerta pánico, pulsado por el agente ${event.sujeto}. Repito, pánico activado.`);
-          msg.lang = 'es-ES';
-          window.speechSynthesis.speak(msg);
-        });
+        audio.play().catch(() => {});
+        
+        const msg = new SpeechSynthesisUtterance(`Alerta pánico, pulsado por el agente ${event.sujeto}. Repito, pánico activado.`);
+        msg.lang = 'es-ES';
+        window.speechSynthesis.speak(msg);
 
         toast({
           variant: "destructive",
@@ -120,29 +117,33 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     return () => unsubscribePanic();
   }, [db, toast]);
 
-  // --- Listener de Avisos 112 (Audio Global sincronizado) ---
+  // --- Listener Global de Emergencias 112 (Audio Sincronizado) ---
   useEffect(() => {
     if (!db) return;
     const startSoundUrl = "https://res.cloudinary.com/dgvh0c87y/video/upload/v1787391237/1514375003628376116_phw9ti.ogg";
     const endSoundUrl = "https://res.cloudinary.com/dgvh0c87y/video/upload/v1787391249/radio_finalizar_invertido_aiifyo.ogg";
 
-    const qCalls = query(collection(db, 'emergencyCalls'), orderBy('createdAt', 'desc'), limit(1));
+    const qCalls = query(
+      collection(db, 'emergencyCalls'), 
+      orderBy('createdAt', 'desc'), 
+      limit(1)
+    );
+
     const unsubscribeCalls = onSnapshot(qCalls, (snapshot) => {
       if (snapshot.empty) return;
       const call = snapshot.docs[0].data();
       const callId = snapshot.docs[0].id;
       const callTime = call.createdAt?.toDate().getTime() || 0;
-      const sessionKey = `call_${callId}`;
+      const sessionKey = `call_alert_${callId}`;
 
-      // Solo procesar si es nuevo y tiene timestamp válido
-      if (call.createdAt && eventTime > sessionStartTime.current && !sessionStorage.getItem(sessionKey)) {
+      // Solo avisos posteriores a la carga de la página que no hayan sonado
+      if (callTime > sessionStartTime.current && !sessionStorage.getItem(sessionKey)) {
         sessionStorage.setItem(sessionKey, 'true');
         
-        // Secuencia completa de Audio
         const startAudio = new Audio(startSoundUrl);
         startAudio.play().then(() => {
           startAudio.onended = () => {
-            const text = `${call.motivo}. En ${call.ubicacion}. Unidades: ${call.unidades.join(' ')}.`;
+            const text = `${call.motivo}. En ${call.ubicacion}. Unidades: ${call.unidades.join(', ')}.`;
             const msg = new SpeechSynthesisUtterance(text);
             msg.lang = 'es-ES';
             msg.rate = 0.9;
@@ -153,8 +154,8 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
             window.speechSynthesis.speak(msg);
           };
         }).catch(() => {
-          // Failsafe TTS si falla el audio inicial
-          const text = `${call.motivo}. En ${call.ubicacion}. Unidades: ${call.unidades.join(' ')}.`;
+          // Si el audio inicial falla (bloqueo navegador), ejecutamos al menos el TTS
+          const text = `${call.motivo}. En ${call.ubicacion}. Unidades: ${call.unidades.join(', ')}.`;
           const msg = new SpeechSynthesisUtterance(text);
           msg.lang = 'es-ES';
           window.speechSynthesis.speak(msg);
@@ -171,7 +172,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     return () => unsubscribeCalls();
   }, [db, toast]);
 
-  // --- Teclas y Configuración ---
+  // --- Ajustes y Teclas ---
   useEffect(() => {
     const savedPtt = localStorage.getItem('radio_ptt_key');
     const savedPanic = localStorage.getItem('radio_panic_key');
