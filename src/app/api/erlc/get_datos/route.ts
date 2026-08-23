@@ -13,11 +13,11 @@ export async function POST(req: Request) {
   // 1. Detección de Headers oficiales (Case-insensitive)
   const signature = req.headers.get('X-ERLC-Signature') || req.headers.get('x-erlc-signature');
   const probeValue = req.headers.get('X-ERLC-ProbeValue') || req.headers.get('x-erlc-probevalue');
-  const contentLength = req.headers.get('content-length');
 
   // 2. Validación de Handshake (ER:LC Probe)
   // Roblox requiere un código 4xx (400) con cuerpo JSON válido para aceptar la URL.
-  if (probeValue || (signature && (!contentLength || contentLength === '0'))) {
+  // Confiamos en probeValue para evitar descartar eventos legítimos si el content-length es alterado por proxies.
+  if (probeValue) {
     console.log('[ERLC_HANDSHAKE] Detectada validación inicial (Probe) de Roblox.');
     return NextResponse.json(
       { status: 'error', message: 'ERLC Validation Probe Handled' }, 
