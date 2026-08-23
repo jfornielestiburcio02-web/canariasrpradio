@@ -1,15 +1,12 @@
-
 import { getSessionUser } from '@/app/lib/auth-utils';
 import { redirect } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Activity, ArrowLeft, Radio, AlertTriangle, Users, Headset } from 'lucide-react';
+import { Activity, ArrowLeft, Radio, AlertTriangle, Headset } from 'lucide-react';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
 import { CoordinatorVoiceHandler } from '@/components/radio/CoordinatorVoiceHandler';
 import { EmergencyCallModal } from '@/components/radio/EmergencyCallModal';
 import { EmergencyCallList } from '@/components/radio/EmergencyCallList';
-import { headers } from 'next/headers';
 
 export default async function Coordinator112Page() {
   const user = await getSessionUser();
@@ -18,18 +15,19 @@ export default async function Coordinator112Page() {
     redirect('/');
   }
 
-  const headersList = await headers();
-  const host = headersList.get('host') || 'localhost:3000';
-  const protocol = host.includes('localhost') ? 'http' : 'https';
-  
+  // Validación directa desde el servidor
   let auth112 = { autorizado: false };
   try {
-    const res = await fetch(`${protocol}://${host}/api/proxy/roles?type=112&id=${user.id}`, { 
-      cache: 'no-store'
+    const res = await fetch(`http://nc.lynxnodes.es:25633/comprobar_112?ID=${user.id}`, { 
+      cache: 'no-store',
+      signal: AbortSignal.timeout(4000)
     });
-    if (res.ok) auth112 = await res.json();
+    if (res.ok) {
+      const text = await res.text();
+      auth112 = { autorizado: text.includes('true') };
+    }
   } catch (e) {
-    console.error('Error verificando 112:', e);
+    console.error('[112_PAGE] Error verificando rol:', e);
   }
 
   if (!auth112.autorizado) {
@@ -45,7 +43,7 @@ export default async function Coordinator112Page() {
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight text-slate-900 uppercase leading-none">Centro de Mando 112</h1>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Supervisión de Emergencias Canarias</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Supervisión Institucional</p>
           </div>
         </div>
 
@@ -75,13 +73,13 @@ export default async function Coordinator112Page() {
             <div className="h-1.5 bg-red-600 w-full" />
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Llamadas Entrantes</CardTitle>
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Estado Centro</CardTitle>
                 <AlertTriangle className="h-4 w-4 text-red-500 animate-pulse" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-black text-slate-900">Activo</div>
-              <p className="text-[10px] text-slate-400 font-bold uppercase mt-2">Prioridad Nivel 1</p>
+              <div className="text-3xl font-black text-slate-900 uppercase">Operativo</div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase mt-2">Canarias Red 112 OK</p>
             </CardContent>
           </Card>
 
@@ -89,7 +87,7 @@ export default async function Coordinator112Page() {
             <div className="h-1.5 bg-blue-600 w-full" />
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Sistema TTS</CardTitle>
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Sistema Audio</CardTitle>
                 <Radio className="h-4 w-4 text-blue-500" />
               </div>
             </CardHeader>
@@ -103,23 +101,23 @@ export default async function Coordinator112Page() {
             <div className="h-1.5 bg-emerald-600 w-full" />
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Enlace Operativo</CardTitle>
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Enlace Externo</CardTitle>
                 <Activity className="h-4 w-4 text-emerald-500" />
               </div>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-black text-slate-900 uppercase">Estable</div>
-              <p className="text-[10px] text-slate-400 font-bold uppercase mt-2">Canal 112/Radios OK</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase mt-2">Sincronización ER:LC OK</p>
             </CardContent>
           </Card>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div className="lg:col-span-4 h-full">
+          <div className="lg:col-span-4">
              <CoordinatorVoiceHandler discordUser={user} />
           </div>
 
-          <div className="lg:col-span-8 space-y-6 h-full">
+          <div className="lg:col-span-8">
             <EmergencyCallList isCoordinator={true} />
           </div>
         </div>

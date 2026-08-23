@@ -1,4 +1,3 @@
-
 /**
  * Configuración de Discord para Tenerife RP
  */
@@ -51,20 +50,27 @@ export async function logout() {
  * Prioriza X-Forwarded-Host para detectar el dominio público en Workstations y Vercel.
  */
 export function getRedirectUri(requestOrHeaders: Request | any) {
-  const getHeader = (name: string) => {
-    if (requestOrHeaders instanceof Request) {
-      return requestOrHeaders.headers.get(name);
-    } else if (typeof requestOrHeaders.get === 'function') {
-      return requestOrHeaders.get(name);
-    }
-    return null;
-  };
+  let host = '';
+  let proto = 'https';
 
-  const xHost = getHeader('x-forwarded-host');
-  const host = xHost || getHeader('host') || '';
-  const proto = getHeader('x-forwarded-proto') || (host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https');
-  
-  console.log('[AUTH_UTILS] Detectando URI:', { proto, host, isForwarded: !!xHost });
+  if (requestOrHeaders instanceof Request) {
+    const xHost = requestOrHeaders.headers.get('x-forwarded-host');
+    const xProto = requestOrHeaders.headers.get('x-forwarded-proto');
+    host = xHost || requestOrHeaders.headers.get('host') || '';
+    proto = xProto || (host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https');
+  } else if (typeof requestOrHeaders.get === 'function') {
+    const xHost = requestOrHeaders.get('x-forwarded-host');
+    const xProto = requestOrHeaders.get('x-forwarded-proto');
+    host = xHost || requestOrHeaders.get('host') || '';
+    proto = xProto || (host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https');
+  }
 
-  return `${proto}://${host}/inicio_desde_menu`;
+  // Limpiar el host si contiene puertos internos que Discord no acepta desde el exterior
+  if (host.includes('.cloudworkstations.dev') && host.includes(':')) {
+    host = host.split(':')[0];
+  }
+
+  const uri = `${proto}://${host}/inicio_desde_menu`;
+  console.log('[AUTH_UTILS] Redirect URI detectada:', uri);
+  return uri;
 }

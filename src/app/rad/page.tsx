@@ -1,4 +1,3 @@
-
 import { getSessionUser } from '@/app/lib/auth-utils';
 import RadioClientPage from '@/components/radio/RadioClientPage';
 import { CitizenEmergencyView } from '@/components/radio/CitizenEmergencyView';
@@ -6,29 +5,32 @@ import { headers } from 'next/headers';
 
 export default async function RadioPage() {
   const user = await getSessionUser();
-  const headersList = await headers();
-  const host = headersList.get('host') || 'localhost:3000';
-  const protocol = host.includes('localhost') ? 'http' : 'https';
-  const apiBase = `${protocol}://${host}/api/proxy/roles`;
-
+  
   let authRolVs = { autorizado: false };
   let authRolGral = { autorizado: false };
   let auth112 = { autorizado: false };
 
   if (user) {
     try {
-      // Usamos el Proxy API interno para evitar bloqueos de Mixed Content en Vercel
-      const [resRolVs, resRolGral, res112] = await Promise.all([
-        fetch(`${apiBase}?type=admin_vs&id=${user.id}`, { cache: 'no-store' }),
-        fetch(`${apiBase}?type=rol_gral&id=${user.id}`, { cache: 'no-store' }),
-        fetch(`${apiBase}?type=112&id=${user.id}`, { cache: 'no-store' })
+      // Peticiones directas desde el servidor (evita Mixed Content)
+      const baseUrl = 'http://nc.lynxnodes.es:25633';
+      const fetchOptions = { cache: 'no-store' as const, signal: AbortSignal.timeout(4000) };
+
+      const [resRolVs, resRolGral, res112] = await Promise.allSettled([
+        fetch(`${baseUrl}/rol_admin_vs?userId=${user.id}`, fetchOptions),
+        fetch(`${baseUrl}/comprobar_rol?ID=${user.id}`, fetchOptions),
+        fetch(`${baseUrl}/comprobar_112?ID=${user.id}`, fetchOptions)
       ]);
 
-      if (resRolVs.ok) authRolVs = await resRolVs.json();
-      if (resRolGral.ok) authRolGral = await resRolGral.json();
-      if (res112.ok) auth112 = await res112.json();
+      if (resRolVs.status === 'fulfilled' && resRolVs.value.ok) authRolVs = await resRolVs.value.json();
+      if (resRolGral.status === 'fulfilled' && resRolGral.value.ok) authRolGral = await resRolGral.value.json();
+      
+      if (res112.status === 'fulfilled' && res112.value.ok) {
+        const text = await res112.value.text();
+        auth112 = { autorizado: text.includes('true') };
+      }
     } catch (e) {
-      console.error('Error en validación de acceso institucional:', e);
+      console.error('[RADIO_PAGE] Error validando roles:', e);
     }
   }
 
