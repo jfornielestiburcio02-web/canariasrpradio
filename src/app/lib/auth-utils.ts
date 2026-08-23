@@ -62,7 +62,8 @@ export async function logout() {
 }
 
 /**
- * Detecta la información del host público de forma robusta ignorando IPs internas.
+ * Detecta la información del host público de forma robusta.
+ * Maneja Cloud Workstations, Render y entornos locales.
  */
 export function getHostInfo(requestOrHeaders: Request | any) {
   const getHeader = (name: string) => {
@@ -73,16 +74,22 @@ export function getHostInfo(requestOrHeaders: Request | any) {
 
   const xHost = getHeader('x-forwarded-host');
   const xProto = getHeader('x-forwarded-proto');
+  const hostHeader = getHeader('host');
   
-  let host = xHost || 'teneriferpradio.onrender.com';
+  let host = xHost || hostHeader || 'teneriferpradio.onrender.com';
   
-  // Limpiar posibles puertos internos de Render
-  if (host.includes('0.0.0.0') || host.includes('10000') || host.includes('localhost')) {
-    host = 'teneriferpradio.onrender.com';
+  // Limpieza de hosts internos
+  if (host.includes('0.0.0.0') || host.includes('10000') || host.includes('localhost:3000')) {
+    // Si estamos en workstations, intentamos mantener el cluster si viene en headers
+    if (hostHeader && hostHeader.includes('cloudworkstations.dev')) {
+      host = hostHeader;
+    } else {
+      host = 'teneriferpradio.onrender.com';
+    }
   }
 
-  // En producción (Render), siempre forzamos HTTPS
-  const proto = xProto || 'https';
+  // En entornos de producción (Render) o Workstations (HTTPS Proxy), forzamos proto seguro
+  const proto = xProto || (host.includes('localhost') ? 'http' : 'https');
 
   return { host, proto };
 }

@@ -7,12 +7,13 @@ export const dynamic = 'force-dynamic';
 
 /**
  * Página de Radio Institucional.
+ * Forzamos dinamismo para asegurar que las cookies se lean correctamente en Render.
  */
 export default async function RadioPage() {
   const user = await getSessionUser();
   
   if (!user) {
-    console.log('[RADIO_PAGE] Usuario no autenticado en servidor. Redirigiendo...');
+    console.log('[RADIO_PAGE] Usuario no autenticado. Redirigiendo al inicio...');
     redirect('/');
   }
 

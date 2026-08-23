@@ -51,12 +51,12 @@ export async function GET(request: Request) {
       global_name: userData.global_name,
     };
 
-    console.log(`[AUTH_CALLBACK] Usuario validado: ${user.username}. Estableciendo cookie segura...`);
+    console.log(`[AUTH_CALLBACK] Usuario validado: ${user.username}. Estableciendo sesión...`);
 
+    // Inyectamos la cookie directamente en la respuesta para asegurar su persistencia
     const targetUrl = getPublicUrl(`/inicio_desde_menu?id=${user.id}`, request);
     const response = NextResponse.redirect(targetUrl);
 
-    // Inyección atómica de la cookie en la respuesta
     response.cookies.set(SESSION_COOKIE, JSON.stringify(user), {
       httpOnly: true,
       secure: true,
