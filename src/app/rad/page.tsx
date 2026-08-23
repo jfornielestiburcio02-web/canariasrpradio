@@ -5,15 +5,17 @@ import { redirect } from 'next/navigation';
 
 /**
  * Página de Radio Institucional.
- * La cookie se verifica en el servidor antes de renderizar nada.
  */
 export default async function RadioPage() {
+  console.log('[RADIO_PAGE] Verificando sesión...');
   const user = await getSessionUser();
   
   if (!user) {
-    console.log('[RADIO_PAGE] Usuario no autenticado, redirigiendo al inicio');
+    console.warn('[RADIO_PAGE] Usuario NO autenticado, redirigiendo al inicio (/)');
     redirect('/');
   }
+
+  console.log(`[RADIO_PAGE] Usuario ${user.username} autenticado. Comprobando roles...`);
 
   // Verificación de Roles Institucionales
   let authRolVs = { autorizado: false };
@@ -46,6 +48,8 @@ export default async function RadioPage() {
       const text = await res112.value.text().catch(() => '');
       auth112 = { autorizado: text.toLowerCase().includes('true') };
     }
+    
+    console.log(`[RADIO_PAGE] Roles: 112=${auth112.autorizado}, Admin=${authRolVs.autorizado}, Gral=${authRolGral.autorizado}`);
   } catch (e) {
     console.warn('[RADIO_PAGE] Servidor de roles externo no disponible.');
   }
@@ -53,9 +57,11 @@ export default async function RadioPage() {
   const isAuthorized = authRolVs.autorizado || authRolGral.autorizado || auth112.autorizado;
 
   if (!isAuthorized) {
+    console.log('[RADIO_PAGE] Acceso como Ciudadano.');
     return <CitizenEmergencyView discordUser={user} />;
   }
 
+  console.log('[RADIO_PAGE] Acceso como Agente Autorizado.');
   return (
     <div className="min-h-screen bg-slate-50">
       <RadioClientPage 

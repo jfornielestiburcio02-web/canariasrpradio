@@ -22,7 +22,7 @@ export async function setSessionUser(user: DiscordUser) {
   const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
   
-  console.log('[AUTH_UTILS] Estableciendo sesión segura para:', user.username);
+  console.log(`[AUTH_UTILS] Intentando establecer sesión para: ${user.username} (ID: ${user.id})`);
 
   cookieStore.set(SESSION_COOKIE, JSON.stringify(user), {
     httpOnly: true,
@@ -31,6 +31,8 @@ export async function setSessionUser(user: DiscordUser) {
     maxAge: 60 * 60 * 24 * 7, // 1 semana
     path: '/',
   });
+  
+  console.log('[AUTH_UTILS] Cookie enviada a la cola de headers.');
 }
 
 export async function getSessionUser(): Promise<DiscordUser | null> {
@@ -39,11 +41,14 @@ export async function getSessionUser(): Promise<DiscordUser | null> {
   const cookie = cookieStore.get(SESSION_COOKIE);
   
   if (!cookie || !cookie.value) {
+    console.log('[AUTH_UTILS] getSessionUser: No se encontró la cookie de sesión.');
     return null;
   }
   
   try {
-    return JSON.parse(cookie.value);
+    const user = JSON.parse(cookie.value);
+    console.log(`[AUTH_UTILS] getSessionUser: Sesión recuperada para ${user.username}`);
+    return user;
   } catch (e) {
     console.error('[AUTH_UTILS] Error parseando sesión:', e);
     return null;
@@ -58,7 +63,6 @@ export async function logout() {
 
 /**
  * Detecta la información del host público de forma robusta.
- * En Render, 'x-forwarded-host' es la única forma de obtener el dominio real.
  */
 export function getHostInfo(requestOrHeaders: Request | any) {
   let host = '';
@@ -75,22 +79,19 @@ export function getHostInfo(requestOrHeaders: Request | any) {
   const xProto = getHeader('x-forwarded-proto');
   const standardHost = getHeader('host');
 
-  // PRIORIDAD MÁXIMA: x-forwarded-host (Dominio de Render/Vercel)
   host = xHost || standardHost || '';
   proto = xProto || (host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https');
 
-  // Limpiar puertos internos de Render (0.0.0.0:10000)
+  // Limpiar puertos internos de Render
   if (host.includes('0.0.0.0') || host.includes('10000')) {
     if (xHost) {
       host = xHost.split(':')[0];
     } else {
-      // Fallback si no hay x-forwarded-host (poco probable en Render)
       host = 'teneriferpradio.onrender.com';
     }
   }
 
-  // Eliminar puertos si estamos en producción
-  if (host.includes('.onrender.com') || host.includes('.vercel.app')) {
+  if (host.includes('.onrender.com')) {
     host = host.split(':')[0];
   }
 
@@ -99,8 +100,9 @@ export function getHostInfo(requestOrHeaders: Request | any) {
 
 export function getRedirectUri(requestOrHeaders: Request | any) {
   const { host, proto } = getHostInfo(requestOrHeaders);
-  // IMPORTANTE: El redirect_uri debe ser exactamente el mismo en el Login y en el Callback
-  return `${proto}://${host}/api/auth/callback`;
+  const uri = `${proto}://${host}/api/auth/callback`;
+  console.log(`[AUTH_UTILS] Generada Redirect URI: ${uri}`);
+  return uri;
 }
 
 export function getPublicUrl(path: string, requestOrHeaders: Request | any) {

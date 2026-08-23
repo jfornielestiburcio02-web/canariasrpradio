@@ -10,25 +10,25 @@ import Link from 'next/link';
  * Página de inicio post-login.
  */
 export default async function InicioDesdeMenuPage({ searchParams }: { searchParams: any }) {
+  console.log('[INICIO_PAGE] Verificando sesión tras redirección...');
   const user = await getSessionUser();
   const params = await searchParams;
 
-  // Si no hay cookie pero hay ID en la URL, es que la cookie está en proceso de guardado
-  // O el usuario acaba de llegar. Mostramos un estado de "Cargando" o reintentamos.
   if (!user && !params.id) {
+    console.warn('[INICIO_PAGE] Sin sesión y sin ID en URL, volviendo a /');
     redirect('/');
   }
 
-  // Si llegamos aquí y no hay 'user' pero sí 'id', mostramos un error de sesión
   if (!user && params.id) {
+    console.error(`[INICIO_PAGE] Error de persistencia: Se recibió ID ${params.id} pero la cookie no existe.`);
     return (
       <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
         <Card className="w-full max-w-md border-none shadow-2xl bg-white text-center p-10">
           <AlertTriangle className="h-16 w-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-slate-900">Error de Sesión</h2>
-          <p className="text-sm text-slate-500 mt-2">Tu navegador ha bloqueado la cookie de identidad. Asegúrate de tener las cookies habilitadas y no usar navegación privada estricta.</p>
+          <p className="text-sm text-slate-500 mt-2">El servidor no ha podido leer tu cookie de identidad. Asegúrate de que tu navegador no esté bloqueando las cookies de este sitio.</p>
           <Button asChild className="mt-6 w-full bg-primary">
-            <Link href="/">Reintentar Acceso</Link>
+            <Link href="/">Volver a Intentar</Link>
           </Button>
         </Card>
       </div>

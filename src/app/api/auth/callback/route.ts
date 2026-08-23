@@ -3,11 +3,12 @@ import { DISCORD_CONFIG, getRedirectUri, getPublicUrl, SESSION_COOKIE, type Disc
 
 /**
  * Route Handler centralizado para el intercambio de tokens de Discord.
- * Corrige el error de persistencia de cookies en entornos con Proxy (Render).
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
+
+  console.log('[AUTH_CALLBACK] Iniciando intercambio de código...');
 
   if (!code) {
     console.error('[AUTH_CALLBACK] No se recibió código de Discord');
@@ -17,7 +18,6 @@ export async function GET(request: Request) {
   const redirectUri = getRedirectUri(request);
 
   try {
-    // 1. Intercambiar código por tokens
     const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
       method: 'POST',
       body: new URLSearchParams({
@@ -39,7 +39,6 @@ export async function GET(request: Request) {
       return NextResponse.redirect(getPublicUrl(`/?error=auth_failed&msg=${encodeURIComponent(tokens.error)}`, request));
     }
 
-    // 2. Obtener perfil de usuario
     const userResponse = await fetch('https://discord.com/api/users/@me', {
       headers: {
         Authorization: `Bearer ${tokens.access_token}`,
@@ -60,23 +59,24 @@ export async function GET(request: Request) {
       global_name: userData.global_name,
     };
 
-    // 3. Crear la respuesta y establecer la cookie manualmente en los headers
-    // Esto es mucho más fiable que cookies().set() durante una redirección en Route Handlers.
+    console.log(`[AUTH_CALLBACK] Usuario validado: ${user.username}. Estableciendo cookie...`);
+
     const targetUrl = getPublicUrl(`/inicio_desde_menu?id=${user.id}`, request);
     const response = NextResponse.redirect(targetUrl);
 
+    // Forzar SameSite=Lax para que la cookie se envíe tras la redirección
     response.cookies.set(SESSION_COOKIE, JSON.stringify(user), {
       httpOnly: true,
       secure: true,
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 1 semana
+      maxAge: 60 * 60 * 24 * 7,
       path: '/',
     });
 
-    console.log('[AUTH_CALLBACK] Sesión establecida y redirigiendo a:', targetUrl);
+    console.log(`[AUTH_CALLBACK] Cookie establecida y redirigiendo a: ${targetUrl}`);
     return response;
   } catch (error) {
     console.error('[AUTH_CALLBACK] Error crítico en el servidor:', error);
-    return NextResponse.redirect(getPublicUrl('/?error=server_error', error));
+    return NextResponse.redirect(getPublicUrl('/?error=server_error', request));
   }
 }
