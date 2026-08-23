@@ -3,6 +3,8 @@ import RadioClientPage from '@/components/radio/RadioClientPage';
 import { CitizenEmergencyView } from '@/components/radio/CitizenEmergencyView';
 import { redirect } from 'next/navigation';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Página de Radio Institucional.
  */
@@ -49,7 +51,7 @@ export default async function RadioPage() {
       auth112 = { autorizado: text.toLowerCase().includes('true') };
     }
     
-    console.log(`[RADIO_PAGE] Roles: 112=${auth112.autorizado}, Admin=${authRolVs.autorizado}, Gral=${authRolGral.autorizado}`);
+    console.log(`[RADIO_PAGE] Roles validados: 112=${auth112.autorizado}, Admin=${authRolVs.autorizado}, Gral=${authRolGral.autorizado}`);
   } catch (e) {
     console.warn('[RADIO_PAGE] Servidor de roles externo no disponible.');
   }
