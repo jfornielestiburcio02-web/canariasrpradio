@@ -1,4 +1,3 @@
-
 'use server';
 
 import { headers } from 'next/headers';
@@ -9,7 +8,7 @@ export async function handleDiscordAuth(code: string) {
     const headersList = await headers();
     const redirectUri = getRedirectUri(headersList);
     
-    console.log('[AUTH_ACTION] Intercambio de token en:', redirectUri);
+    console.log('[AUTH_ACTION] Intercambiando código en:', redirectUri);
 
     const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
       method: 'POST',
@@ -28,12 +27,12 @@ export async function handleDiscordAuth(code: string) {
     const tokens = await tokenResponse.json();
 
     if (tokens.error) {
-      console.error('[AUTH_ACTION] Error de Discord:', tokens.error_description || tokens.error);
+      console.error('[AUTH_ACTION] Discord Error:', tokens.error_description || tokens.error);
       throw new Error(tokens.error_description || `Error de Discord: ${tokens.error}`);
     }
 
     if (!tokens.access_token) {
-      throw new Error('No se recibió el token de acceso');
+      throw new Error('No se recibió el token de acceso de Discord');
     }
 
     const userResponse = await fetch('https://discord.com/api/users/@me', {
@@ -45,7 +44,7 @@ export async function handleDiscordAuth(code: string) {
     const userData = await userResponse.json();
     
     if (!userData.id) {
-      throw new Error('No se pudo obtener el perfil de Discord');
+      throw new Error('No se pudo obtener el perfil de usuario de Discord');
     }
 
     const discordUser: DiscordUser = {
@@ -60,6 +59,6 @@ export async function handleDiscordAuth(code: string) {
     return { success: true, user: discordUser };
   } catch (error: any) {
     console.error('[AUTH_ACTION] Error crítico:', error.message);
-    return { success: false, error: error.message || 'Error en el servidor de autenticación' };
+    return { success: false, error: error.message || 'Error en el servidor de identidad' };
   }
 }

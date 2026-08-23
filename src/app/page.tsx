@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -8,7 +7,7 @@ import { headers } from 'next/headers';
 import { DISCORD_CONFIG, getRedirectUri } from '@/app/lib/auth-utils';
 
 export default async function LoginPage() {
-  // Generar URL de Discord dinámica para evitar errores de redirect_uri
+  // Generar URL de Discord dinámica basada en el host actual (Render/Workstation)
   const headersList = await headers();
   const redirectUri = getRedirectUri(headersList);
   

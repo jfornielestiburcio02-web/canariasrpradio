@@ -47,7 +47,7 @@ export async function logout() {
 
 /**
  * Genera el redirect_uri dinámicamente basado en los headers de la petición.
- * Optimizado para Vercel y Cloud Workstations.
+ * Optimizado para Render, Vercel y Cloud Workstations.
  */
 export function getRedirectUri(requestOrHeaders: Request | any) {
   let host = '';
@@ -67,12 +67,17 @@ export function getRedirectUri(requestOrHeaders: Request | any) {
   host = xHost || standardHost || '';
   proto = xProto || (host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https');
 
-  // Limpiar puertos internos de Workstations si existen en la URL pública
-  if (host.includes(':') && (host.includes('.cloudworkstations.dev') || host.includes('.vercel.app'))) {
+  // Limpiar puertos internos si existen en la URL pública (común en Workstations)
+  if (host.includes(':') && (host.includes('.cloudworkstations.dev') || host.includes('.onrender.com') || host.includes('.vercel.app'))) {
     host = host.split(':')[0];
   }
 
+  // Caso especial para local en Workstations
+  if (host.includes('127.0.0.1') || host.includes('localhost')) {
+    proto = 'http';
+  }
+
   const uri = `${proto}://${host}/inicio_desde_menu`;
-  console.log('[AUTH_UTILS] Redirect URI Final:', uri);
+  console.log('[AUTH_UTILS] Generando Redirect URI:', uri);
   return uri;
 }

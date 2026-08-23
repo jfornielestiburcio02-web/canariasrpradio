@@ -1,4 +1,3 @@
-
 import { NextResponse } from 'next/server';
 import { DISCORD_CONFIG, setSessionUser, getRedirectUri } from '@/app/lib/auth-utils';
 
@@ -7,13 +6,13 @@ export async function GET(request: Request) {
   const code = searchParams.get('code');
 
   if (!code) {
-    console.error('No code received from Discord');
+    console.error('[AUTH_CALLBACK] No code received');
     return NextResponse.redirect(new URL('/?error=no_code', request.url));
   }
 
-  // Obtener el redirectUri dinámicamente para que coincida con el paso 1
+  // Detección dinámica de la URL de redirección
   const redirectUri = getRedirectUri(request);
-  console.log('[AUTH_CALLBACK] Using dynamic redirect URI:', redirectUri);
+  console.log('[AUTH_CALLBACK] Intercambiando código con Redirect URI:', redirectUri);
 
   try {
     const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
@@ -30,12 +29,10 @@ export async function GET(request: Request) {
       },
     });
 
-    const tokenText = await tokenResponse.text();
-    if (!tokenText) throw new Error('Empty token response from Discord');
-    const tokens = JSON.parse(tokenText);
+    const tokens = await tokenResponse.json();
     
     if (tokens.error) {
-      console.error('Discord Token Error:', tokens.error, tokens.error_description);
+      console.error('[AUTH_CALLBACK] Discord Token Error:', tokens.error, tokens.error_description);
       return NextResponse.redirect(new URL(`/?error=auth_failed&msg=${encodeURIComponent(tokens.error)}`, request.url));
     }
 
@@ -45,12 +42,10 @@ export async function GET(request: Request) {
       },
     });
 
-    const userText = await userResponse.text();
-    if (!userText) throw new Error('Empty user response from Discord');
-    const userData = JSON.parse(userText);
+    const userData = await userResponse.json();
     
     if (!userData.id) {
-      console.error('No user data received from Discord');
+      console.error('[AUTH_CALLBACK] No user data received');
       return NextResponse.redirect(new URL('/?error=no_user_data', request.url));
     }
 
@@ -58,11 +53,12 @@ export async function GET(request: Request) {
       id: userData.id,
       username: userData.username,
       avatar: userData.avatar,
+      global_name: userData.global_name,
     });
 
     return NextResponse.redirect(new URL('/inicio_desde_menu', request.url));
   } catch (error) {
-    console.error('Auth Callback error:', error);
+    console.error('[AUTH_CALLBACK] Server Error:', error);
     return NextResponse.redirect(new URL('/?error=server_error', request.url));
   }
 }
