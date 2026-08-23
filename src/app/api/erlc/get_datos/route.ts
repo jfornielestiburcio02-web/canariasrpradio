@@ -6,9 +6,20 @@ import { collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs, do
 /**
  * @fileOverview Endpoint para Webhooks de ERLC.
  * Procesa eventos de pánico y telemetría (X, Y, Z) para el mapa táctico.
+ * Incluye validación de Handshake para el probe de ER:LC.
  */
 
 export async function POST(req: Request) {
+  // Validación de Handshake de ER:LC
+  // ER:LC envía un "probe" firmado pero sin cuerpo para validar el endpoint.
+  // Debemos responder con un código 4xx (e.g. 400) para que la validación sea exitosa en Roblox.
+  const signature = req.headers.get('erl-signature') || req.headers.get('erlc-webhook-signature');
+  const contentLength = req.headers.get('content-length');
+
+  if (signature && (!contentLength || contentLength === '0')) {
+    return new Response('Bad Request (ERLC Probe)', { status: 400 });
+  }
+
   try {
     const body = await req.json();
 
@@ -44,8 +55,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, id: eventRef.id });
   } catch (error: any) {
-    console.error('[ERLC_WEBHOOK_ERROR]', error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // Si falla el parseo de JSON (como en el probe si no tiene cuerpo), respondemos 400
+    // Esto es lo que espera ER:LC para validar el webhook
+    console.warn('[ERLC_WEBHOOK_HANDSHAKE] Solicitud no procesable o Probe detectado.');
+    return new Response('Bad Request', { status: 400 });
   }
 }
 
