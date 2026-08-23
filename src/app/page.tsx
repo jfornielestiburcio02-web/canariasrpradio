@@ -3,15 +3,13 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/app/lib/placeholder-images';
+import { getPublicUrl } from '@/app/lib/auth-utils';
 import { headers } from 'next/headers';
-import { DISCORD_CONFIG, getRedirectUri } from '@/app/lib/auth-utils';
 
 export default async function LoginPage() {
-  // Generar URL de Discord dinámica basada en el host actual
   const headersList = await headers();
-  const redirectUri = getRedirectUri(headersList);
-  
-  const DISCORD_URL = `https://discord.com/oauth2/authorize?client_id=${DISCORD_CONFIG.clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=identify+guilds+guilds.members.read`;
+  // Usamos el endpoint de login interno que ya gestiona el redirect_uri dinámico
+  const LOGIN_URL = getPublicUrl('/api/auth/login', headersList);
   
   const bgImage = PlaceHolderImages.find(img => img.id === 'tenerife-rp-bg');
 
@@ -65,7 +63,7 @@ export default async function LoginPage() {
             asChild
             className="w-full h-14 text-sm font-bold shadow-lg transition-all hover:shadow-xl active:scale-[0.98] bg-primary hover:bg-primary/90 rounded-xl"
           >
-            <Link href={DISCORD_URL}>
+            <Link href={LOGIN_URL}>
               Continuar con Discord
             </Link>
           </Button>

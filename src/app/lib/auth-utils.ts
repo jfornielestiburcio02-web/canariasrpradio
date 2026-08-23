@@ -17,20 +17,19 @@ const SESSION_COOKIE = 'tenerife_rp_session';
 
 /**
  * Persiste la sesión del usuario.
- * Ajustado para máxima compatibilidad con Render (HTTPS) y dominios personalizados.
  */
 export async function setSessionUser(user: DiscordUser) {
   const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
   
-  console.log('[AUTH_UTILS] Estableciendo sesión para:', user.username);
+  console.log('[AUTH_UTILS] Estableciendo sesión segura para:', user.username);
 
   cookieStore.set(SESSION_COOKIE, JSON.stringify(user), {
     httpOnly: true,
-    secure: true, // Siempre true para producción en Render/Vercel
+    secure: true,
     sameSite: 'lax',
     maxAge: 60 * 60 * 24 * 7, // 1 semana
-    path: '/', // Crucial para que sea accesible en /rad y /jef
+    path: '/',
   });
 }
 
@@ -58,10 +57,9 @@ export async function logout() {
 }
 
 /**
- * Genera el redirect_uri dinámicamente.
- * El endpoint de callback debe ser el mismo que el registrado en Discord.
+ * Detecta la información del host público de forma robusta.
  */
-export function getRedirectUri(requestOrHeaders: Request | any) {
+export function getHostInfo(requestOrHeaders: Request | any) {
   let host = '';
   let proto = 'https';
 
@@ -76,16 +74,33 @@ export function getRedirectUri(requestOrHeaders: Request | any) {
   const xProto = getHeader('x-forwarded-proto');
   const standardHost = getHeader('host');
 
-  // En Render/Vercel, x-forwarded-host contiene el dominio público
+  // En entornos como Render o Workstations, x-forwarded-host es la verdad absoluta
   host = xHost || standardHost || '';
   proto = xProto || (host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https');
 
-  // Limpiar puertos internos de Render si aparecen
+  // Limpiar puertos internos o direcciones de enlace local
+  if (host.includes('0.0.0.0') || host.includes('127.0.0.1') || host.includes('localhost')) {
+    if (xHost) {
+      host = xHost.split(':')[0];
+    }
+  }
+
+  // Eliminar puertos si estamos en producción
   if (host.includes('.onrender.com') || host.includes('.vercel.app')) {
     host = host.split(':')[0];
   }
 
+  return { host, proto };
+}
+
+export function getRedirectUri(requestOrHeaders: Request | any) {
+  const { host, proto } = getHostInfo(requestOrHeaders);
   const uri = `${proto}://${host}/api/auth/callback`;
   console.log('[AUTH_UTILS] Redirect URI Calculado:', uri);
   return uri;
+}
+
+export function getPublicUrl(path: string, requestOrHeaders: Request | any) {
+  const { host, proto } = getHostInfo(requestOrHeaders);
+  return `${proto}://${host}${path}`;
 }
