@@ -94,7 +94,7 @@ export function RadioCard({
             <div className="flex items-center justify-between mb-4 px-2">
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-slate-400" />
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Personal en frecuencia</h4>
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Agentes en Frecuencia</h4>
               </div>
               <Badge className="bg-slate-200 text-slate-600 text-[10px] font-black rounded-full border-none">
                 {users.length} ACTIVOS
@@ -151,7 +151,7 @@ export function RadioCard({
           <div className="bg-red-50/50 p-4 rounded-2xl border border-red-100 flex items-start gap-3">
             <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
             <p className="text-[9px] font-bold text-red-700/70 uppercase leading-relaxed text-left">
-              ATENCIÓN: TRANSMISIÓN CIFRADA PUNTO A PUNTO. EL USO INDEBIDO SERÁ REGISTRADO POR LA JEFATURA.
+              AVISO: TODAS LAS TRANSMISIONES SON GRABADAS Y MONITORIZADAS POR JEFATURA DE COMUNICACIONES.
             </p>
           </div>
         </div>
@@ -178,8 +178,8 @@ export function RadioCard({
                   <Mic className="h-12 w-12 text-white" />
                 </div>
                 <div className="space-y-1 text-center">
-                  <span className="block text-lg">EN AIRE</span>
-                  <span className="text-[8px] opacity-60 tracking-[0.5em]">CANAL {channel.split('_').pop()}</span>
+                  <span className="block text-lg">TRANSMITIENDO</span>
+                  <span className="text-[8px] opacity-60 tracking-[0.5em]">CANAL ACTIVO</span>
                 </div>
               </>
             ) : (
@@ -190,7 +190,7 @@ export function RadioCard({
                 <div className="space-y-1 text-center">
                   <span className="block text-lg">PULSAR PTT</span>
                   <span className="text-[8px] opacity-60 tracking-[0.5em]">
-                    {isMobile ? 'TOCAR PARA ACTIVAR' : 'MANTENER TECLA'}
+                    {isMobile ? 'TOCAR PARA HABLAR' : 'MANTENER TECLA'}
                   </span>
                 </div>
               </>
@@ -202,7 +202,7 @@ export function RadioCard({
             className="w-full h-14 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-red-600 hover:bg-red-50 border-slate-200 transition-colors"
             onClick={onLeave}
           >
-            Finalizar Servicio
+            Salir del Canal
           </Button>
         </div>
       </CardContent>

@@ -95,12 +95,18 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
 
       if (eventTime > sessionStartTime.current && !sessionStorage.getItem(sessionKey)) {
         sessionStorage.setItem(sessionKey, 'true');
+        
         const audio = new Audio(panicAlertUrl);
         audio.play().then(() => {
           const msg = new SpeechSynthesisUtterance(`Alerta pánico, pulsado por el agente ${event.sujeto}. Repito, pánico activado.`);
           msg.lang = 'es-ES';
           window.speechSynthesis.speak(msg);
-        }).catch(() => {});
+        }).catch(() => {
+          // Si el audio falla, al menos el TTS
+          const msg = new SpeechSynthesisUtterance(`Alerta pánico, pulsado por el agente ${event.sujeto}. Repito, pánico activado.`);
+          msg.lang = 'es-ES';
+          window.speechSynthesis.speak(msg);
+        });
 
         toast({
           variant: "destructive",
@@ -114,7 +120,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     return () => unsubscribePanic();
   }, [db, toast]);
 
-  // --- Listener de Avisos 112 (Audio Global solicitado) ---
+  // --- Listener de Avisos 112 (Audio Global sincronizado) ---
   useEffect(() => {
     if (!db) return;
     const startSoundUrl = "https://res.cloudinary.com/dgvh0c87y/video/upload/v1787391237/1514375003628376116_phw9ti.ogg";
@@ -128,32 +134,36 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
       const callTime = call.createdAt?.toDate().getTime() || 0;
       const sessionKey = `call_${callId}`;
 
-      if (callTime > sessionStartTime.current && !sessionStorage.getItem(sessionKey)) {
+      // Solo procesar si es nuevo y tiene timestamp válido
+      if (call.createdAt && eventTime > sessionStartTime.current && !sessionStorage.getItem(sessionKey)) {
         sessionStorage.setItem(sessionKey, 'true');
         
-        // Secuencia de Audio
+        // Secuencia completa de Audio
         const startAudio = new Audio(startSoundUrl);
         startAudio.play().then(() => {
           startAudio.onended = () => {
-            const text = `${call.motivo}. En ${call.ubicacion}. Unidades requeridas: ${call.unidades.join(', ')}.`;
+            const text = `${call.motivo}. En ${call.ubicacion}. Unidades: ${call.unidades.join(' ')}.`;
             const msg = new SpeechSynthesisUtterance(text);
             msg.lang = 'es-ES';
             msg.rate = 0.9;
             msg.onend = () => {
               const endAudio = new Audio(endSoundUrl);
-              endAudio.play();
+              endAudio.play().catch(() => {});
             };
             window.speechSynthesis.speak(msg);
           };
         }).catch(() => {
-            // Failsafe si el navegador bloquea el autoplay tras el onended
-            console.error("Audio sequence failed to start");
+          // Failsafe TTS si falla el audio inicial
+          const text = `${call.motivo}. En ${call.ubicacion}. Unidades: ${call.unidades.join(' ')}.`;
+          const msg = new SpeechSynthesisUtterance(text);
+          msg.lang = 'es-ES';
+          window.speechSynthesis.speak(msg);
         });
 
         toast({
-          title: "NUEVO AVISO DE EMERGENCIA",
+          title: "CENTRO DE MANDO 112",
           description: `${call.motivo} en ${call.ubicacion}`,
-          duration: 8000,
+          duration: 12000,
         });
       }
     });
@@ -203,7 +213,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     return () => window.removeEventListener('keydown', handlePanicKeyDown);
   }, [panicKey, triggerPanic, isMobile, isListeningKey]);
 
-  // --- Sincronización Firestore ---
+  // --- Sincronización Estable Firestore ---
   useEffect(() => {
     if (!db || !discordUser.id) return;
     if (lastSyncChannel.current === activeChannel) return;
@@ -251,8 +261,8 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
       setActiveChannel(null);
       toast({
         variant: "destructive",
-        title: "Expulsado",
-        description: "Has sido retirado del canal por un administrador.",
+        title: "SISTEMA: EXPULSIÓN",
+        description: "Un administrador ha retirado tu señal de la frecuencia.",
       });
     }
   }, [discordUser.id, toast]);
@@ -284,7 +294,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
             <RadioIcon className="h-6 w-6 text-primary" />
           </div>
           <nav className="hidden md:flex items-center gap-8 ml-4">
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary border-b-2 border-primary pb-1">Radio</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary border-b-2 border-primary pb-1">Red Radio</span>
             <Link href="/rad/map" className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-slate-600 transition-all flex items-center gap-2">
               <Bell className="h-3 w-3" /> Monitor Institucional
             </Link>
@@ -334,11 +344,11 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
               <div className="space-y-6">
                 <div className="flex items-center gap-2 text-slate-800">
                   <Keyboard className="h-4 w-4" />
-                  <h4 className="text-xs font-black uppercase tracking-widest">Ajustes Radio</h4>
+                  <h4 className="text-xs font-black uppercase tracking-widest">Ajustes del Sistema</h4>
                 </div>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Tecla PTT</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Tecla Pulsar para Hablar (PTT)</p>
                     <Button 
                       variant="secondary" 
                       className={cn("w-full h-10 text-[10px] font-black uppercase rounded-xl", isListeningKey === 'ptt' && "animate-pulse border-primary")}
@@ -348,7 +358,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
                     </Button>
                   </div>
                   <div className="space-y-2">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Tecla Pánico</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Tecla de Pánico</p>
                     <Button 
                       variant="secondary" 
                       className={cn("w-full h-10 text-[10px] font-black uppercase rounded-xl", isListeningKey === 'panic' && "animate-pulse border-red-500")}
