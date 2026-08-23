@@ -40,11 +40,26 @@
       "description": "Evento externo recibido desde el servidor de juego",
       "type": "object",
       "properties": {
-        "tipo": { "type": "string", "enum": ["PANICO", "ALERTA", "INFO"] },
+        "tipo": { "type": "string", "enum": ["PANICO", "ALERTA", "INFO", "POSITION"] },
         "sujeto": { "type": "string" },
         "ubicacion": { "type": "string" },
         "detalles": { "type": "string" },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "z": { "type": "number" },
         "timestamp": { "type": "string", "format": "date-time" }
+      }
+    },
+    "PlayerPosition": {
+      "title": "Posición de Jugador",
+      "description": "Coordenadas en tiempo real para el mapa",
+      "type": "object",
+      "properties": {
+        "playerName": { "type": "string" },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "z": { "type": "number" },
+        "lastUpdate": { "type": "string", "format": "date-time" }
       }
     }
   },
@@ -63,6 +78,10 @@
     "erlcEvents/{eventId}": {
       "schema": "ErlcEvent",
       "description": "Logs de eventos recibidos por API externa"
+    },
+    "playerPositions/{playerName}": {
+      "schema": "PlayerPosition",
+      "description": "Tracking de posiciones para el mapa satelital"
     }
   }
 }

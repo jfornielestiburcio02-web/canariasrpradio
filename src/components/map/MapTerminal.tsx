@@ -1,214 +1,212 @@
+
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { type DiscordUser } from '@/app/lib/auth-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { 
   Loader2, 
   Activity, 
   Satellite, 
-  Users, 
-  Shield, 
-  RefreshCw,
-  Server,
-  Wifi,
-  WifiOff,
-  User,
-  AlertTriangle,
-  Clock,
-  MapPin
+  AlertTriangle, 
+  MapPin,
+  Maximize2,
+  Navigation,
+  Shield,
+  Circle
 } from 'lucide-react';
-import { getErlcPlayers } from '@/app/actions/erlc';
 import { cn } from '@/lib/utils';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, limit } from 'firebase/firestore';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { collection, query, orderBy, limit, where } from 'firebase/firestore';
+import Image from 'next/image';
+
+// --- CONFIGURACIÓN DE CALIBRACIÓN SOLICITADA ---
+const ANCHO_PNG = 1024;
+const ALTO_PNG = 1024;
+const ROBLOX_X_MIN = -2200;
+const ROBLOX_X_MAX = 2200;
+const ROBLOX_Z_MIN = -2200;
+const ROBLOX_Z_MAX = 2200;
+
+function calibrarCoordenadas(robloxX: number, robloxZ: number) {
+  const porcentajeX = (robloxX - ROBLOX_X_MIN) / (ROBLOX_X_MAX - ROBLOX_X_MIN);
+  const porcentajeZ = (robloxZ - ROBLOX_Z_MIN) / (ROBLOX_Z_MAX - ROBLOX_Z_MIN);
+
+  const pixelX = porcentajeX * ANCHO_PNG;
+  const pixelY = ALTO_PNG - (porcentajeZ * ALTO_PNG); // Inversión solicitada
+
+  return {
+    x: Math.min(Math.max(Math.round(pixelX), 0), ANCHO_PNG),
+    y: Math.min(Math.max(Math.round(pixelY), 0), ALTO_PNG)
+  };
+}
 
 export function MapTerminal({ discordUser }: { discordUser: DiscordUser }) {
-  const [loading, setLoading] = useState(true);
-  const [players, setPlayers] = useState<any[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  const [mounted, setMounted] = useState(false);
-  const SERVER_ID = '2534724415';
-
   const db = useFirestore();
+  const [zoom, setZoom] = useState(1);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Escuchar eventos externos de Firestore en tiempo real
-  const eventsQuery = useMemoFirebase(() => {
+  // Consultar posiciones de jugadores en tiempo real
+  const positionsQuery = useMemoFirebase(() => {
     if (!db) return null;
-    return query(collection(db, 'erlcEvents'), orderBy('timestamp', 'desc'), limit(10));
+    return collection(db, 'playerPositions');
   }, [db]);
+  const { data: positions } = useCollection<any>(positionsQuery);
 
-  const { data: events } = useCollection<any>(eventsQuery);
+  // Consultar pánicos recientes (últimos 10 minutos)
+  const panicsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(
+      collection(db, 'erlcEvents'),
+      where('tipo', 'in', ['PANICO', 'PANICBUTTON', 'PANIC BUTTON']),
+      orderBy('timestamp', 'desc'),
+      limit(5)
+    );
+  }, [db]);
+  const { data: panics } = useCollection<any>(panicsQuery);
 
-  const fetchData = useCallback(async () => {
-    if (!mounted) return;
-    setLoading(true);
-    const playerRes = await getErlcPlayers();
-    
-    if (playerRes.success) {
-      setPlayers(playerRes.players || []);
-      setError(null);
-    } else {
-      setError(playerRes.error);
-    }
-    
-    setLastUpdate(new Date());
-    setLoading(false);
-  }, [mounted]);
-
-  useEffect(() => {
-    if (mounted) {
-      fetchData();
-      const interval = setInterval(fetchData, 20000); 
-      return () => clearInterval(interval);
-    }
-  }, [fetchData, mounted]);
-
-  if (!mounted) return null;
+  const MAP_URL = "https://static.wikia.nocookie.net/emergency-response-liberty-county/images/c/c5/Map_of_ERLC.png/revision/latest?cb=20241122010502";
 
   return (
-    <div className="flex-1 p-6 flex flex-col gap-6 bg-slate-50 relative overflow-y-auto">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Lista de Jugadores */}
-        <div className="lg:col-span-8 space-y-6">
-          <Card className="bg-white border-none shadow-xl rounded-3xl overflow-hidden">
-            <CardHeader className={cn("transition-colors p-6", error ? "bg-slate-800" : "bg-primary")}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3 text-white">
-                  <Users className="h-6 w-6" />
-                  <CardTitle className="text-lg font-black uppercase tracking-widest">
-                    {error ? "Enlace Interrumpido" : "Personal en Liberty County"}
-                  </CardTitle>
-                </div>
-                {!error && (
-                  <Badge className="bg-white/20 text-white border-white/30 text-[10px] uppercase font-black">
-                    {players.length} ACTIVOS
-                  </Badge>
-                )}
+    <div className="flex-1 flex flex-col bg-slate-950 overflow-hidden relative">
+      {/* HUD Superior */}
+      <div className="absolute top-6 left-6 z-20 space-y-4 w-72">
+        <Card className="bg-slate-900/80 backdrop-blur-md border-slate-800 shadow-2xl overflow-hidden rounded-2xl">
+          <CardHeader className="p-4 border-b border-slate-800">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Satellite className="h-4 w-4 text-primary animate-pulse" />
+                <CardTitle className="text-[10px] font-black uppercase tracking-widest text-white">Enlace Satelital</CardTitle>
               </div>
-            </CardHeader>
-            <CardContent className="p-0 max-h-[500px] overflow-y-auto">
-              {error ? (
-                <div className="flex flex-col items-center justify-center p-12 text-center space-y-6">
-                  <WifiOff className="h-12 w-12 text-red-500" />
-                  <div className="max-w-md space-y-2">
-                    <h3 className="text-sm font-black text-slate-800 uppercase">Error de Conexión</h3>
-                    <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                      La API de ER:LC no ha podido validar la sesión. Verifica tu Server Key.
-                    </p>
-                  </div>
-                  <Button onClick={fetchData} className="bg-slate-900 uppercase font-black tracking-widest text-[10px] h-10 px-8">
-                    Reintentar
-                  </Button>
+              <Badge variant="outline" className="text-[8px] border-emerald-500/30 text-emerald-500 font-black">ACTIVO</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-bold text-slate-500 uppercase">Unidades en campo</span>
+              <span className="text-xs font-black text-white">{positions.length}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-bold text-slate-500 uppercase">Alertas Activas</span>
+              <span className={cn("text-xs font-black", panics.length > 0 ? "text-red-500" : "text-slate-600")}>
+                {panics.length}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {panics.length > 0 && (
+          <div className="space-y-2 animate-in fade-in slide-in-from-left-4">
+            <p className="text-[9px] font-black text-red-500 uppercase tracking-widest px-1">Amenazas Detectadas</p>
+            {panics.map((panic: any) => (
+              <div key={panic.id} className="bg-red-950/40 border border-red-500/30 p-3 rounded-xl backdrop-blur-sm flex items-start gap-3">
+                <AlertTriangle className="h-4 w-4 text-red-500 shrink-0 mt-0.5 animate-pulse" />
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black text-white uppercase truncate">{panic.sujeto}</p>
+                  <p className="text-[8px] font-medium text-red-400/70 uppercase truncate">{panic.ubicacion}</p>
                 </div>
-              ) : players.length > 0 ? (
-                <div className="divide-y divide-slate-100">
-                  {players.map((player, idx) => (
-                    <div key={idx} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-all border-l-4 border-transparent hover:border-primary">
-                      <div className="flex items-center gap-4">
-                        <div className="bg-slate-100 p-2.5 rounded-xl">
-                          <User className="h-5 w-5 text-slate-600" />
-                        </div>
-                        <div>
-                          <h3 className="text-xs font-black text-slate-800 uppercase leading-none">{player.Player}</h3>
-                          <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">{player.Permission}</p>
-                        </div>
-                      </div>
-                      <Badge variant="outline" className="text-[8px] font-black uppercase text-emerald-600 border-emerald-100">EN LÍNEA</Badge>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Controles de Mapa */}
+      <div className="absolute bottom-8 right-8 z-20 flex flex-col gap-2">
+        <button 
+          onClick={() => setZoom(prev => Math.min(prev + 0.5, 3))}
+          className="h-10 w-10 bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-xl text-white flex items-center justify-center hover:bg-slate-800 transition-all shadow-xl"
+        >
+          +
+        </button>
+        <button 
+          onClick={() => setZoom(prev => Math.max(prev - 0.5, 1))}
+          className="h-10 w-10 bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-xl text-white flex items-center justify-center hover:bg-slate-800 transition-all shadow-xl"
+        >
+          -
+        </button>
+      </div>
+
+      {/* Contenedor del Mapa */}
+      <div className="flex-1 overflow-hidden cursor-crosshair relative">
+        <div 
+          className="transition-transform duration-500 ease-out origin-center absolute inset-0 flex items-center justify-center"
+          style={{ transform: `scale(${zoom})` }}
+        >
+          <div className="relative w-[1024px] h-[1024px] shadow-[0_0_100px_rgba(0,0,0,0.5)]">
+            <Image 
+              src={MAP_URL} 
+              alt="ERLC Map" 
+              width={1024} 
+              height={1024}
+              className="opacity-90 grayscale brightness-75 hover:grayscale-0 transition-all duration-700"
+              priority
+              unoptimized
+            />
+            
+            {/* Capa de Cuadrícula Táctica */}
+            <div className="absolute inset-0 pointer-events-none opacity-20" style={{
+              backgroundImage: 'linear-gradient(to right, #ffffff 1px, transparent 1px), linear-gradient(to bottom, #ffffff 1px, transparent 1px)',
+              backgroundSize: '64px 64px'
+            }} />
+
+            {/* Marcadores de Jugadores */}
+            {positions.map((pos: any) => {
+              const coords = calibrarCoordenadas(pos.x, pos.z);
+              return (
+                <div 
+                  key={pos.id} 
+                  className="absolute -translate-x-1/2 -translate-y-1/2 group z-10"
+                  style={{ left: `${coords.x}px`, top: `${coords.y}px` }}
+                >
+                  <div className="relative">
+                    <div className="h-3 w-3 bg-primary rounded-full border-2 border-white shadow-[0_0_10px_rgba(59,130,246,0.5)] animate-in zoom-in duration-300" />
+                    <div className="absolute top-4 left-1/2 -translate-x-1/2 whitespace-nowrap bg-slate-900 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded border border-slate-800 opacity-0 group-hover:opacity-100 transition-all">
+                      {pos.playerName}
                     </div>
-                  ))}
+                  </div>
                 </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-20 text-center opacity-30 space-y-4">
-                  <Satellite className="h-12 w-12 text-slate-300" />
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sincronizando con satélite...</p>
+              );
+            })}
+
+            {/* Marcadores de Pánico */}
+            {panics.map((panic: any) => {
+              if (panic.x === null || panic.z === null) return null;
+              const coords = calibrarCoordenadas(panic.x, panic.z);
+              return (
+                <div 
+                  key={panic.id} 
+                  className="absolute -translate-x-1/2 -translate-y-1/2 z-20"
+                  style={{ left: `${coords.x}px`, top: `${coords.y}px` }}
+                >
+                  <div className="relative flex items-center justify-center">
+                    <div className="absolute h-20 w-20 bg-red-600/30 rounded-full animate-ping" />
+                    <div className="absolute h-10 w-10 bg-red-600/40 rounded-full animate-pulse" />
+                    <AlertTriangle className="h-6 w-6 text-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.8)]" />
+                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[9px] font-black uppercase px-2 py-1 rounded shadow-xl whitespace-nowrap">
+                      PÁNICO: {panic.sujeto}
+                    </div>
+                  </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              );
+            })}
+          </div>
         </div>
+      </div>
 
-        {/* Estado y Eventos Externos */}
-        <div className="lg:col-span-4 space-y-6">
-          {/* Tarjeta de Estado del Enlace */}
-          <Card className="bg-white border-none shadow-xl rounded-3xl overflow-hidden">
-            <div className={cn("h-1.5 w-full transition-colors", error ? "bg-red-500" : "bg-emerald-500")} />
-            <CardHeader className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Activity className={cn("h-4 w-4", error ? "text-red-500" : "text-emerald-500")} />
-                  <CardTitle className="text-[9px] font-black uppercase tracking-widest text-slate-400">Estado del Enlace</CardTitle>
-                </div>
-                <Button variant="ghost" size="icon" onClick={fetchData} className="h-6 w-6" disabled={loading}>
-                  <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="px-6 pb-6 space-y-4">
-                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest">
-                  <span className="text-slate-400">API Status:</span>
-                  <span className={cn(error ? "text-red-600" : "text-emerald-600 font-black")}>
-                    {error ? 'FALLO V2' : 'OK'}
-                  </span>
-                </div>
-            </CardContent>
-          </Card>
-
-          {/* Nueva Terminal de Eventos Críticos (Recibe datos del endpoint) */}
-          <Card className="bg-slate-900 border-none shadow-2xl rounded-3xl overflow-hidden">
-            <div className="bg-red-600 h-1.5 w-full animate-pulse" />
-            <CardHeader className="p-6">
-              <div className="flex items-center gap-3">
-                <AlertTriangle className="h-5 w-5 text-red-500" />
-                <CardTitle className="text-xs font-black uppercase tracking-widest text-white">Eventos de Campo</CardTitle>
-              </div>
-              <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">Datos recibidos vía Webhook</p>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="max-h-[400px] overflow-y-auto divide-y divide-white/5">
-                {events && events.length > 0 ? (
-                  events.map((event: any) => (
-                    <div key={event.id} className="p-4 space-y-2 hover:bg-white/5 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <Badge className={cn(
-                          "text-[8px] font-black uppercase px-2 h-4",
-                          event.tipo === 'PANICO' || event.tipo === 'PANICBUTTON' || event.tipo === 'PANIC BUTTON' ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-300'
-                        )}>
-                          {event.tipo}
-                        </Badge>
-                        <span className="text-[8px] font-bold text-slate-600 uppercase flex items-center gap-1">
-                          <Clock className="h-2 w-2" />
-                          {event.timestamp ? format(event.timestamp.toDate(), 'HH:mm:ss', { locale: es }) : '--:--:--'}
-                        </span>
-                      </div>
-                      <h4 className="text-[10px] font-black text-white uppercase">{event.sujeto}</h4>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2 text-[9px] text-slate-400 font-medium italic">
-                          <MapPin className="h-2.5 w-2.5" /> {event.ubicacion}
-                        </div>
-                        <p className="text-[9px] text-slate-500 leading-tight">{event.detalles}</p>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="py-12 text-center space-y-3 opacity-20">
-                    <Wifi className="h-10 w-10 text-white mx-auto" />
-                    <p className="text-[9px] font-bold text-white uppercase tracking-widest">Esperando telemetría...</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+      {/* Footer Leyenda */}
+      <div className="absolute bottom-8 left-8 z-20 flex gap-6 px-6 py-3 bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-2xl shadow-2xl">
+        <div className="flex items-center gap-2">
+          <Circle className="h-2 w-2 fill-primary text-primary" />
+          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Unidad Activa</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="h-3 w-3 text-red-500" />
+          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Alerta de Pánico</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Navigation className="h-3 w-3 text-slate-600" />
+          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Eje Central (0,0)</span>
         </div>
       </div>
     </div>
