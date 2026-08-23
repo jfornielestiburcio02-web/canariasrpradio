@@ -4,10 +4,15 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/app/lib/placeholder-images';
+import { headers } from 'next/headers';
+import { DISCORD_CONFIG, getRedirectUri } from '@/app/lib/auth-utils';
 
-export default function LoginPage() {
-  // URL definitiva 100% proporcionada por el usuario
-  const DISCORD_URL = "https://discord.com/oauth2/authorize?client_id=1534483909830512730&response_type=code&redirect_uri=https%3A%2F%2Fcanariasrpradio.vercel.app%2Finicio_desde_menu&scope=identify+guilds+guilds.members.read";
+export default async function LoginPage() {
+  // Generar URL de Discord dinámica para evitar errores de redirect_uri
+  const headersList = await headers();
+  const redirectUri = getRedirectUri(headersList);
+  
+  const DISCORD_URL = `https://discord.com/oauth2/authorize?client_id=${DISCORD_CONFIG.clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=identify+guilds+guilds.members.read`;
   
   const bgImage = PlaceHolderImages.find(img => img.id === 'tenerife-rp-bg');
 

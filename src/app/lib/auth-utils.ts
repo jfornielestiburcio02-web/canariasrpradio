@@ -5,8 +5,6 @@
 export const DISCORD_CONFIG = {
   clientId: '1534483909830512730',
   clientSecret: 'XxRvqzyXgPe_qHA7WEfJrP7Xxd5zSKCx',
-  // URL dinámica para entornos de desarrollo y producción
-  redirectUri: 'https://6000-firebase-studio-1776271662955.cluster-cbeiita7rbe7iuwhvjs5zww2i4.cloudworkstations.dev/inicio_desde_menu',
 };
 
 export interface DiscordUser {
@@ -26,7 +24,7 @@ export async function setSessionUser(user: DiscordUser) {
     secure: true,
     sameSite: 'lax',
     maxAge: 60 * 60 * 24 * 7, // 1 semana
-    path: '/', // Crucial para que la cookie sea visible en todas las rutas
+    path: '/',
   });
 }
 
@@ -48,8 +46,21 @@ export async function logout() {
   cookieStore.delete(SESSION_COOKIE);
 }
 
-export function getRedirectUri(request: Request) {
-  const host = request.headers.get('host');
-  const protocol = host?.includes('localhost') ? 'http' : 'https';
+/**
+ * Genera el redirect_uri dinámicamente basado en los headers de la petición.
+ */
+export function getRedirectUri(requestOrHeaders: Request | any) {
+  let host = '';
+  
+  if (requestOrHeaders instanceof Request) {
+    host = requestOrHeaders.headers.get('host') || '';
+  } else if (typeof requestOrHeaders.get === 'function') {
+    host = requestOrHeaders.get('host') || '';
+  }
+
+  // Detectar protocolo
+  const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
+  const protocol = isLocal ? 'http' : 'https';
+  
   return `${protocol}://${host}/inicio_desde_menu`;
 }

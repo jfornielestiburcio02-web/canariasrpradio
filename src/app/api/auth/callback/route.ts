@@ -11,8 +11,9 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL('/?error=no_code', request.url));
   }
 
+  // Obtener el redirectUri dinámicamente para que coincida con el paso 1
   const redirectUri = getRedirectUri(request);
-  console.log('Using redirect URI:', redirectUri);
+  console.log('[AUTH_CALLBACK] Using dynamic redirect URI:', redirectUri);
 
   try {
     const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
@@ -57,10 +58,9 @@ export async function GET(request: Request) {
       id: userData.id,
       username: userData.username,
       avatar: userData.avatar,
-      discriminator: userData.discriminator,
     });
 
-    return NextResponse.redirect(new URL('/tablon', request.url));
+    return NextResponse.redirect(new URL('/inicio_desde_menu', request.url));
   } catch (error) {
     console.error('Auth Callback error:', error);
     return NextResponse.redirect(new URL('/?error=server_error', request.url));
