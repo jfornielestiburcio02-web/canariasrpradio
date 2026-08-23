@@ -9,15 +9,12 @@ export const dynamic = 'force-dynamic';
  * Página de Radio Institucional.
  */
 export default async function RadioPage() {
-  console.log('[RADIO_PAGE] Verificando sesión...');
   const user = await getSessionUser();
   
   if (!user) {
-    console.warn('[RADIO_PAGE] Usuario NO autenticado, redirigiendo al inicio (/)');
+    console.log('[RADIO_PAGE] Usuario no autenticado en servidor. Redirigiendo...');
     redirect('/');
   }
-
-  console.log(`[RADIO_PAGE] Usuario ${user.username} autenticado. Comprobando roles...`);
 
   // Verificación de Roles Institucionales
   let authRolVs = { autorizado: false };
@@ -50,8 +47,6 @@ export default async function RadioPage() {
       const text = await res112.value.text().catch(() => '');
       auth112 = { autorizado: text.toLowerCase().includes('true') };
     }
-    
-    console.log(`[RADIO_PAGE] Roles validados: 112=${auth112.autorizado}, Admin=${authRolVs.autorizado}, Gral=${authRolGral.autorizado}`);
   } catch (e) {
     console.warn('[RADIO_PAGE] Servidor de roles externo no disponible.');
   }
@@ -59,11 +54,9 @@ export default async function RadioPage() {
   const isAuthorized = authRolVs.autorizado || authRolGral.autorizado || auth112.autorizado;
 
   if (!isAuthorized) {
-    console.log('[RADIO_PAGE] Acceso como Ciudadano.');
     return <CitizenEmergencyView discordUser={user} />;
   }
 
-  console.log('[RADIO_PAGE] Acceso como Agente Autorizado.');
   return (
     <div className="min-h-screen bg-slate-50">
       <RadioClientPage 

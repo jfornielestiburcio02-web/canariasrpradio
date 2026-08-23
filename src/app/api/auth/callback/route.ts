@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { DISCORD_CONFIG, getRedirectUri, getPublicUrl, SESSION_COOKIE, type DiscordUser } from '@/app/lib/auth-utils';
 
 export async function GET(request: Request) {
@@ -7,12 +6,15 @@ export async function GET(request: Request) {
   const code = searchParams.get('code');
 
   if (!code) {
+    console.error('[AUTH_CALLBACK] No se recibió el código de Discord');
     return NextResponse.redirect(getPublicUrl('/?error=no_code', request));
   }
 
   const redirectUri = getRedirectUri(request);
 
   try {
+    console.log(`[AUTH_CALLBACK] Intercambiando código con URI: ${redirectUri}`);
+    
     const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
       method: 'POST',
       body: new URLSearchParams({
@@ -28,6 +30,7 @@ export async function GET(request: Request) {
     const tokens = await tokenResponse.json();
     
     if (tokens.error) {
+      console.error('[AUTH_CALLBACK] Error de Discord:', tokens.error);
       return NextResponse.redirect(getPublicUrl(`/?error=auth_failed&msg=${encodeURIComponent(tokens.error)}`, request));
     }
 
@@ -48,12 +51,12 @@ export async function GET(request: Request) {
       global_name: userData.global_name,
     };
 
-    console.log(`[AUTH_CALLBACK] Validado: ${user.username}. Redirigiendo...`);
+    console.log(`[AUTH_CALLBACK] Usuario validado: ${user.username}. Estableciendo cookie segura...`);
 
     const targetUrl = getPublicUrl(`/inicio_desde_menu?id=${user.id}`, request);
     const response = NextResponse.redirect(targetUrl);
 
-    // Establecer la cookie directamente en la respuesta para máxima fiabilidad
+    // Inyección atómica de la cookie en la respuesta
     response.cookies.set(SESSION_COOKIE, JSON.stringify(user), {
       httpOnly: true,
       secure: true,
@@ -64,7 +67,7 @@ export async function GET(request: Request) {
 
     return response;
   } catch (error) {
-    console.error('[AUTH_CALLBACK] Error crítico:', error);
+    console.error('[AUTH_CALLBACK] Error crítico en el servidor:', error);
     return NextResponse.redirect(getPublicUrl('/?error=server_error', request));
   }
 }

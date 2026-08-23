@@ -22,13 +22,13 @@ export async function setSessionUser(user: DiscordUser) {
   const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
   
-  console.log(`[AUTH_UTILS] Estableciendo sesión: ${user.username}`);
+  console.log(`[AUTH_UTILS] Estableciendo sesión manual para: ${user.username}`);
 
   cookieStore.set(SESSION_COOKIE, JSON.stringify(user), {
     httpOnly: true,
     secure: true,
     sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 7, // 1 semana
+    maxAge: 60 * 60 * 24 * 7,
     path: '/',
   });
 }
@@ -37,14 +37,11 @@ export async function getSessionUser(): Promise<DiscordUser | null> {
   const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
   
-  // Debug de todas las cookies presentes para ver qué llega al servidor
-  const allCookies = cookieStore.getAll().map(c => c.name);
-  console.log(`[AUTH_UTILS] getSessionUser check en ${new Date().toISOString()}. Cookies disponibles: [${allCookies.join(', ')}]`);
-
   const cookie = cookieStore.get(SESSION_COOKIE);
   
   if (!cookie || !cookie.value) {
-    console.log(`[AUTH_UTILS] Cookie ${SESSION_COOKIE} NO encontrada en esta petición.`);
+    const allCookies = cookieStore.getAll().map(c => c.name);
+    console.log(`[AUTH_UTILS] getSessionUser: Cookie NO encontrada. Disponibles: [${allCookies.join(', ')}]`);
     return null;
   }
   
@@ -65,7 +62,7 @@ export async function logout() {
 }
 
 /**
- * Detecta la información del host público de forma robusta.
+ * Detecta la información del host público de forma robusta ignorando IPs internas.
  */
 export function getHostInfo(requestOrHeaders: Request | any) {
   const getHeader = (name: string) => {
@@ -75,23 +72,24 @@ export function getHostInfo(requestOrHeaders: Request | any) {
   };
 
   const xHost = getHeader('x-forwarded-host');
-  const xProto = getHeader('x-forwarded-proto') || 'https';
+  const xProto = getHeader('x-forwarded-proto');
   
-  // En Render, el host real está en x-forwarded-host
   let host = xHost || 'teneriferpradio.onrender.com';
   
-  // Limpiar posibles puertos internos de Render (10000, 0.0.0.0, etc)
+  // Limpiar posibles puertos internos de Render
   if (host.includes('0.0.0.0') || host.includes('10000') || host.includes('localhost')) {
     host = 'teneriferpradio.onrender.com';
   }
 
-  return { host, proto: xProto };
+  // En producción (Render), siempre forzamos HTTPS
+  const proto = xProto || 'https';
+
+  return { host, proto };
 }
 
 export function getRedirectUri(requestOrHeaders: Request | any) {
   const { host, proto } = getHostInfo(requestOrHeaders);
   const uri = `${proto}://${host}/api/auth/callback`;
-  console.log(`[AUTH_UTILS] Generada Redirect URI: ${uri}`);
   return uri;
 }
 
