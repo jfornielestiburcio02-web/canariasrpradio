@@ -50,6 +50,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
 
   const { data: userData } = useDoc<any>(userRef);
 
+  // --- Lógica de Pánico ---
   const triggerPanic = useCallback(async () => {
     if (!db || panicLoading) return;
     setPanicLoading(true);
@@ -73,6 +74,94 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     }
   }, [db, panicLoading, userData?.radio?.placa, discordUser.global_name, discordUser.username, toast]);
 
+  // --- Listener de Pánico (Audio Global) ---
+  useEffect(() => {
+    if (!db) return;
+    const panicAlertUrl = "https://www.myinstants.com/media/sounds/panic-button.mp3";
+
+    const qPanic = query(
+      collection(db, 'erlcEvents'), 
+      where('tipo', '==', 'PANICO'),
+      orderBy('timestamp', 'desc'), 
+      limit(1)
+    );
+    
+    const unsubscribePanic = onSnapshot(qPanic, (snapshot) => {
+      if (snapshot.empty) return;
+      const event = snapshot.docs[0].data();
+      const eventId = snapshot.docs[0].id;
+      const eventTime = event.timestamp?.toDate().getTime() || 0;
+      const sessionKey = `panic_${eventId}`;
+
+      if (eventTime > sessionStartTime.current && !sessionStorage.getItem(sessionKey)) {
+        sessionStorage.setItem(sessionKey, 'true');
+        const audio = new Audio(panicAlertUrl);
+        audio.play().then(() => {
+          const msg = new SpeechSynthesisUtterance(`Alerta pánico, pulsado por el agente ${event.sujeto}. Repito, pánico activado.`);
+          msg.lang = 'es-ES';
+          window.speechSynthesis.speak(msg);
+        }).catch(() => {});
+
+        toast({
+          variant: "destructive",
+          title: "¡BOTÓN DE PÁNICO ACTIVADO!",
+          description: `Agente ${event.sujeto}`,
+          duration: 10000,
+        });
+      }
+    });
+
+    return () => unsubscribePanic();
+  }, [db, toast]);
+
+  // --- Listener de Avisos 112 (Audio Global solicitado) ---
+  useEffect(() => {
+    if (!db) return;
+    const startSoundUrl = "https://res.cloudinary.com/dgvh0c87y/video/upload/v1787391237/1514375003628376116_phw9ti.ogg";
+    const endSoundUrl = "https://res.cloudinary.com/dgvh0c87y/video/upload/v1787391249/radio_finalizar_invertido_aiifyo.ogg";
+
+    const qCalls = query(collection(db, 'emergencyCalls'), orderBy('createdAt', 'desc'), limit(1));
+    const unsubscribeCalls = onSnapshot(qCalls, (snapshot) => {
+      if (snapshot.empty) return;
+      const call = snapshot.docs[0].data();
+      const callId = snapshot.docs[0].id;
+      const callTime = call.createdAt?.toDate().getTime() || 0;
+      const sessionKey = `call_${callId}`;
+
+      if (callTime > sessionStartTime.current && !sessionStorage.getItem(sessionKey)) {
+        sessionStorage.setItem(sessionKey, 'true');
+        
+        // Secuencia de Audio
+        const startAudio = new Audio(startSoundUrl);
+        startAudio.play().then(() => {
+          startAudio.onended = () => {
+            const text = `${call.motivo}. En ${call.ubicacion}. Unidades requeridas: ${call.unidades.join(', ')}.`;
+            const msg = new SpeechSynthesisUtterance(text);
+            msg.lang = 'es-ES';
+            msg.rate = 0.9;
+            msg.onend = () => {
+              const endAudio = new Audio(endSoundUrl);
+              endAudio.play();
+            };
+            window.speechSynthesis.speak(msg);
+          };
+        }).catch(() => {
+            // Failsafe si el navegador bloquea el autoplay tras el onended
+            console.error("Audio sequence failed to start");
+        });
+
+        toast({
+          title: "NUEVO AVISO DE EMERGENCIA",
+          description: `${call.motivo} en ${call.ubicacion}`,
+          duration: 8000,
+        });
+      }
+    });
+
+    return () => unsubscribeCalls();
+  }, [db, toast]);
+
+  // --- Teclas y Configuración ---
   useEffect(() => {
     const savedPtt = localStorage.getItem('radio_ptt_key');
     const savedPanic = localStorage.getItem('radio_panic_key');
@@ -114,6 +203,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     return () => window.removeEventListener('keydown', handlePanicKeyDown);
   }, [panicKey, triggerPanic, isMobile, isListeningKey]);
 
+  // --- Sincronización Firestore ---
   useEffect(() => {
     if (!db || !discordUser.id) return;
     if (lastSyncChannel.current === activeChannel) return;
@@ -128,52 +218,6 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
       }
     }, { merge: true });
   }, [activeChannel, db, discordUser]);
-
-  useEffect(() => {
-    if (!db) return;
-    const panicAlertUrl = "https://www.myinstants.com/media/sounds/panic-button.mp3";
-
-    const qPanic = query(
-      collection(db, 'erlcEvents'), 
-      where('tipo', '==', 'PANICO'),
-      orderBy('timestamp', 'desc'), 
-      limit(1)
-    );
-    
-    const unsubscribePanic = onSnapshot(qPanic, (snapshot) => {
-      if (snapshot.empty) return;
-      const event = snapshot.docs[0].data();
-      const eventId = snapshot.docs[0].id;
-      const eventTime = event.timestamp?.toDate().getTime() || 0;
-      const sessionKey = `panic_${eventId}`;
-
-      if (eventTime > sessionStartTime.current && !sessionStorage.getItem(sessionKey)) {
-        sessionStorage.setItem(sessionKey, 'true');
-        const audio = new Audio(panicAlertUrl);
-        audio.play().then(() => {
-          const msg = new SpeechSynthesisUtterance(`Alerta pánico, pulsado por el agente ${event.sujeto} con placa ${event.detalles.split('placa ')[1] || 'desconocida'}`);
-          msg.lang = 'es-ES';
-          window.speechSynthesis.speak(msg);
-        }).catch(() => {});
-
-        toast({
-          variant: "destructive",
-          title: "¡BOTÓN DE PÁNICO ACTIVADO!",
-          description: `Agente ${event.sujeto} - Placa ${event.detalles.split('placa ')[1] || 'SIN PLACA'}`,
-          duration: 10000,
-        });
-      }
-    });
-
-    return () => unsubscribePanic();
-  }, [db, toast]);
-
-  const agentsQuery = useMemoFirebase(() => {
-    if (!db) return null;
-    return query(collection(db, 'users'), where('radio.canalActual', '!=', null));
-  }, [db]);
-
-  const { data: agentsInRadio } = useCollection<any>(agentsQuery);
 
   const handleSavePlaca = async () => {
     if (db && discordUser.id && placaInput !== lastSyncPlaca.current) {
@@ -191,6 +235,14 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
       lastSyncPlaca.current = userData.radio.placa;
     }
   }, [userData?.radio?.placa, isEditingPlaca]);
+
+  // --- Lógica WebRTC / WS ---
+  const agentsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'users'), where('radio.canalActual', '!=', null));
+  }, [db]);
+
+  const { data: agentsInRadio } = useCollection<any>(agentsQuery);
 
   const { status, peers, send, setOnMessage } = useRadioWebSocket(discordUser.id, activeChannel);
   
