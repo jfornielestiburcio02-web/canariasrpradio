@@ -1,17 +1,12 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { DISCORD_CONFIG, getRedirectUri, getPublicUrl, SESSION_COOKIE, type DiscordUser } from '@/app/lib/auth-utils';
 
-/**
- * Route Handler centralizado para el intercambio de tokens de Discord.
- */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
 
-  console.log('[AUTH_CALLBACK] Iniciando intercambio de código...');
-
   if (!code) {
-    console.error('[AUTH_CALLBACK] No se recibió código de Discord');
     return NextResponse.redirect(getPublicUrl('/?error=no_code', request));
   }
 
@@ -27,28 +22,22 @@ export async function GET(request: Request) {
         code,
         redirect_uri: redirectUri,
       }),
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     });
 
     const tokens = await tokenResponse.json();
     
     if (tokens.error) {
-      console.error('[AUTH_CALLBACK] Error de Token:', tokens.error_description || tokens.error);
       return NextResponse.redirect(getPublicUrl(`/?error=auth_failed&msg=${encodeURIComponent(tokens.error)}`, request));
     }
 
     const userResponse = await fetch('https://discord.com/api/users/@me', {
-      headers: {
-        Authorization: `Bearer ${tokens.access_token}`,
-      },
+      headers: { Authorization: `Bearer ${tokens.access_token}` },
     });
 
     const userData = await userResponse.json();
     
     if (!userData.id) {
-      console.error('[AUTH_CALLBACK] No se pudo obtener el perfil de usuario');
       return NextResponse.redirect(getPublicUrl('/?error=no_user_data', request));
     }
 
@@ -59,12 +48,12 @@ export async function GET(request: Request) {
       global_name: userData.global_name,
     };
 
-    console.log(`[AUTH_CALLBACK] Usuario validado: ${user.username}. Estableciendo cookie...`);
+    console.log(`[AUTH_CALLBACK] Validado: ${user.username}. Redirigiendo...`);
 
     const targetUrl = getPublicUrl(`/inicio_desde_menu?id=${user.id}`, request);
     const response = NextResponse.redirect(targetUrl);
 
-    // Forzar SameSite=Lax para que la cookie se envíe tras la redirección
+    // Establecer la cookie directamente en la respuesta para máxima fiabilidad
     response.cookies.set(SESSION_COOKIE, JSON.stringify(user), {
       httpOnly: true,
       secure: true,
@@ -73,10 +62,9 @@ export async function GET(request: Request) {
       path: '/',
     });
 
-    console.log(`[AUTH_CALLBACK] Cookie establecida y redirigiendo a: ${targetUrl}`);
     return response;
   } catch (error) {
-    console.error('[AUTH_CALLBACK] Error crítico en el servidor:', error);
+    console.error('[AUTH_CALLBACK] Error crítico:', error);
     return NextResponse.redirect(getPublicUrl('/?error=server_error', request));
   }
 }
