@@ -4,20 +4,25 @@ import { dbRadio as firestore } from '@/lib/firebase-radio';
 import { collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs, doc, setDoc } from 'firebase/firestore';
 
 /**
- * @fileOverview Endpoint para Webhooks de ERLC.
- * Procesa eventos de pánico y telemetría (X, Y, Z) para el mapa táctico.
- * Incluye validación de Handshake para el probe de ER:LC.
+ * @fileOverview Endpoint para Webhooks de ER:LC v2.
+ * Implementa el Handshake oficial respondiendo 400 JSON a los Probes firmados.
+ * Utiliza los headers oficiales: X-ERLC-Signature y X-ERLC-ProbeValue.
  */
 
 export async function POST(req: Request) {
-  // Validación de Handshake de ER:LC
-  // ER:LC envía un "probe" firmado pero sin cuerpo para validar el endpoint.
-  // Debemos responder con un código 4xx (e.g. 400) para que la validación sea exitosa en Roblox.
-  const signature = req.headers.get('erl-signature') || req.headers.get('erlc-webhook-signature');
+  // 1. Detección de Headers oficiales (Case-insensitive)
+  const signature = req.headers.get('X-ERLC-Signature') || req.headers.get('x-erlc-signature');
+  const probeValue = req.headers.get('X-ERLC-ProbeValue') || req.headers.get('x-erlc-probevalue');
   const contentLength = req.headers.get('content-length');
 
-  if (signature && (!contentLength || contentLength === '0')) {
-    return new Response('Bad Request (ERLC Probe)', { status: 400 });
+  // 2. Validación de Handshake (ER:LC Probe)
+  // Roblox requiere un código 4xx (400) con cuerpo JSON válido para aceptar la URL.
+  if (probeValue || (signature && (!contentLength || contentLength === '0'))) {
+    console.log('[ERLC_HANDSHAKE] Detectada validación inicial (Probe) de Roblox.');
+    return NextResponse.json(
+      { status: 'error', message: 'ERLC Validation Probe Handled' }, 
+      { status: 400 }
+    );
   }
 
   try {
@@ -27,14 +32,14 @@ export async function POST(req: Request) {
     const sujeto = body.Player || body.sujeto || 'Sistema';
     const detalles = body.Details || body.detalles || 'Sin detalles';
     
-    // Coordenadas si vienen en el body (formato ERLC v2 logs)
+    // Telemetría Satelital (X, Y, Z)
     const x = body.X !== undefined ? Number(body.X) : null;
     const y = body.Y !== undefined ? Number(body.Y) : null;
     const z = body.Z !== undefined ? Number(body.Z) : null;
 
     const ubicacion = body.Location || body.ubicacion || (tipo.includes('PANIC') ? detalles : 'Ubicación Desconocida');
 
-    // Registrar el evento en el log global
+    // Registrar en el log de eventos institucional
     const eventRef = await addDoc(collection(firestore, 'erlcEvents'), {
       tipo,
       sujeto,
@@ -44,7 +49,7 @@ export async function POST(req: Request) {
       timestamp: serverTimestamp()
     });
 
-    // Si tiene coordenadas, actualizamos la tabla de posiciones en tiempo real
+    // Actualizar seguimiento en el mapa táctico si hay coordenadas
     if (x !== null && z !== null && sujeto !== 'Sistema') {
       await setDoc(doc(firestore, 'playerPositions', sujeto), {
         playerName: sujeto,
@@ -55,10 +60,12 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, id: eventRef.id });
   } catch (error: any) {
-    // Si falla el parseo de JSON (como en el probe si no tiene cuerpo), respondemos 400
-    // Esto es lo que espera ER:LC para validar el webhook
-    console.warn('[ERLC_WEBHOOK_HANDSHAKE] Solicitud no procesable o Probe detectado.');
-    return new Response('Bad Request', { status: 400 });
+    // Respuesta 400 JSON estructurada para cualquier fallo de lectura o validación
+    console.warn('[ERLC_WEBHOOK] Error procesando body o firma no reconocida.');
+    return NextResponse.json(
+      { status: 'error', message: 'Invalid Request Format or Signature' }, 
+      { status: 400 }
+    );
   }
 }
 
@@ -72,7 +79,6 @@ export async function GET() {
       ...doc.data()
     }));
 
-    // También devolvemos las posiciones actuales de los jugadores
     const posSnapshot = await getDocs(collection(firestore, 'playerPositions'));
     const positions = posSnapshot.docs.map(doc => ({
       id: doc.id,
