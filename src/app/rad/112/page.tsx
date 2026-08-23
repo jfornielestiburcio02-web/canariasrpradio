@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { CoordinatorVoiceHandler } from '@/components/radio/CoordinatorVoiceHandler';
 import { EmergencyCallModal } from '@/components/radio/EmergencyCallModal';
 import { EmergencyCallList } from '@/components/radio/EmergencyCallList';
+import { headers } from 'next/headers';
 
 export default async function Coordinator112Page() {
   const user = await getSessionUser();
@@ -17,17 +18,16 @@ export default async function Coordinator112Page() {
     redirect('/');
   }
 
-  // Comprobar rol 112
-  let auth112 = { autorizado: false, mensaje: "" };
+  const headersList = await headers();
+  const host = headersList.get('host') || 'localhost:3000';
+  const protocol = host.includes('localhost') ? 'http' : 'https';
+  
+  let auth112 = { autorizado: false };
   try {
-    const res = await fetch(`http://nc.lynxnodes.es:25633/comprobar_112?ID=${user.id}`, { 
-      cache: 'no-store',
-      signal: AbortSignal.timeout(5000)
+    const res = await fetch(`${protocol}://${host}/api/proxy/roles?type=112&id=${user.id}`, { 
+      cache: 'no-store'
     });
-    if (res.ok) {
-      const text = await res.text();
-      if (text) auth112 = JSON.parse(text);
-    }
+    if (res.ok) auth112 = await res.json();
   } catch (e) {
     console.error('Error verificando 112:', e);
   }

@@ -1,8 +1,13 @@
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { RadioChannel, SignalingMessage, WSStatus } from '@/types/radio';
 
+/**
+ * Hook de WebSocket optimizado para despliegues en Vercel y Cloud Workstations.
+ * Detecta automáticamente si debe usar WSS para conexiones seguras.
+ */
 export function useRadioWebSocket(userId: string, channel: RadioChannel | null) {
   const ws = useRef<WebSocket | null>(null);
   const [status, setStatus] = useState<WSStatus>('disconnected');
@@ -19,7 +24,6 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
 
   const connect = useCallback(() => {
     if (!channel || !userId) {
-      console.log('[WS] No hay canal activo. Desconectando WebSocket.');
       setStatus('disconnected');
       setPeers([]);
       if (ws.current) {
@@ -34,7 +38,6 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
     currentConnectionId.current = connId;
 
     if (ws.current) {
-      console.log(`[WS][LIFECYCLE] Rotando conexión id=${connId - 1} -> id=${connId}`);
       ws.current.onclose = null;
       ws.current.onerror = null;
       ws.current.onmessage = null;
@@ -44,9 +47,13 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
     }
 
     setStatus('connecting');
-    console.log(`[WS][CREATE] id=${connId} | Canal: ${channel}`);
     
+    // Detección automática de protocolo seguro (WSS) para Vercel
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    
+    // Si estamos en Vercel, el servidor de sockets debe estar en la misma URL 
+    // pero manejado por el servidor custom. Si no hay servidor custom (Vercel serverless), 
+    // fallará silenciosamente. En Workstations funciona por el proxy de puertos.
     const wsUrl = `${protocol}//${window.location.host}/ws/radio`;
 
     try {
@@ -55,7 +62,6 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
 
       socket.onopen = () => {
         if (!isComponentMounted.current || currentConnectionId.current !== connId) return;
-        console.log(`[WS][OPEN] id=${connId} - Conectado`);
         setStatus('connected');
         socket.send(JSON.stringify({
           type: 'join_channel',
@@ -78,19 +84,16 @@ export function useRadioWebSocket(userId: string, channel: RadioChannel | null) 
 
       socket.onclose = (e) => {
         if (currentConnectionId.current !== connId) return;
-        console.log(`[WS][CLOSE] id=${connId} - Code: ${e.code}`);
-        
         if (isComponentMounted.current && channel) {
           setStatus('disconnected');
           if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
           reconnectTimeout.current = setTimeout(() => {
-            console.log(`[WS][RECONNECT] Intentando reconectar id=${connId}`);
             connect();
           }, 3000);
         }
       };
 
-      socket.onerror = (err) => {
+      socket.onerror = () => {
         if (currentConnectionId.current !== connId) return;
         setStatus('error');
       };
