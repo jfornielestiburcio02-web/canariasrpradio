@@ -15,12 +15,20 @@ export interface DiscordUser {
 
 const SESSION_COOKIE = 'tenerife_rp_session';
 
+/**
+ * Persiste la sesión del usuario.
+ * Ajustado para máxima compatibilidad con Render (HTTPS) y entornos de desarrollo.
+ */
 export async function setSessionUser(user: DiscordUser) {
   const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
+  
+  // Determinamos si estamos en un entorno seguro (HTTPS)
+  const isProd = process.env.NODE_ENV === 'production';
+
   cookieStore.set(SESSION_COOKIE, JSON.stringify(user), {
     httpOnly: true,
-    secure: true,
+    secure: true, // Siempre true para Discord OAuth y Render
     sameSite: 'lax',
     maxAge: 60 * 60 * 24 * 7, // 1 semana
     path: '/',
@@ -31,10 +39,16 @@ export async function getSessionUser(): Promise<DiscordUser | null> {
   const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
   const cookie = cookieStore.get(SESSION_COOKIE);
-  if (!cookie) return null;
+  
+  if (!cookie || !cookie.value) {
+    console.log('[AUTH_UTILS] Cookie de sesión no encontrada');
+    return null;
+  }
+  
   try {
     return JSON.parse(cookie.value);
-  } catch {
+  } catch (e) {
+    console.error('[AUTH_UTILS] Error parseando sesión:', e);
     return null;
   }
 }

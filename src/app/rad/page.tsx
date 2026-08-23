@@ -4,27 +4,29 @@ import { CitizenEmergencyView } from '@/components/radio/CitizenEmergencyView';
 import { redirect } from 'next/navigation';
 
 export default async function RadioPage() {
+  // 1. Verificación de Identidad (Cookie)
   const user = await getSessionUser();
   
   if (!user) {
-    // Si no hay usuario de Discord, permitimos vista de ciudadano anónimo o redirigimos a login
-    // En este caso, redirigimos para asegurar que hay un ID de Discord para el WebSocket
+    console.log('[RADIO_PAGE] Usuario no autenticado, redirigiendo al inicio');
     redirect('/');
   }
 
+  // 2. Verificación de Roles Institucionales
   let authRolVs = { autorizado: false };
   let authRolGral = { autorizado: false };
   let auth112 = { autorizado: false };
 
   try {
     const baseUrl = 'http://nc.lynxnodes.es:25633';
-    // Timeout más largo para servidores externos lentos desde Vercel
+    // Timeout ajustado para servidores externos
     const fetchOptions = { 
       cache: 'no-store' as const, 
-      signal: AbortSignal.timeout(6000),
+      signal: AbortSignal.timeout(5000),
       headers: { 'Accept': 'application/json' }
     };
 
+    // Consultas en paralelo para eficiencia
     const [resRolVs, resRolGral, res112] = await Promise.allSettled([
       fetch(`${baseUrl}/rol_admin_vs?userId=${user.id}`, fetchOptions),
       fetch(`${baseUrl}/comprobar_rol?ID=${user.id}`, fetchOptions),
@@ -44,11 +46,12 @@ export default async function RadioPage() {
       auth112 = { autorizado: text.toLowerCase().includes('true') };
     }
   } catch (e) {
-    console.error('[RADIO_PAGE] Error crítico validando roles:', e);
+    console.warn('[RADIO_PAGE] Error consultando servidor de roles (servidor externo lento o caído)');
   }
 
   const isAuthorized = authRolVs.autorizado || authRolGral.autorizado || auth112.autorizado;
 
+  // 3. Renderizado basado en Autorización
   if (!isAuthorized) {
     return <CitizenEmergencyView discordUser={user} />;
   }
