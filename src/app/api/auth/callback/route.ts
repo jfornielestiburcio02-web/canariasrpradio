@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { DISCORD_CONFIG, getRedirectUri, getPublicUrl, SESSION_COOKIE, type DiscordUser } from '@/app/lib/auth-utils';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
@@ -51,9 +53,9 @@ export async function GET(request: Request) {
       global_name: userData.global_name,
     };
 
-    console.log(`[AUTH_CALLBACK] Usuario validado: ${user.username}. Estableciendo sesión...`);
+    console.log(`[AUTH_CALLBACK] Usuario validado: ${user.username}. Estableciendo cookie...`);
 
-    // Inyectamos la cookie directamente en la respuesta para asegurar su persistencia
+    // Inyectamos la cookie directamente en la respuesta HTTP para máxima fiabilidad
     const targetUrl = getPublicUrl(`/inicio_desde_menu?id=${user.id}`, request);
     const response = NextResponse.redirect(targetUrl);
 

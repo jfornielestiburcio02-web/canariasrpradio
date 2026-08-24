@@ -22,8 +22,9 @@ export async function setSessionUser(user: DiscordUser) {
   const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
   
-  console.log(`[AUTH_UTILS] Estableciendo sesión manual para: ${user.username}`);
+  console.log(`[AUTH_UTILS] setSessionUser para: ${user.username}`);
 
+  // Configuración ultra-compatible para Render (HTTPS)
   cookieStore.set(SESSION_COOKIE, JSON.stringify(user), {
     httpOnly: true,
     secure: true,
@@ -34,20 +35,22 @@ export async function setSessionUser(user: DiscordUser) {
 }
 
 export async function getSessionUser(): Promise<DiscordUser | null> {
-  const { cookies } = await import('next/headers');
+  const { cookies, headers } = await import('next/headers');
   const cookieStore = await cookies();
+  const headersList = await headers();
   
+  const host = headersList.get('host');
   const cookie = cookieStore.get(SESSION_COOKIE);
   
   if (!cookie || !cookie.value) {
     const allCookies = cookieStore.getAll().map(c => c.name);
-    console.log(`[AUTH_UTILS] getSessionUser: Cookie NO encontrada. Disponibles: [${allCookies.join(', ')}]`);
+    console.log(`[AUTH_UTILS] getSessionUser [HOST: ${host}]: Cookie NO encontrada. Disponibles: [${allCookies.join(', ')}]`);
     return null;
   }
   
   try {
     const user = JSON.parse(cookie.value);
-    console.log(`[AUTH_UTILS] Sesión recuperada para: ${user.username}`);
+    console.log(`[AUTH_UTILS] getSessionUser [HOST: ${host}]: Sesión recuperada para: ${user.username}`);
     return user;
   } catch (e) {
     console.error('[AUTH_UTILS] Error parseando sesión:', e);
@@ -63,7 +66,6 @@ export async function logout() {
 
 /**
  * Detecta la información del host público de forma robusta.
- * Maneja Cloud Workstations, Render y entornos locales.
  */
 export function getHostInfo(requestOrHeaders: Request | any) {
   const getHeader = (name: string) => {
@@ -73,14 +75,12 @@ export function getHostInfo(requestOrHeaders: Request | any) {
   };
 
   const xHost = getHeader('x-forwarded-host');
-  const xProto = getHeader('x-forwarded-proto');
   const hostHeader = getHeader('host');
   
   let host = xHost || hostHeader || 'teneriferpradio.onrender.com';
   
   // Limpieza de hosts internos
-  if (host.includes('0.0.0.0') || host.includes('10000') || host.includes('localhost:3000')) {
-    // Si estamos en workstations, intentamos mantener el cluster si viene en headers
+  if (host.includes('0.0.0.0') || host.includes('10000') || host.includes('localhost')) {
     if (hostHeader && hostHeader.includes('cloudworkstations.dev')) {
       host = hostHeader;
     } else {
@@ -88,8 +88,8 @@ export function getHostInfo(requestOrHeaders: Request | any) {
     }
   }
 
-  // En entornos de producción (Render) o Workstations (HTTPS Proxy), forzamos proto seguro
-  const proto = xProto || (host.includes('localhost') ? 'http' : 'https');
+  // Forzamos HTTPS en producción y entornos de cluster
+  const proto = host.includes('cloudworkstations.dev') || host.includes('onrender.com') ? 'https' : 'http';
 
   return { host, proto };
 }
