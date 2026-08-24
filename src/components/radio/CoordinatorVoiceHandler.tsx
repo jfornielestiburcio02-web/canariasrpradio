@@ -29,29 +29,26 @@ export function CoordinatorVoiceHandler({ discordUser }: { discordUser: DiscordU
     send(msg);
   }, [send]);
 
-  const { handleSignal, toggleLocalPTT, activeTransmissions } = useRadioWebRTC(
+  const { handleSignal, toggleMute, activeTransmissions, isMuted } = useRadioWebRTC(
     discordUser.id,
     stableSend,
     peers,
     activeChannel
   );
 
-  const { isTransmitting, start, stop } = usePTT((enabled) => {
-    toggleLocalPTT(enabled);
-  }, { disabled: !activeChannel });
+  const { toggle } = usePTT(toggleMute, { disabled: !activeChannel });
 
   useEffect(() => {
     setOnMessage(handleSignal);
   }, [handleSignal, setOnMessage]);
 
-  // Actualizar estado en Firestore
   useEffect(() => {
     if (db && discordUser.id) {
       setDoc(doc(db, 'users', discordUser.id), {
         radio: {
           canalActual: activeChannel || null,
           isOperator: !!activeChannel,
-          isCitizen: false, // Un operador nunca es ciudadano
+          isCitizen: false,
           ultimaConexion: serverTimestamp()
         }
       }, { merge: true });
@@ -70,15 +67,14 @@ export function CoordinatorVoiceHandler({ discordUser }: { discordUser: DiscordU
               <Headset className={cn("h-5 w-5", activeChannel ? "text-red-600" : "text-slate-400")} />
             </div>
             <div>
-              <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-800">Terminal de Despacho 112</CardTitle>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5">Gestión de líneas de emergencia</p>
+              <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-800">Despacho 112 (Voz Abierta)</CardTitle>
             </div>
           </div>
           <Badge variant="outline" className={cn(
             "text-[9px] font-black uppercase",
             isConnected ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-slate-50 text-slate-400 border-slate-100"
           )}>
-            {isConnected ? "SISTEMA ACTIVO" : "DESCONECTADO"}
+            {isConnected ? "CANAL ONLINE" : "DESCONECTADO"}
           </Badge>
         </div>
       </CardHeader>
@@ -86,10 +82,10 @@ export function CoordinatorVoiceHandler({ discordUser }: { discordUser: DiscordU
       <CardContent className="space-y-6 flex-1 flex flex-col justify-between">
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Seleccionar Línea para Atender</label>
+            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Atender Línea</label>
             <Select value={activeChannel || ""} onValueChange={(v) => setActiveChannel(v as RadioChannel)}>
               <SelectTrigger className="h-12 bg-slate-50 border-none rounded-xl text-xs font-bold uppercase">
-                <SelectValue placeholder="ELEGIR LÍNEA DISPONIBLE" />
+                <SelectValue placeholder="ELEGIR LÍNEA" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="112_LINEA_1">LÍNEA DE EMERGENCIA 1</SelectItem>
@@ -101,59 +97,47 @@ export function CoordinatorVoiceHandler({ discordUser }: { discordUser: DiscordU
 
           <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
             <div className="space-y-1">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Personal en Línea</p>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">En Línea</p>
               <p className="text-2xl font-black text-slate-900">{activeChannel ? peers.length : '--'}</p>
             </div>
-            <div className="flex gap-2">
-              {activeTransmissions.size > 0 ? (
-                <div className="flex items-center gap-3 bg-red-600 text-white px-4 py-2 rounded-xl animate-in fade-in slide-in-from-right-2">
-                  <Activity className="h-4 w-4 animate-pulse" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">Recibiendo Ciudadano</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3 bg-slate-200 text-slate-400 px-4 py-2 rounded-xl">
-                  <Wifi className="h-4 w-4" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">En Espera</span>
-                </div>
-              )}
-            </div>
+            {activeTransmissions.size > 0 && (
+              <div className="flex items-center gap-3 bg-red-600 text-white px-4 py-2 rounded-xl animate-pulse">
+                <Activity className="h-4 w-4" />
+                <span className="text-[10px] font-black uppercase tracking-widest">Ciudadano Hablando</span>
+              </div>
+            )}
           </div>
         </div>
 
         <div className="space-y-4">
           <Button
-            onMouseDown={start}
-            onMouseUp={stop}
-            onMouseLeave={stop}
+            onClick={toggle}
             disabled={!isConnected || !activeChannel}
             className={cn(
               "w-full h-24 text-sm font-black uppercase tracking-[0.3em] transition-all rounded-3xl",
-              isTransmitting 
-                ? "bg-red-600 hover:bg-red-700 shadow-xl shadow-red-200" 
+              !isMuted 
+                ? "bg-emerald-600 hover:bg-emerald-700 shadow-xl shadow-emerald-200" 
                 : activeChannel ? "bg-slate-900 hover:bg-slate-800 shadow-lg" : "bg-slate-100 text-slate-300"
             )}
           >
-            {isTransmitting ? (
+            {!isMuted ? (
               <div className="flex items-center gap-3">
-                <Mic className="h-6 w-6 animate-bounce" /> TRANSMITIENDO AUDIO
+                <Mic className="h-6 w-6 animate-pulse" /> VOZ ABIERTA ACTIVA
               </div>
             ) : (
               <div className="flex items-center gap-3">
-                <MicOff className="h-6 w-6 opacity-40" /> PULSAR PARA HABLAR
+                <MicOff className="h-6 w-6 opacity-40" /> MICRÓFONO SILENCIADO
               </div>
             )}
           </Button>
-          <div className="text-center space-y-2">
-            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.3em]">
-              Solo serás visible para los ciudadanos cuando selecciones una línea.
-            </p>
+          <div className="text-center">
             {activeChannel && (
               <Button 
                 variant="ghost" 
                 onClick={() => setActiveChannel(null)}
                 className="text-[8px] font-black text-red-500 uppercase hover:bg-red-50 h-6"
               >
-                Desconectar de Línea
+                Cerrar Línea
               </Button>
             )}
           </div>

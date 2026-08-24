@@ -3,7 +3,6 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { SignalingMessage, MicStatus, RadioChannel } from '@/types/radio';
-import { errorEmitter } from '@/firebase/error-emitter';
 
 export function useRadioWebRTC(
   mySessionId: string, 
@@ -12,6 +11,7 @@ export function useRadioWebRTC(
   activeChannel: RadioChannel | null
 ) {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [isMuted, setIsMuted] = useState(false);
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
   const remoteAudios = useRef<Map<string, HTMLAudioElement>>(new Map());
   const makingOffer = useRef<Map<string, boolean>>(new Map());
@@ -79,12 +79,11 @@ export function useRadioWebRTC(
         audio = new Audio();
         audio.autoplay = true;
         audio.playsInline = true;
-        // En móviles, a veces es necesario interactuar para que el audio suene
         audio.muted = false;
         remoteAudios.current.set(remoteSessionId, audio);
       }
       audio.srcObject = stream;
-      audio.play().catch(e => console.warn('[WEBRTC] Error autoplaying remote audio:', e));
+      audio.play().catch(e => console.warn('[WEBRTC] Error playing remote audio:', e));
     };
 
     pc.onnegotiationneeded = async () => {
@@ -93,7 +92,7 @@ export function useRadioWebRTC(
         await pc.setLocalDescription();
         sendSignal({ type: 'webrtc_offer', to: remoteSessionId, payload: pc.localDescription });
       } catch (err) {
-        console.error(`[WEBRTC] Error en negociación con ${remoteSessionId}:`, err);
+        console.error(`[WEBRTC] Negotiation error ${remoteSessionId}:`, err);
       } finally {
         makingOffer.current.set(remoteSessionId, false);
       }
@@ -161,39 +160,34 @@ export function useRadioWebRTC(
           break;
       }
     } catch (err) {
-      console.error(`[WEBRTC] Error procesando señal ${msg.type} de ${from}:`, err);
+      console.error(`[WEBRTC] Signal error ${msg.type} from ${from}:`, err);
     }
   }, [mySessionId, createPeerConnection, closeConnection, sendSignal, isIceReady, activeChannel]);
 
   const initLocalStream = useCallback(async () => {
     if (localStream) return localStream;
     try {
-      console.log('[WEBRTC] Solicitando acceso al micrófono...');
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: { 
-          echoCancellation: true, 
-          noiseSuppression: true, 
-          autoGainControl: true 
-        }, 
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, 
         video: false 
       });
       
-      // Muteamos inicialmente el track para que el PTT lo active
-      stream.getAudioTracks().forEach(track => track.enabled = false);
+      // Activo por defecto si no está silenciado
+      stream.getAudioTracks().forEach(track => track.enabled = !isMuted);
       setLocalStream(stream);
       setMicStatus('granted');
+      
+      // Notificar que empezamos a transmitir
+      if (!isMuted) {
+        sendSignal({ type: 'ptt_start' });
+      }
+      
       return stream;
     } catch (e: any) {
-      if (e.name === 'NotAllowedError') {
-        console.warn('[WEBRTC] Permiso de micrófono denegado.');
-        setMicStatus('denied');
-      } else {
-        console.error('[WEBRTC] Error al acceder al micrófono:', e);
-        setMicStatus('error');
-      }
+      setMicStatus(e.name === 'NotAllowedError' ? 'denied' : 'error');
       return null;
     }
-  }, [localStream]);
+  }, [localStream, isMuted, sendSignal]);
 
   useEffect(() => {
     if (activeChannel) {
@@ -205,17 +199,21 @@ export function useRadioWebRTC(
         setLocalStream(null);
       }
       setMicStatus('prompt');
+      setIsMuted(false);
     }
   }, [activeChannel, initLocalStream, closeConnection]);
 
-  const toggleLocalPTT = (enabled: boolean) => {
-    if (!localStream) return;
-    const track = localStream.getAudioTracks()[0];
-    if (track) {
-      track.enabled = enabled;
-      sendSignal({ type: enabled ? 'ptt_start' : 'ptt_stop' });
+  const toggleMute = useCallback(() => {
+    const newMuteState = !isMuted;
+    setIsMuted(newMuteState);
+    if (localStream) {
+      const track = localStream.getAudioTracks()[0];
+      if (track) {
+        track.enabled = !newMuteState;
+        sendSignal({ type: !newMuteState ? 'ptt_start' : 'ptt_stop' });
+      }
     }
-  };
+  }, [isMuted, localStream, sendSignal]);
 
-  return { handleSignal, toggleLocalPTT, activeTransmissions, micStatus, initLocalStream };
+  return { handleSignal, toggleMute, activeTransmissions, micStatus, isMuted };
 }

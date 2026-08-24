@@ -93,9 +93,6 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
           if (eventTime > sessionStartTime.current) {
             const audio = new Audio("https://www.myinstants.com/media/sounds/panic-button.mp3");
             audio.play().catch(() => {});
-            const msg = new SpeechSynthesisUtterance(`Alerta pánico, agente ${event.sujeto}.`);
-            msg.lang = 'es-ES';
-            window.speechSynthesis.speak(msg);
             toast({ variant: "destructive", title: "¡PÁNICO!", description: `Agente ${event.sujeto}` });
           }
         }
@@ -104,7 +101,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     return () => unsubscribePanic();
   }, [db, toast]);
 
-  // Avisos 112 Globales
+  // Avisos 112 Globales (Audio TTS)
   useEffect(() => {
     if (!db) return;
     const qCalls = query(collection(db, 'emergencyCalls'), orderBy('createdAt', 'desc'), limit(1));
@@ -211,7 +208,7 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
     }
   }, [userData?.radio?.placa, isEditingPlaca]);
 
-  // WebSocket y WebRTC
+  // WebSocket y WebRTC (Modo Voz Abierta)
   const agentsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(collection(db, 'users'), where('radio.canalActual', '!=', null));
@@ -221,11 +218,9 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
   const { status, peers, send, setOnMessage } = useRadioWebSocket(discordUser.id, activeChannel);
   
   const stableSend = useCallback((msg: any) => send(msg), [send]);
-  const { handleSignal: webrtcHandler, toggleLocalPTT, activeTransmissions, micStatus } = useRadioWebRTC(discordUser.id, stableSend, peers, activeChannel);
+  const { handleSignal: webrtcHandler, toggleMute, activeTransmissions, micStatus, isMuted } = useRadioWebRTC(discordUser.id, stableSend, peers, activeChannel);
   
-  const { isTransmitting, start, stop, toggle } = usePTT((enabled) => {
-    toggleLocalPTT(enabled);
-  }, { disabled: !activeChannel, pttKey, isMobile });
+  const { toggle } = usePTT(toggleMute, { disabled: !activeChannel, pttKey, isMobile });
 
   // Manejar errores de micrófono
   useEffect(() => {
@@ -306,11 +301,11 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
               <div className="space-y-6">
                 <div className="flex items-center gap-2 text-slate-800">
                   <Keyboard className="h-4 w-4" />
-                  <h4 className="text-xs font-black uppercase tracking-widest">Ajustes Rápidos</h4>
+                  <h4 className="text-xs font-black uppercase tracking-widest">Ajustes Voz Abierta</h4>
                 </div>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Tecla PTT</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Tecla Silencio (Mute)</p>
                     <Button 
                       variant="secondary" 
                       className={cn("w-full h-10 text-[10px] font-black uppercase rounded-xl", isListeningKey === 'ptt' && "animate-pulse border-primary")}
@@ -348,10 +343,8 @@ export default function RadioClientPage({ discordUser, is112 = false, isAdminVs 
             onLeave={() => setActiveChannel(null)} 
             peers={peers} 
             wsStatus={status} 
-            isTransmitting={isTransmitting} 
-            onPTTStart={start} 
-            onPTTStop={stop}
-            onPTTToggle={toggle}
+            isMuted={isMuted} 
+            onToggleMute={toggle} 
             isMobile={isMobile}
             agents={agentsInRadio || []}
             isAdmin={isAdminVs}

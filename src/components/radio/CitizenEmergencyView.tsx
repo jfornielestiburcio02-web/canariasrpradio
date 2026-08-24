@@ -42,16 +42,14 @@ export function CitizenEmergencyView({ discordUser }: { discordUser: DiscordUser
     send(msg);
   }, [send]);
 
-  const { handleSignal, toggleLocalPTT, activeTransmissions } = useRadioWebRTC(
+  const { handleSignal, toggleMute, activeTransmissions, isMuted } = useRadioWebRTC(
     finalUserId,
     stableSend,
     peers,
     selectedChannel
   );
 
-  const { isTransmitting, start, stop } = usePTT((enabled) => {
-    toggleLocalPTT(enabled);
-  }, { disabled: !selectedChannel });
+  const { toggle } = usePTT(toggleMute, { disabled: !selectedChannel });
 
   useEffect(() => {
     setOnMessage(handleSignal);
@@ -111,7 +109,7 @@ export function CitizenEmergencyView({ discordUser }: { discordUser: DiscordUser
             </div>
             <CardTitle className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Llamada en Curso</CardTitle>
             <p className="text-[10px] font-black text-red-600 uppercase tracking-[0.4em] mt-4">
-              Estableciendo contacto con emergencias
+              Voz Abierta con Emergencias
             </p>
           </CardHeader>
           <CardContent className="px-12 pb-16 space-y-10">
@@ -120,33 +118,31 @@ export function CitizenEmergencyView({ discordUser }: { discordUser: DiscordUser
                 <div className="flex items-center gap-2 px-4 py-2 bg-red-50 rounded-full border border-red-100">
                   <Wifi className={cn("h-4 w-4", isConnected ? "text-red-600 animate-pulse" : "text-slate-300")} />
                   <span className="text-[10px] font-black text-red-700 uppercase tracking-widest">
-                    {isConnected ? "Conexión Segura Activa" : "Sincronizando Frecuencia..."}
+                    {isConnected ? "Línea Directa Activa" : "Sincronizando Frecuencia..."}
                   </span>
                 </div>
               </div>
 
               <div className="relative">
                 <Button
-                  onMouseDown={start}
-                  onMouseUp={stop}
-                  onMouseLeave={stop}
+                  onClick={toggle}
                   disabled={!isConnected}
                   className={cn(
                     "w-full h-32 rounded-3xl transition-all duration-300 flex flex-col items-center justify-center gap-3",
-                    isTransmitting 
-                      ? "bg-red-600 shadow-2xl shadow-red-300 scale-95" 
+                    !isMuted 
+                      ? "bg-red-600 shadow-2xl shadow-red-300" 
                       : "bg-slate-900 hover:bg-slate-800 shadow-xl"
                   )}
                 >
-                  {isTransmitting ? (
+                  {!isMuted ? (
                     <>
-                      <Mic className="h-10 w-10 text-white animate-bounce" />
-                      <span className="text-xs font-black text-white uppercase tracking-[0.3em]">Hablando con el Operador</span>
+                      <Mic className="h-10 w-10 text-white animate-pulse" />
+                      <span className="text-xs font-black text-white uppercase tracking-[0.3em]">Hablando al 112</span>
                     </>
                   ) : (
                     <>
                       <MicOff className="h-10 w-10 text-white opacity-40" />
-                      <span className="text-xs font-black text-white uppercase tracking-[0.3em]">Mantener para Hablar</span>
+                      <span className="text-xs font-black text-white uppercase tracking-[0.3em]">Micro Silenciado</span>
                     </>
                   )}
                 </Button>
@@ -160,10 +156,6 @@ export function CitizenEmergencyView({ discordUser }: { discordUser: DiscordUser
                 >
                   Finalizar Comunicación
                 </Button>
-                
-                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest text-center opacity-50">
-                  ID de sesión: {finalUserId.substring(0, 12)}
-                </p>
               </div>
             </div>
           </CardContent>
@@ -184,7 +176,7 @@ export function CitizenEmergencyView({ discordUser }: { discordUser: DiscordUser
             <ShieldAlert className="h-10 w-10 text-white" />
           </div>
           <h1 className="text-4xl font-black text-white uppercase tracking-tighter">Emergencias Tenerife RP</h1>
-          <p className="text-slate-400 text-sm font-medium uppercase tracking-[0.3em]">Acceso Directo al Centro de Mando 112</p>
+          <p className="text-slate-400 text-sm font-medium uppercase tracking-[0.3em]">Voz Abierta con el Centro de Mando 112</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -241,12 +233,6 @@ export function CitizenEmergencyView({ discordUser }: { discordUser: DiscordUser
               </Card>
             );
           })}
-        </div>
-
-        <div className="bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/10 text-center">
-          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.4em] leading-relaxed max-w-2xl mx-auto">
-            ESTA LÍNEA ES EXCLUSIVA PARA EMERGENCIAS DE ROL. EL MAL USO, TROLLEO O SPAM SERÁ SANCIONADO CON LA EXPULSIÓN INMEDIATA DEL SERVIDOR.
-          </p>
         </div>
       </div>
     </div>

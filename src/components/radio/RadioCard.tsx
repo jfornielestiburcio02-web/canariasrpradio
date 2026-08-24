@@ -1,3 +1,4 @@
+
 'use client';
 
 import { RadioChannel, WSStatus } from '@/types/radio';
@@ -18,10 +19,8 @@ interface RadioCardProps {
   onLeave: () => void;
   users: any[]; 
   wsStatus: WSStatus;
-  isTransmitting: boolean;
-  onPTTStart: () => void;
-  onPTTStop: () => void;
-  onPTTToggle: () => void;
+  isMuted: boolean;
+  onToggleMute: () => void;
   isMobile: boolean;
   isAdmin?: boolean;
   onKick?: (userId: string) => void;
@@ -37,10 +36,8 @@ export function RadioCard({
   onLeave,
   users,
   wsStatus,
-  isTransmitting,
-  onPTTStart,
-  onPTTStop,
-  onPTTToggle,
+  isMuted,
+  onToggleMute,
   isMobile,
   isAdmin = false,
   onKick,
@@ -57,7 +54,7 @@ export function RadioCard({
     )}>
       <div className={cn(
         "h-3 w-full",
-        active ? (isTransmitting ? "bg-red-500 animate-pulse" : isError ? "bg-destructive" : isConnected ? "bg-primary" : "bg-orange-400 animate-pulse") : "bg-slate-200"
+        active ? (!isMuted ? "bg-emerald-500 animate-pulse" : isError ? "bg-destructive" : isConnected ? "bg-primary" : "bg-orange-400 animate-pulse") : "bg-slate-200"
       )} />
       
       <CardHeader className="flex flex-row items-center justify-between p-8 pb-4 shrink-0">
@@ -82,7 +79,7 @@ export function RadioCard({
           </Badge>
           <div className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">
             {isConnected ? <Wifi className="h-3 w-3 text-emerald-500" /> : <WifiOff className="h-3 w-3 text-slate-300" />}
-            {isConnected ? "Señal Cifrada" : "Sin Cobertura"}
+            {isConnected ? "Voz Abierta Activa" : "Sin Cobertura"}
           </div>
         </div>
       </CardHeader>
@@ -113,7 +110,7 @@ export function RadioCard({
                           </AvatarFallback>
                         </Avatar>
                         {u.radio?.isTransmitting && (
-                          <div className="absolute -bottom-1 -right-1 bg-red-500 rounded-full p-1 border-2 border-white animate-pulse">
+                          <div className="absolute -bottom-1 -right-1 bg-emerald-500 rounded-full p-1 border-2 border-white animate-pulse">
                             <Mic className="h-2 w-2 text-white" />
                           </div>
                         )}
@@ -150,35 +147,32 @@ export function RadioCard({
           <div className="bg-red-50/50 p-4 rounded-2xl border border-red-100 flex items-start gap-3">
             <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
             <p className="text-[9px] font-bold text-red-700/70 uppercase leading-relaxed text-left">
-              AVISO: TODAS LAS TRANSMISIONES SON GRABADAS Y MONITORIZADAS POR JEFATURA DE COMUNICACIONES.
+              AVISO: VOZ ABIERTA ACTIVA. TODAS LAS TRANSMISIONES SON GRABADAS POR JEFATURA.
             </p>
           </div>
         </div>
 
         <div className="w-full lg:w-72 flex flex-col gap-4 shrink-0">
           <Button
-            onMouseDown={!isMobile ? onPTTStart : undefined}
-            onMouseUp={!isMobile ? onPTTStop : undefined}
-            onMouseLeave={!isMobile ? onPTTStop : undefined}
-            onClick={isMobile ? onPTTToggle : undefined}
+            onClick={onToggleMute}
             disabled={!isConnected}
             className={cn(
               "w-full flex-1 min-h-[200px] rounded-[2.5rem] text-sm font-black uppercase tracking-[0.3em] transition-all duration-300 flex flex-col gap-6 items-center justify-center border-b-8 active:border-b-0 active:translate-y-2",
-              isTransmitting 
-                ? "bg-red-600 border-red-800 text-white shadow-2xl shadow-red-200" 
+              !isMuted 
+                ? "bg-emerald-600 border-emerald-800 text-white shadow-2xl shadow-emerald-200" 
                 : isConnected 
                   ? "bg-slate-900 border-slate-700 text-white hover:bg-slate-800" 
                   : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
             )}
           >
-            {isTransmitting ? (
+            {!isMuted ? (
               <>
-                <div className="bg-white/20 p-6 rounded-full animate-bounce">
+                <div className="bg-white/20 p-6 rounded-full animate-pulse">
                   <Mic className="h-12 w-12 text-white" />
                 </div>
                 <div className="space-y-1 text-center">
-                  <span className="block text-lg">TRANSMITIENDO</span>
-                  <span className="text-[8px] opacity-60 tracking-[0.5em]">CANAL ACTIVO</span>
+                  <span className="block text-lg">MICRO ABIERTO</span>
+                  <span className="text-[8px] opacity-60 tracking-[0.5em]">TOCAR PARA SILENCIAR</span>
                 </div>
               </>
             ) : (
@@ -187,10 +181,8 @@ export function RadioCard({
                   <MicOff className="h-12 w-12 text-white" />
                 </div>
                 <div className="space-y-1 text-center">
-                  <span className="block text-lg">PULSAR PTT</span>
-                  <span className="text-[8px] opacity-60 tracking-[0.5em]">
-                    {isMobile ? 'TOCAR PARA HABLAR' : 'MANTENER TECLA'}
-                  </span>
+                  <span className="block text-lg">SILENCIADO</span>
+                  <span className="text-[8px] opacity-60 tracking-[0.5em]">TOCAR PARA HABLAR</span>
                 </div>
               </>
             )}
