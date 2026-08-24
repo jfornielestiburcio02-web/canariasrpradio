@@ -1,5 +1,4 @@
 import { createServer } from 'http';
-import { parse } from 'url';
 import next from 'next';
 import { WebSocketServer, WebSocket } from 'ws';
 
@@ -16,16 +15,26 @@ const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
   const server = createServer((req, res) => {
-    const parsedUrl = parse(req.url!, true);
-    handle(req, res, parsedUrl);
+    // Usar la API moderna de URL para evitar avisos de depuración
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const host = req.headers.host || 'localhost';
+    const fullUrl = new URL(req.url || '/', `${protocol}://${host}`);
+    
+    handle(req, res, {
+      pathname: fullUrl.pathname,
+      query: Object.fromEntries(fullUrl.searchParams.entries())
+    } as any);
   });
 
   const wss = new WebSocketServer({ noServer: true });
   const channelClients = new Map<string, Set<WebSocket & { _userId?: string; _channel?: string }>>();
 
   server.on('upgrade', (req, socket, head) => {
-    const parsedUrl = parse(req.url!, true);
-    if (parsedUrl.pathname === '/ws/radio') {
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const host = req.headers.host || 'localhost';
+    const fullUrl = new URL(req.url || '/', `${protocol}://${host}`);
+
+    if (fullUrl.pathname === '/ws/radio') {
       console.log(`[WS HTTP UPGRADE] path=/ws/radio upgrade=websocket`);
       wss.handleUpgrade(req, socket, head, (ws) => {
         wss.emit('connection', ws, req);
