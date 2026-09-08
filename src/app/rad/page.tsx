@@ -14,7 +14,7 @@ export default async function RadioPage() {
   const user = await getSessionUser();
   
   if (!user) {
-    console.log('[RADIO_PAGE] Usuario NO autenticado, redirigiendo al inicio (/)');
+    console.log('[RADIO_PAGE] Usuario no autenticado. Redirigiendo al inicio...');
     redirect('/');
   }
 

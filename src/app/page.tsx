@@ -1,14 +1,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import Link from 'next/link';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/app/lib/placeholder-images';
 import { getPublicUrl } from '@/app/lib/auth-utils';
 import { headers } from 'next/headers';
 
+export const dynamic = 'force-dynamic';
+
 export default async function LoginPage() {
   const headersList = await headers();
-  // Usamos el endpoint de login interno que ya gestiona el redirect_uri dinámico
+  // Usamos redirección nativa mediante etiqueta <a> para evitar bloqueos CORS
   const LOGIN_URL = getPublicUrl('/api/auth/login', headersList);
   
   const bgImage = PlaceHolderImages.find(img => img.id === 'tenerife-rp-bg');
@@ -59,14 +60,13 @@ export default async function LoginPage() {
             </div>
           </div>
           
-          <Button 
-            asChild
-            className="w-full h-14 text-sm font-bold shadow-lg transition-all hover:shadow-xl active:scale-[0.98] bg-primary hover:bg-primary/90 rounded-xl"
+          {/* USAMOS ETIQUETA <a> PARA EVITAR PREFETCH DE NEXT.JS Y ERRORES DE CORS */}
+          <a 
+            href={LOGIN_URL}
+            className="flex items-center justify-center w-full h-14 text-sm font-bold shadow-lg transition-all hover:shadow-xl active:scale-[0.98] bg-primary text-white hover:bg-primary/90 rounded-xl"
           >
-            <Link href={LOGIN_URL}>
-              Continuar con Discord
-            </Link>
-          </Button>
+            Continuar con Discord
+          </a>
           
           <div className="space-y-6 pt-2">
              <p className="text-center text-[9px] text-slate-400 font-bold uppercase tracking-widest px-4 leading-relaxed opacity-70">

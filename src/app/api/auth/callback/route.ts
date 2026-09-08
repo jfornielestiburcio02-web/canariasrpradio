@@ -8,14 +8,13 @@ export async function GET(request: Request) {
   const code = searchParams.get('code');
 
   if (!code) {
-    console.error('[AUTH_CALLBACK] No se recibió el código de Discord');
     return NextResponse.redirect(getPublicUrl('/?error=no_code', request));
   }
 
   const redirectUri = getRedirectUri(request);
 
   try {
-    console.log(`[AUTH_CALLBACK] Iniciando intercambio de código...`);
+    console.log(`[AUTH_CALLBACK] Intercambiando código con URI: ${redirectUri}`);
     
     const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
       method: 'POST',
@@ -32,8 +31,8 @@ export async function GET(request: Request) {
     const tokens = await tokenResponse.json();
     
     if (tokens.error) {
-      console.error('[AUTH_CALLBACK] Error de Discord:', tokens.error);
-      return NextResponse.redirect(getPublicUrl(`/?error=auth_failed&msg=${encodeURIComponent(tokens.error)}`, request));
+      console.error('[AUTH_CALLBACK] Discord Error:', tokens.error);
+      return NextResponse.redirect(getPublicUrl(`/?error=auth_failed`, request));
     }
 
     const userResponse = await fetch('https://discord.com/api/users/@me', {
@@ -55,24 +54,21 @@ export async function GET(request: Request) {
 
     console.log(`[AUTH_CALLBACK] Usuario validado: ${user.username}. Estableciendo sesión...`);
 
-    // Redirección a la página de inicio tras validación exitosa
     const targetUrl = getPublicUrl(`/inicio_desde_menu?id=${user.id}`, request);
-    console.log(`[AUTH_CALLBACK] Cookie establecida y redirigiendo a: ${targetUrl}`);
-    
     const response = NextResponse.redirect(targetUrl);
 
-    // Inyectamos la cookie directamente con los parámetros requeridos por Render
+    // ESTABLECIMIENTO DE COOKIE CON PARÁMETROS CRÍTICOS PARA RENDER
     response.cookies.set(SESSION_COOKIE, JSON.stringify(user), {
       httpOnly: true,
       secure: true,
-      sameSite: 'none', // Crucial para entornos de proxy/Render
+      sameSite: 'none', // Vital para evitar pérdidas de sesión tras redirección de OAuth
       maxAge: 60 * 60 * 24 * 7,
-      path: '/',
+      path: '/',        // Debe ser global
     });
 
     return response;
   } catch (error) {
-    console.error('[AUTH_CALLBACK] Error crítico en el servidor:', error);
+    console.error('[AUTH_CALLBACK] Error crítico:', error);
     return NextResponse.redirect(getPublicUrl('/?error=server_error', request));
   }
 }

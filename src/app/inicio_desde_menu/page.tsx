@@ -18,9 +18,9 @@ export default async function InicioDesdeMenuPage() {
           <AlertTriangle className="h-16 w-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-slate-900">Sesión no encontrada</h2>
           <p className="text-sm text-slate-500 mt-2">No hemos podido validar tu identidad de forma persistente.</p>
-          <Button asChild className="mt-6 w-full bg-primary">
-            <Link href="/">Volver al Login</Link>
-          </Button>
+          <a href="/" className="mt-6 inline-flex items-center justify-center w-full h-12 bg-primary text-white rounded-lg font-bold">
+            Volver al Login
+          </a>
         </Card>
       </div>
     );
@@ -66,28 +66,30 @@ export default async function InicioDesdeMenuPage() {
           </div>
 
           <div className="grid gap-4">
-            <Button asChild className="h-16 bg-slate-900 hover:bg-slate-800 text-white border-none shadow-xl transition-all">
-              <Link href="/jef" prefetch={false} className="flex items-center justify-between px-8">
-                <span className="text-xs font-bold uppercase tracking-[0.2em]">Acceso Jefaturas</span>
-                <ShieldCheck className="h-6 w-6 opacity-40" />
-              </Link>
-            </Button>
+            <Link 
+              href="/jef" 
+              prefetch={false}
+              className="flex items-center justify-between h-16 px-8 bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-xl transition-all"
+            >
+              <span className="text-xs font-bold uppercase tracking-[0.2em]">Acceso Jefaturas</span>
+              <ShieldCheck className="h-6 w-6 opacity-40" />
+            </Link>
 
-            <Button asChild className="h-16 bg-primary hover:bg-primary/90 text-white border-none shadow-xl transition-all">
-              <Link href="/rad" prefetch={false} className="flex items-center justify-between px-8">
-                <span className="text-xs font-bold uppercase tracking-[0.2em]">Acceso a Radios / 112</span>
-                <Radio className="h-6 w-6 opacity-40" />
-              </Link>
-            </Button>
+            <Link 
+              href="/rad" 
+              prefetch={false}
+              className="flex items-center justify-between h-16 px-8 bg-primary hover:bg-primary/90 text-white rounded-xl shadow-xl transition-all"
+            >
+              <span className="text-xs font-bold uppercase tracking-[0.2em]">Acceso a Radios / 112</span>
+              <Radio className="h-6 w-6 opacity-40" />
+            </Link>
           </div>
 
           <div className="pt-4 flex justify-center">
-            <Button asChild variant="ghost" size="sm" className="text-slate-400 hover:text-red-500">
-              <Link href="/api/auth/logout" className="flex items-center gap-2">
-                <LogOut className="h-4 w-4" />
-                <span className="text-[9px] font-bold uppercase tracking-widest">Cerrar Sesión</span>
-              </Link>
-            </Button>
+            <a href="/api/auth/logout" className="flex items-center gap-2 text-slate-400 hover:text-red-500 transition-colors">
+              <LogOut className="h-4 w-4" />
+              <span className="text-[9px] font-bold uppercase tracking-widest">Cerrar Sesión</span>
+            </a>
           </div>
         </CardContent>
       </Card>
