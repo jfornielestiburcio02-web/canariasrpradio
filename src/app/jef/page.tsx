@@ -1,4 +1,3 @@
-
 import { getSessionUser } from '@/app/lib/auth-utils';
 import { redirect } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,6 +5,9 @@ import { ShieldCheck, ArrowLeft, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
+
+// Forzamos dinamismo absoluto para asegurar la lectura de la cookie global
+export const dynamic = 'force-dynamic';
 
 export default async function JefaturasPage() {
   const user = await getSessionUser();

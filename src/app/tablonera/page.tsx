@@ -6,11 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { User, LogOut, Compass, ScrollText, Users, MessageSquare } from 'lucide-react';
 
+// Forzamos dinamismo absoluto para asegurar la lectura de la cookie global
+export const dynamic = 'force-dynamic';
+
 export default async function TabloneraPage() {
   const user = await getSessionUser();
 
   if (!user) {
-    redirect('/api/auth/login');
+    redirect('/');
   }
 
   const avatarUrl = user.avatar 

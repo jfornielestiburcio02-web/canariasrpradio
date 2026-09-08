@@ -8,6 +8,9 @@ import { CoordinatorVoiceHandler } from '@/components/radio/CoordinatorVoiceHand
 import { EmergencyCallModal } from '@/components/radio/EmergencyCallModal';
 import { EmergencyCallList } from '@/components/radio/EmergencyCallList';
 
+// Forzamos dinamismo absoluto para asegurar la lectura de la cookie global
+export const dynamic = 'force-dynamic';
+
 export default async function Coordinator112Page() {
   const user = await getSessionUser();
 
