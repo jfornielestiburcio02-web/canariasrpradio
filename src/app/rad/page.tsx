@@ -10,11 +10,11 @@ export const dynamic = 'force-dynamic';
  * Forzamos dinamismo absoluto para asegurar la lectura de cookies en Render.
  */
 export default async function RadioPage() {
-  console.log('[RADIO_PAGE] Verificando sesión entrante...');
+  console.log('[RADIO_PAGE] Verificando sesión...');
   const user = await getSessionUser();
   
   if (!user) {
-    console.log('[RADIO_PAGE] Usuario no autenticado tras verificación. Redirigiendo al inicio...');
+    console.log('[RADIO_PAGE] Usuario NO autenticado, redirigiendo al inicio (/)');
     redirect('/');
   }
 

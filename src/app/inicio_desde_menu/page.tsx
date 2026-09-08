@@ -8,6 +8,7 @@ import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
 export default async function InicioDesdeMenuPage() {
+  console.log('[INICIO_PAGE] Verificando sesión tras redirección...');
   const user = await getSessionUser();
 
   if (!user) {
@@ -16,7 +17,7 @@ export default async function InicioDesdeMenuPage() {
         <Card className="w-full max-w-md border-none shadow-2xl bg-white text-center p-10">
           <AlertTriangle className="h-16 w-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-slate-900">Sesión no encontrada</h2>
-          <p className="text-sm text-slate-500 mt-2">No hemos podido validar tu identidad en este dispositivo.</p>
+          <p className="text-sm text-slate-500 mt-2">No hemos podido validar tu identidad de forma persistente.</p>
           <Button asChild className="mt-6 w-full bg-primary">
             <Link href="/">Volver al Login</Link>
           </Button>

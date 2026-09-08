@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   const redirectUri = getRedirectUri(request);
 
   try {
-    console.log(`[AUTH_CALLBACK] Intercambiando código con URI: ${redirectUri}`);
+    console.log(`[AUTH_CALLBACK] Iniciando intercambio de código...`);
     
     const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
       method: 'POST',
@@ -53,16 +53,19 @@ export async function GET(request: Request) {
       global_name: userData.global_name,
     };
 
-    console.log(`[AUTH_CALLBACK] Usuario validado: ${user.username}. Estableciendo cookie...`);
+    console.log(`[AUTH_CALLBACK] Usuario validado: ${user.username}. Estableciendo sesión...`);
 
-    // Inyectamos la cookie directamente en la respuesta HTTP para máxima fiabilidad
+    // Redirección a la página de inicio tras validación exitosa
     const targetUrl = getPublicUrl(`/inicio_desde_menu?id=${user.id}`, request);
+    console.log(`[AUTH_CALLBACK] Cookie establecida y redirigiendo a: ${targetUrl}`);
+    
     const response = NextResponse.redirect(targetUrl);
 
+    // Inyectamos la cookie directamente con los parámetros requeridos por Render
     response.cookies.set(SESSION_COOKIE, JSON.stringify(user), {
       httpOnly: true,
       secure: true,
-      sameSite: 'lax',
+      sameSite: 'none', // Crucial para entornos de proxy/Render
       maxAge: 60 * 60 * 24 * 7,
       path: '/',
     });
